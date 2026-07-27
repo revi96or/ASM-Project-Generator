@@ -13,6 +13,10 @@
    "author": "Новожилов Артем",
    "license": "ISC",
    "type": "commonjs",
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/revi96or/ASM-Project-Generator.git"
+   },
    "build": {
       "appId": "ru.asm.projectgenerator",
       "productName": "ASM Project Generator",
@@ -27,8 +31,14 @@
       "win": {
          "icon": "assets\\asm-icon.ico",
          "target": [
-            "portable"
+            "portable",
+            "nsis"
          ]
+      },
+      "nsis": {
+         "artifactName": "ASM_Project_Generator-${version}-setup.exe",
+         "oneClick": false,
+         "allowToChangeInstallationDirectory": true
       },
       "portable": {
          "artifactName": "ASM_Project_Generator-${version}-portable.exe"
