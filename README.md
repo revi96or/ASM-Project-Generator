@@ -1,6 +1,6 @@
 # ASM Project Generator
 
-Windows desktop app for generating ASM printer project files.
+Electron desktop app for generating ASM printer project files.
 
 ## Stack
 
@@ -13,9 +13,10 @@ Windows desktop app for generating ASM printer project files.
 
 - reads template data from `template.PR1`, `template.ISD`, `template.pxf`
 - edits PR1 values from the form
-- saves a project snapshot locally
+- saves a project snapshot locally and backs it up to `%AppData%`
 - generates `.PR1`, `.ISD`, `.pxf`
 - saves AOI `.txt`
+- checks GitHub Releases for updates
 
 ## Project layout
 
@@ -24,7 +25,6 @@ Windows desktop app for generating ASM printer project files.
 - `preload.js` — renderer bridge
 - `pr1_known_map.json` — PR1 map
 - `assets\` — app icon files
-- `Project\` — project data / working files
 
 ## Run
 
@@ -41,10 +41,10 @@ npm run dist:portable
 
 ## Versioning
 
-- app version: `2.0.1`
-- UI version: `9.9.15`
+- app version: `2.1.1`
+- UI version: `9.10.1`
 
-## Notes for future updates
+## Update notes
 
-The repository is prepared for future network update distribution.
-When release publishing is added, the repo can be used as the source for build artifacts and update metadata.
+The app is configured for GitHub Releases as the update source.
+User settings, paths, snapshots, and cache live under Electron app data instead of the program folder.

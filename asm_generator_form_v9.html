@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.9.15
+Версия: 9.10.1
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -636,7 +636,7 @@
       <div class="space-y-2">
         <button id="generateBtn" type="button" class="solid-btn w-full">
           <i data-lucide="save" class="w-4 h-4"></i>
-          Сохранить проект
+          Сохранить проект принтера
         </button>
 
         <button id="saveAoiBtn" type="button" class="ghost-btn w-full" disabled>
@@ -664,6 +664,21 @@
           <div class="toggle-wrap compact" id="tipsToggle">
             <button type="button" class="toggle-btn" data-value="0">нет</button>
             <button type="button" class="toggle-btn active" data-value="1">да</button>
+          </div>
+
+          <div class="mt-4 pt-4 hair-t">
+            <div class="field-label mb-3">Обновления программы</div>
+            <button id="checkUpdatesBtn" type="button" class="ghost-btn w-full">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              Проверить обновления
+            </button>
+
+            <div class="field-label mt-4 mb-3">Обновляться автоматически</div>
+            <div class="toggle-wrap compact" id="autoUpdateToggle">
+              <button type="button" class="toggle-btn" data-value="0">Нет</button>
+              <button type="button" class="toggle-btn active" data-value="1">Да</button>
+            </div>
+            <div class="helper mt-3" id="updateStatusText">Проверка выполняется вручную или при запуске.</div>
           </div>
         </div>
       </div>
@@ -929,7 +944,7 @@
       <div id="appDialogTitle" class="app-dialog-title">Сообщение</div>
     </div>
     <div id="appDialogBody" class="app-dialog-body"></div>
-    <div class="app-dialog-actions">
+    <div class="app-dialog-actions" id="appDialogActions">
       <button id="appDialogCloseBtn" type="button" class="solid-btn">Понятно</button>
     </div>
   </div>
@@ -939,15 +954,25 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.9.15
+// Версия: 9.10.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.0.1",
+    version: "2.1.1",
     versionDate: "2026-07-25"
   }),
+  getUserSettings: async () => ({
+    paths: {
+      local: $("localPathInput") ? $("localPathInput").value.trim() : "C:\\settings\\Project_Printer_ASM\\",
+      printer: $("serverPathInput") ? $("serverPathInput").value.trim() : "\\\\server\\common\\Novozhilov\\",
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова К.И.\\"
+    },
+    showTooltips: true,
+    autoUpdate: false
+  }),
+  saveUserSettings: async () => ({}),
   inspectFolder: async () => ({
     path: $("localPathInput") ? $("localPathInput").value.trim() : "",
     exists: false,
@@ -993,7 +1018,16 @@ const asmBridge = window.asmApi || {
       toggles: {},
       comment: ""
     }
-  })
+  }),
+  checkForUpdates: async () => ({
+    currentVersion: "2.1.1",
+    latestVersion: "2.1.1",
+    updateAvailable: false,
+    message: "Проверка обновлений доступна в Electron."
+  }),
+  downloadUpdate: async () => ({ skipped: true }),
+  installUpdate: async () => ({ skipped: true }),
+  onUpdateEvent: () => () => {}
 };
 
 const state = {
@@ -1009,10 +1043,11 @@ const state = {
   workspaceProjects: [],
   workspaceData: null,
   templateDefaultsApplied: false,
-  showTooltips: localStorage.getItem("asm-show-tooltips") !== "false",
+  showTooltips: true,
+  autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.0.1",
+    version: "2.1.1",
     versionDate: "2026-07-25"
   },
   initialFieldValues: {},
@@ -1021,7 +1056,6 @@ const state = {
   commentSuffix: ""
 };
 
-const PATH_STORAGE_KEY = "asm-path-settings";
 const DEFAULT_PATHS = {
   local: "C:\\settings\\Project_Printer_ASM\\",
   printer: "\\\\server\\common\\Novozhilov\\",
@@ -1055,14 +1089,49 @@ const demoProjects = [
 
 function $(id){ return document.getElementById(id); }
 
-function showAppDialog(title, body){
+let appDialogResolver = null;
+
+function showAppDialog(title, body, actions){
   $("appDialogTitle").textContent = title;
   $("appDialogBody").textContent = body;
+  const actionsWrap = $("appDialogActions");
+  actionsWrap.innerHTML = "";
+
+  const dialogActions = Array.isArray(actions) && actions.length ? actions : [
+    { id: "close", label: "Понятно", variant: "solid" }
+  ];
+
+  dialogActions.forEach((action) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = action.variant === "ghost" ? "ghost-btn" : "solid-btn";
+    button.textContent = action.label;
+    button.addEventListener("click", () => {
+      resolveAppDialog(action.id);
+    });
+    actionsWrap.appendChild(button);
+  });
+
   $("appDialogBackdrop").hidden = false;
+  return new Promise((resolve) => {
+    appDialogResolver = resolve;
+  });
 }
 
 function hideAppDialog(){
   $("appDialogBackdrop").hidden = true;
+}
+
+function resolveAppDialog(result){
+  if (appDialogResolver) {
+    const resolver = appDialogResolver;
+    appDialogResolver = null;
+    hideAppDialog();
+    resolver(result);
+    return;
+  }
+
+  hideAppDialog();
 }
 
 function setPrinterStatus(statusText, statusSubText, tone){
@@ -1088,12 +1157,34 @@ function setSaveReadinessValue(elementId, textValue, tone){
   element.classList.add(tone === "success" ? "success" : "danger");
 }
 
+function persistUserSettings(){
+  if (!window.asmApi || typeof asmBridge.saveUserSettings !== "function") return;
+
+  const payload = {
+    paths: {
+      local: $("localPathInput") ? $("localPathInput").value.trim() || DEFAULT_PATHS.local : DEFAULT_PATHS.local,
+      printer: $("serverPathInput") ? $("serverPathInput").value.trim() || DEFAULT_PATHS.printer : DEFAULT_PATHS.printer,
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi
+    },
+    showTooltips: Boolean(state.showTooltips),
+    autoUpdate: Boolean(state.autoUpdate),
+    theme: state.theme
+  };
+
+  asmBridge.saveUserSettings(payload).catch(() => {});
+}
+
 function saveTooltipPreference(enabled){
   state.showTooltips = Boolean(enabled);
-  localStorage.setItem("asm-show-tooltips", state.showTooltips ? "true" : "false");
+  persistUserSettings();
   if (!state.showTooltips) {
     hideAppTooltip();
   }
+}
+
+function saveAutoUpdatePreference(enabled){
+  state.autoUpdate = Boolean(enabled);
+  persistUserSettings();
 }
 
 function applySettingsPanelVisibility(){
@@ -1104,6 +1195,18 @@ function updateTooltipToggle(){
   const wrap = $("tipsToggle");
   const buttons = wrap.querySelectorAll(".toggle-btn");
   const activeValue = state.showTooltips ? "1" : "0";
+
+  buttons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.value === activeValue);
+  });
+}
+
+function updateAutoUpdateToggle(){
+  const wrap = $("autoUpdateToggle");
+  if (!wrap) return;
+
+  const buttons = wrap.querySelectorAll(".toggle-btn");
+  const activeValue = state.autoUpdate ? "1" : "0";
 
   buttons.forEach((button) => {
     button.classList.toggle("active", button.dataset.value === activeValue);
@@ -1185,6 +1288,161 @@ function showAppTooltip(targetElement, text){
   });
 }
 
+async function applyStoredUserSettings(){
+  if (typeof asmBridge.getUserSettings !== "function") {
+    return;
+  }
+
+  const storedSettings = await asmBridge.getUserSettings();
+  const paths = storedSettings && storedSettings.paths ? storedSettings.paths : DEFAULT_PATHS;
+
+  $("localPathInput").value = paths.local || DEFAULT_PATHS.local;
+  $("serverPathInput").value = paths.printer || DEFAULT_PATHS.printer;
+  $("aoiPathInput").value = paths.aoi || DEFAULT_PATHS.aoi;
+
+  state.showTooltips = storedSettings && typeof storedSettings.showTooltips === "boolean"
+    ? storedSettings.showTooltips
+    : true;
+  state.autoUpdate = storedSettings && typeof storedSettings.autoUpdate === "boolean"
+    ? storedSettings.autoUpdate
+    : false;
+  state.theme = storedSettings && typeof storedSettings.theme === "string"
+    ? storedSettings.theme
+    : state.theme;
+
+  updateTooltipToggle();
+  updateAutoUpdateToggle();
+
+  if (!state.showTooltips) {
+    hideAppTooltip();
+  }
+
+  const updateStatus = $("updateStatusText");
+  if (updateStatus) {
+    updateStatus.textContent = state.autoUpdate
+      ? "Автоматическая проверка включена."
+      : "Проверка выполняется вручную или при запуске.";
+  }
+}
+
+async function handleUpdateCheck(){
+  let result;
+
+  try {
+    result = await asmBridge.checkForUpdates({
+      autoDownload: false
+    });
+  } catch (error) {
+    showAppDialog("Обновления программы", `Не удалось проверить обновления.\n\n${error.message}`);
+    return;
+  }
+
+  const lines = [
+    `Текущая версия: ${result.currentVersion || state.appMeta.version}`,
+    `Последняя версия: ${result.latestVersion || result.currentVersion || state.appMeta.version}`,
+    result.message ? result.message : ""
+  ].filter(Boolean);
+
+  if (result.updateAvailable) {
+    lines.push("");
+    lines.push("Доступно обновление.");
+  } else {
+    lines.push("");
+    lines.push("Новая версия не найдена.");
+  }
+
+  const action = await showAppDialog(
+    "Обновления программы",
+    lines.join("\n"),
+    result.updateAvailable
+      ? [
+          { id: "download", label: "Скачать обновление", variant: "solid" },
+          { id: "close", label: "Закрыть", variant: "ghost" }
+        ]
+      : [
+          { id: "close", label: "Закрыть", variant: "solid" }
+        ]
+  );
+
+  if (action === "download") {
+    const status = $("updateStatusText");
+    if (status) {
+      status.textContent = "Загрузка обновления...";
+    }
+
+    try {
+      await asmBridge.downloadUpdate();
+    } catch (error) {
+      if (status) {
+        status.textContent = "Не удалось скачать обновление.";
+      }
+      showAppDialog("Обновления программы", `Не удалось скачать обновление.\n\n${error.message}`);
+    }
+  }
+}
+
+function handleUpdateEvent(payload){
+  if (!payload || !payload.type) return;
+
+  const status = $("updateStatusText");
+  if (payload.type === "available") {
+    if (status) {
+      status.textContent = `Найдена версия ${payload.latestVersion || "—"}.`;
+    }
+    return;
+  }
+
+  if (payload.type === "not-available") {
+    if (status) {
+      status.textContent = "Новых версий не найдено.";
+    }
+    return;
+  }
+
+  if (payload.type === "download-progress") {
+    if (status && payload.progress) {
+      const percent = Math.round(payload.progress.percent || 0);
+      status.textContent = `Загрузка обновления: ${percent}%`;
+    }
+    return;
+  }
+
+  if (payload.type === "downloaded") {
+    if (status) {
+      status.textContent = "Обновление загружено.";
+    }
+
+    showAppDialog(
+      "Обновление готово",
+      [
+        `Текущая версия: ${payload.currentVersion || state.appMeta.version}`,
+        `Новая версия: ${payload.latestVersion || "—"}`,
+        "",
+        "Обновление скачано. Можно перезапустить программу и установить новую версию."
+      ].join("\n"),
+      [
+        { id: "install", label: "Установить и перезапустить", variant: "solid" },
+        { id: "close", label: "Позже", variant: "ghost" }
+      ]
+    ).then((choice) => {
+      if (choice === "install") {
+        asmBridge.installUpdate().catch((error) => {
+          showAppDialog("Обновление", `Не удалось установить обновление.\n\n${error.message}`);
+        });
+      }
+    });
+
+    return;
+  }
+
+  if (payload.type === "error") {
+    if (status) {
+      status.textContent = payload.message || "Ошибка проверки обновлений.";
+    }
+    showAppDialog("Обновления программы", payload.message || "Не удалось проверить обновления.");
+  }
+}
+
 function scheduleAppTooltip(targetElement){
   if (!state.showTooltips || !targetElement || !targetElement.dataset.tooltip) return;
 
@@ -1248,6 +1506,9 @@ function applyTooltipTexts(){
     resetFormBtn: "Сбрасывает все заполненные поля.",
     settingsBtn: "Открывает или скрывает настройки приложения.",
     tipsToggle: "Включает или выключает всплывающие подсказки.",
+    checkUpdatesBtn: "Проверяет, доступна ли новая версия программы на GitHub Releases.",
+    autoUpdateToggle: "Если включить, программа будет автоматически проверять обновления при запуске.",
+    updateStatusText: "Показывает состояние последней проверки обновлений.",
     similarProjectsList: "Показывает проекты, которые похожи на создаваемый по маске NSFTxxxxxx и находятся по пути \"адрес принтера\".",
     footerVersionInfo: "Программа создавалась мной бескорыстно и единолично для целей автоматизации процесса создания проекта для принтера ASM. Право на код и использование программы принадлежит автору."
   };
@@ -1336,22 +1597,6 @@ function updateFooterMeta(){
   $("footerVersionInfo").textContent = `Версия ${state.appMeta.version} · ${state.appMeta.versionDate}`;
 }
 
-function loadSavedPaths(){
-  try {
-    const raw = localStorage.getItem(PATH_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_PATHS };
-
-    return {
-      local: DEFAULT_PATHS.local,
-      printer: DEFAULT_PATHS.printer,
-      aoi: DEFAULT_PATHS.aoi,
-      ...JSON.parse(raw)
-    };
-  } catch {
-    return { ...DEFAULT_PATHS };
-  }
-}
-
 function saveCurrentPaths(){
   const pathState = {
     local: $("localPathInput").value.trim() || DEFAULT_PATHS.local,
@@ -1359,21 +1604,14 @@ function saveCurrentPaths(){
     aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi
   };
 
-  localStorage.setItem(PATH_STORAGE_KEY, JSON.stringify(pathState));
+  persistUserSettings();
   return pathState;
-}
-
-function applySavedPaths(){
-  const savedPaths = loadSavedPaths();
-  $("localPathInput").value = savedPaths.local;
-  $("serverPathInput").value = savedPaths.printer;
-  $("aoiPathInput").value = savedPaths.aoi;
 }
 
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.0.1",
+    version: "2.1.0",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -1839,8 +2077,12 @@ function resetForm(){
 
 function applyTheme(mode){
   document.documentElement.classList.toggle("light", mode === "light");
-  localStorage.setItem("asm-theme", mode);
   state.theme = mode;
+  if (!window.asmApi) {
+    localStorage.setItem("asm-theme", mode);
+  } else {
+    persistUserSettings();
+  }
   setTimeout(fitProjectText, 30);
 }
 
@@ -2149,13 +2391,14 @@ function setupFastClearInputs(){
   });
 }
 
-function init(){
+async function init(){
   applyTooltipTexts();
   applySettingsPanelVisibility();
   updateTooltipToggle();
+  updateAutoUpdateToggle();
   wireTooltips();
 
-  applySavedPaths();
+  await applyStoredUserSettings();
   applyTheme(state.theme);
   setToday();
   updateFooterMeta();
@@ -2165,9 +2408,11 @@ function init(){
     applyTheme(state.theme === "dark" ? "light" : "dark");
   });
 
-  $("appDialogCloseBtn").addEventListener("click", hideAppDialog);
+  if ($("appDialogCloseBtn")) {
+    $("appDialogCloseBtn").addEventListener("click", () => resolveAppDialog("close"));
+  }
   $("appDialogBackdrop").addEventListener("click", (event) => {
-    if (event.target === $("appDialogBackdrop")) hideAppDialog();
+    if (event.target === $("appDialogBackdrop")) resolveAppDialog("close");
   });
 
   $("statPrinterCard").addEventListener("click", (event) => {
@@ -2252,6 +2497,11 @@ function init(){
     toggleSettingsPanel();
   });
 
+  $("checkUpdatesBtn").addEventListener("click", async (event) => {
+    event.preventDefault();
+    await handleUpdateCheck();
+  });
+
   $("tipsToggle").querySelectorAll(".toggle-btn").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();
@@ -2259,6 +2509,21 @@ function init(){
       saveTooltipPreference(rawValue === "1");
       updateTooltipToggle();
       hideAppTooltip();
+    });
+  });
+
+  $("autoUpdateToggle").querySelectorAll(".toggle-btn").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const rawValue = button.dataset.value;
+      saveAutoUpdatePreference(rawValue === "1");
+      updateAutoUpdateToggle();
+      const updateStatus = $("updateStatusText");
+      if (updateStatus) {
+        updateStatus.textContent = state.autoUpdate
+          ? "Автоматическая проверка включена."
+          : "Проверка выполняется вручную или при запуске.";
+      }
     });
   });
 
@@ -2286,6 +2551,10 @@ function init(){
   }).catch(() => {
     updateFooterMeta();
   });
+
+  if (typeof asmBridge.onUpdateEvent === "function") {
+    asmBridge.onUpdateEvent(handleUpdateEvent);
+  }
 
   lucide.createIcons();
   window.addEventListener("resize", fitProjectText);

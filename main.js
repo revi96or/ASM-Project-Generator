@@ -1,10 +1,11 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.0.1
+ * Версия: 2.1.1
  * Автор: Новожилов Артем
  */
 
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const fs = require('fs/promises');
 const { constants: fsConstants } = require('fs');
 const path = require('path');
@@ -16,6 +17,13 @@ const APP_META = {
   version: packageJson.version,
   versionDate: packageJson.versionDate || '2026-07-25'
 };
+const DEFAULT_PATHS = {
+  local: 'C:\\settings\\Project_Printer_ASM\\',
+  printer: '\\\\server\\common\\Novozhilov\\',
+  aoi: '\\\\server\\common\\Любимова К.И.\\'
+};
+const USER_SETTINGS_FILE = 'asm-user-settings.json';
+const USER_SNAPSHOT_DIR = 'snapshots';
 const TEMPLATE_GENERATION_FILES = [
   { templateName: 'template.PR1', outputExtension: '.PR1' },
   { templateName: 'template.ISD', outputExtension: '.ISD' },
@@ -78,10 +86,159 @@ const TEMPLATE_TOGGLE_FIELD_SPECS = [
     toTemplateValue: (value) => Number(value)
   }
 ];
+const DEFAULT_USER_SETTINGS = {
+  paths: { ...DEFAULT_PATHS },
+  showTooltips: true,
+  autoUpdate: false,
+  theme: 'dark'
+};
+
+let mainWindow = null;
+let userSettings = { ...DEFAULT_USER_SETTINGS, paths: { ...DEFAULT_PATHS } };
+
+function getUserSettingsPath() {
+  return path.join(app.getPath('userData'), USER_SETTINGS_FILE);
+}
+
+function getUserSnapshotDir() {
+  return path.join(app.getPath('userData'), USER_SNAPSHOT_DIR);
+}
+
+function normalizeUserSettings(rawSettings) {
+  const incomingPaths = rawSettings && rawSettings.paths ? rawSettings.paths : {};
+
+  return {
+    paths: {
+      local: String(incomingPaths.local || DEFAULT_PATHS.local),
+      printer: String(incomingPaths.printer || DEFAULT_PATHS.printer),
+      aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi)
+    },
+    showTooltips: rawSettings && typeof rawSettings.showTooltips === 'boolean'
+      ? rawSettings.showTooltips
+      : DEFAULT_USER_SETTINGS.showTooltips,
+    autoUpdate: rawSettings && typeof rawSettings.autoUpdate === 'boolean'
+      ? rawSettings.autoUpdate
+      : DEFAULT_USER_SETTINGS.autoUpdate,
+    theme: rawSettings && typeof rawSettings.theme === 'string'
+      ? rawSettings.theme
+      : DEFAULT_USER_SETTINGS.theme
+  };
+}
+
+async function loadUserSettings() {
+  try {
+    const raw = await fs.readFile(getUserSettingsPath(), 'utf8');
+    userSettings = normalizeUserSettings(JSON.parse(raw));
+  } catch {
+    userSettings = { ...DEFAULT_USER_SETTINGS, paths: { ...DEFAULT_PATHS } };
+  }
+
+  return userSettings;
+}
+
+async function saveUserSettings(nextSettings) {
+  userSettings = normalizeUserSettings({
+    ...userSettings,
+    ...nextSettings,
+    paths: {
+      ...userSettings.paths,
+      ...(nextSettings && nextSettings.paths ? nextSettings.paths : {})
+    }
+  });
+
+  await fs.mkdir(app.getPath('userData'), { recursive: true });
+  await fs.writeFile(getUserSettingsPath(), JSON.stringify(userSettings, null, 2), 'utf8');
+  return userSettings;
+}
+
+function getAppDataSnapshotPath(fileName) {
+  return path.join(getUserSnapshotDir(), fileName);
+}
 
 // Нормализуем путь один раз, чтобы и окно, и операции с файлами работали одинаково.
 function normalizeFolderPath(folderPath) {
   return path.resolve(folderPath || 'C:\\settings\\Project_Printer_ASM');
+}
+
+function sendUpdateEvent(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('asm:update-event', payload);
+  }
+}
+
+function configureAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on('update-available', (info) => {
+    sendUpdateEvent({
+      type: 'available',
+      currentVersion: APP_META.version,
+      latestVersion: info && info.version ? info.version : '',
+      info
+    });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    sendUpdateEvent({
+      type: 'not-available',
+      currentVersion: APP_META.version,
+      latestVersion: info && info.version ? info.version : APP_META.version,
+      info
+    });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdateEvent({
+      type: 'download-progress',
+      progress
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateEvent({
+      type: 'downloaded',
+      currentVersion: APP_META.version,
+      latestVersion: info && info.version ? info.version : '',
+      info
+    });
+  });
+
+  autoUpdater.on('error', (error) => {
+    sendUpdateEvent({
+      type: 'error',
+      message: error && error.message ? error.message : 'Не удалось проверить обновления.'
+    });
+  });
+}
+
+async function checkForUpdates(autoDownload = false) {
+  if (!app.isPackaged) {
+    return {
+      currentVersion: APP_META.version,
+      latestVersion: APP_META.version,
+      updateAvailable: false,
+      skipped: true,
+      message: 'Проверка обновлений доступна в собранной версии приложения.'
+    };
+  }
+
+  const updateCheckResult = await autoUpdater.checkForUpdates();
+  const updateInfo = updateCheckResult && updateCheckResult.updateInfo ? updateCheckResult.updateInfo : null;
+  const latestVersion = updateInfo && updateInfo.version ? String(updateInfo.version) : APP_META.version;
+  const updateAvailable = Boolean(updateInfo && updateInfo.version && updateInfo.version !== APP_META.version);
+
+  if (updateAvailable && autoDownload) {
+    await autoUpdater.downloadUpdate();
+  }
+
+  return {
+    currentVersion: APP_META.version,
+    latestVersion,
+    updateAvailable,
+    releaseName: updateInfo && updateInfo.releaseName ? updateInfo.releaseName : '',
+    releaseNotes: updateInfo && updateInfo.releaseNotes ? updateInfo.releaseNotes : ''
+  };
 }
 
 async function inspectFolder(folderPath) {
@@ -550,6 +707,46 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     return APP_META;
   });
 
+  ipcMain.handle('asm:get-user-settings', async () => {
+    return loadUserSettings();
+  });
+
+  ipcMain.handle('asm:save-user-settings', async (_event, payload) => {
+    return saveUserSettings(payload || {});
+  });
+
+  ipcMain.handle('asm:check-for-updates', async (_event, payload) => {
+    return checkForUpdates(Boolean(payload && payload.autoDownload));
+  });
+
+  ipcMain.handle('asm:download-update', async () => {
+    if (!app.isPackaged) {
+      return {
+        skipped: true,
+        message: 'Загрузка обновлений доступна только в собранной версии приложения.'
+      };
+    }
+
+    await autoUpdater.downloadUpdate();
+    return {
+      started: true
+    };
+  });
+
+  ipcMain.handle('asm:install-update', async () => {
+    if (!app.isPackaged) {
+      return {
+        skipped: true,
+        message: 'Установка обновления доступна только в собранной версии приложения.'
+      };
+    }
+
+    autoUpdater.quitAndInstall();
+    return {
+      started: true
+    };
+  });
+
   ipcMain.handle('asm:open-folder', async (_event, folderPath) => {
     const resolvedPath = normalizeFolderPath(folderPath);
     const result = await shell.openPath(resolvedPath);
@@ -588,6 +785,19 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
           errorMessage: error && error.message ? error.message : 'Не удалось сохранить JSON.'
         });
       }
+    }
+
+    try {
+      // Дублируем снимок в AppData, чтобы пользовательские данные не лежали рядом с программой.
+      const snapshotDir = getUserSnapshotDir();
+      const snapshotPath = getAppDataSnapshotPath(fileName);
+      await fs.mkdir(snapshotDir, { recursive: true });
+      await fs.writeFile(snapshotPath, content, 'utf8');
+    } catch (error) {
+      failed.push({
+        folder: getUserSnapshotDir(),
+        errorMessage: error && error.message ? error.message : 'Не удалось сохранить JSON в AppData.'
+      });
     }
 
     if (!saved.length) {
@@ -728,7 +938,7 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
 // Создаем главное окно и загружаем в него текущую HTML-страницу формы.
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  const windowRef = new BrowserWindow({
     width: 1600,
     height: 980,
     minWidth: 1280,
@@ -742,12 +952,33 @@ function createWindow() {
     }
   });
 
+  mainWindow = windowRef;
   mainWindow.loadFile(path.join(__dirname, 'asm_generator_form_v9.html'));
+  mainWindow.on('closed', () => {
+    if (mainWindow === windowRef) {
+      mainWindow = null;
+    }
+  });
 }
 
 if (app && typeof app.whenReady === 'function') {
   app.whenReady().then(() => {
-    createWindow();
+    configureAutoUpdater();
+    loadUserSettings().finally(() => {
+      createWindow();
+      if (mainWindow) {
+        mainWindow.webContents.once('did-finish-load', () => {
+          if (userSettings.autoUpdate) {
+            checkForUpdates(true).catch((error) => {
+              sendUpdateEvent({
+                type: 'error',
+                message: error && error.message ? error.message : 'Не удалось проверить обновления.'
+              });
+            });
+          }
+        });
+      }
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
