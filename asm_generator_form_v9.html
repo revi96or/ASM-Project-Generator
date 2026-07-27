@@ -1,0 +1,2298 @@
+<!--
+Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
+Версия: 9.9.15
+Автор: Новожилов Артем
+-->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0A0E18" />
+<title>Создание проекта принтера ASM</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['Inter', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+      }
+    }
+  };
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+<style>
+  :root{
+    --bg:#0A0E18;
+    --surface:#121A2C;
+    --surface-alt:#161F34;
+    --border:rgba(148,178,220,.14);
+    --text:#F2F5FA;
+    --muted:#95A2B8;
+    --accent:#4FC8E8;
+    --accent-fg:#04141C;
+    --success:#28C76F;
+    --danger:#E0554F;
+  }
+
+  html.light{
+    --bg:#E5DCCB;
+    --surface:#F2EADF;
+    --surface-alt:#E9DECF;
+    --border:rgba(70,52,28,.14);
+    --text:#17120D;
+    --muted:#554A3F;
+    --accent:#0EA5C4;
+    --accent-fg:#FFFFFF;
+    --success:#1E9B53;
+    --danger:#C84945;
+  }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:Inter,sans-serif;
+    margin:0;
+    overflow:hidden;
+  }
+
+  html,
+  body{
+    height:100%;
+  }
+
+  .app-shell{
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  .split-layout{
+    flex:1;
+    min-height:0;
+    width:100%;
+  }
+
+  .scroll-zone{
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+    scrollbar-width:thin;
+    scrollbar-color:var(--surface) transparent;
+  }
+
+  .scroll-zone-left{
+    margin-right:20px;
+  }
+
+  .scroll-zone::-webkit-scrollbar{
+    width:10px;
+    height:10px;
+  }
+
+  .scroll-zone::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  .scroll-zone::-webkit-scrollbar-thumb{
+    background:var(--surface);
+    border-radius:999px;
+    border:2px solid transparent;
+    background-clip:padding-box;
+    min-height:96px;
+  }
+
+  .scroll-zone::-webkit-scrollbar-corner{
+    background:transparent;
+  }
+
+  .hero-bg{
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:42px 42px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 100% at 30% 0%, black 40%, transparent 85%);
+            mask-image: radial-gradient(ellipse 90% 100% at 30% 0%, black 40%, transparent 85%);
+    opacity:.5;
+  }
+
+  .hair-b{ border-bottom:1px solid var(--border); }
+  .hair-t{ border-top:1px solid var(--border); }
+
+  .breadcrumb{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:9px;
+  }
+
+  .breadcrumb .dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  html.light .eyebrow{
+    font-weight:700;
+  }
+
+  .eyebrow::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--border);
+  }
+
+  .stat-card{
+    position:relative;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px 20px;
+    background:var(--surface);
+    min-height:130px;
+  }
+
+  .stat-card.clickable{ cursor:pointer; }
+
+  .stat-card::before{
+    content:'';
+    position:absolute;
+    top:-1px;
+    left:-1px;
+    width:18px;
+    height:18px;
+    border-top:2px solid var(--accent);
+    border-left:2px solid var(--accent);
+    border-top-left-radius:14px;
+  }
+
+  .stat-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .stat-num{
+    font-weight:800;
+    font-size:32px;
+    line-height:1.05;
+  }
+
+  .stat-num.fit-project{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    word-break:break-word;
+    hyphens:auto;
+  }
+
+  .stat-cap{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:5px;
+  }
+
+  .section-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+  }
+
+  .section-title{
+    font-size:26px;
+    font-weight:800;
+    margin-bottom:14px;
+    line-height:1.08;
+  }
+
+  .field-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    letter-spacing:.08em;
+    color:var(--muted);
+    text-transform:uppercase;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+
+  .field-input{
+    width:100%;
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:16px;
+    color:var(--text);
+    transition:.15s ease;
+    appearance:textfield;
+    -moz-appearance:textfield;
+  }
+
+  .field-input::-webkit-outer-spin-button,
+  .field-input::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+  }
+
+  .field-input:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .field-input.is-dirty{
+    border-color:color-mix(in srgb, var(--accent) 70%, var(--border));
+    background:color-mix(in srgb, var(--accent) 8%, var(--surface-alt));
+  }
+
+  .field-input:disabled{
+    opacity:.65;
+    cursor:not-allowed;
+  }
+
+  .ghost-btn, .solid-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:15px;
+    font-weight:600;
+  }
+
+  .ghost-btn{
+    border:1px solid var(--border);
+    background:var(--surface-alt);
+    color:var(--text);
+  }
+
+  .solid-btn{
+    background:var(--accent);
+    color:var(--accent-fg);
+    justify-content:flex-start;
+    text-align:left;
+  }
+
+  .solid-btn:disabled,
+  .ghost-btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+  }
+
+  .toggle-wrap{
+    display:flex;
+    gap:6px;
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:3px;
+  }
+
+  .toggle-btn{
+    flex:1;
+    border:none;
+    border-radius:8px;
+    padding:7px 10px;
+    font-size:14px;
+    font-weight:700;
+    color:var(--muted);
+    background:transparent;
+  }
+
+  .toggle-btn.active{
+    background:color-mix(in srgb, var(--accent) 18%, transparent);
+    color:var(--text);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .toggle-wrap.compact{
+    width:50%;
+    min-width:180px;
+  }
+
+  .toggle-wrap.medium{
+    width:25%;
+    min-width:240px;
+  }
+
+  .helper{
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.45;
+    margin-top:5px;
+  }
+
+  .hint-list{
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 12px;
+    font-size:14px;
+    color:var(--muted);
+    min-height:136px;
+    max-height:260px;
+    overflow:auto;
+    scrollbar-width:thin;
+    scrollbar-color:var(--bg) transparent;
+  }
+
+  .hint-list::-webkit-scrollbar{
+    width:10px;
+    height:10px;
+  }
+
+  .hint-list::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  .hint-list::-webkit-scrollbar-thumb{
+    background:var(--bg);
+    border-radius:999px;
+    border:2px solid transparent;
+    background-clip:padding-box;
+    min-height:96px;
+  }
+
+  .status-stack{
+    margin-top:12px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .status-row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    font-size:14px;
+    color:var(--muted);
+  }
+
+  .status-row-value{
+    font-weight:800;
+  }
+
+  .status-row-value.success{
+    color:var(--success);
+  }
+
+  .status-row-value.danger{
+    color:var(--danger);
+  }
+
+  .helper-stack{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+
+  .app-footer{
+    border-top:1px solid var(--border);
+    color:var(--muted);
+    font-size:12px;
+    flex-shrink:0;
+  }
+
+  @media (max-width: 1023px){
+   body{
+     overflow:auto;
+   }
+
+   .app-shell{
+     height:auto;
+     min-height:100vh;
+     overflow:visible;
+   }
+
+   .split-layout{
+     min-height:auto;
+   }
+
+   .scroll-zone{
+     overflow:visible;
+   }
+  }
+
+  .app-dialog-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(7,10,18,.62);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:50;
+  }
+
+  .app-dialog-backdrop[hidden]{
+    display:none;
+  }
+
+  .app-dialog{
+    width:min(720px, 100%);
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:18px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+    overflow:hidden;
+  }
+
+  .app-dialog-head{
+    padding:18px 22px 14px;
+    border-bottom:1px solid var(--border);
+  }
+
+  .app-dialog-title{
+    font-size:20px;
+    font-weight:800;
+  }
+
+  .app-dialog-body{
+    padding:18px 22px;
+    color:var(--text);
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+
+  .app-dialog-actions{
+    display:flex;
+    justify-content:flex-end;
+    padding:0 22px 20px;
+  }
+
+  .settings-panel{
+    margin-top:10px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:var(--surface-alt);
+  }
+
+  .app-tooltip{
+    position:fixed;
+    z-index:70;
+    max-width:min(360px, calc(100vw - 24px));
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--surface);
+    color:var(--text);
+    box-shadow:0 16px 40px rgba(0,0,0,.28);
+    font-size:13px;
+    line-height:1.45;
+    pointer-events:none;
+    white-space:normal;
+    word-break:break-word;
+  }
+
+  .app-tooltip[hidden]{
+    display:none;
+  }
+
+  .app-tooltip{
+    position:fixed;
+    z-index:70;
+    max-width:min(360px, calc(100vw - 24px));
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--surface);
+    color:var(--text);
+    box-shadow:0 16px 40px rgba(0,0,0,.28);
+    font-size:13px;
+    line-height:1.45;
+    pointer-events:none;
+    white-space:normal;
+    word-break:break-word;
+  }
+
+  .app-tooltip[hidden]{
+    display:none;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<header class="hair-b relative overflow-hidden shrink-0">
+  <div class="hero-bg absolute inset-0 pointer-events-none"></div>
+  <div class="relative max-w-[1550px] mx-auto px-5 lg:px-8 pt-8 pb-8">
+    <div class="flex items-center justify-between gap-4 mb-7">
+      <div class="breadcrumb">
+        <span class="dot"></span>
+        <span id="headerProjectName">создание-проекта-printer-asm</span>
+        <span>·</span>
+        <span>локальный режим</span>
+        <span>·</span>
+        <span id="todayLabel"></span>
+      </div>
+
+      <button id="themeToggle" type="button" class="ghost-btn">
+        <i data-lucide="sun-moon" class="w-4 h-4"></i>
+        Тема
+      </button>
+    </div>
+
+    <h1 class="font-display font-extrabold text-[40px] leading-[1.08] tracking-tight max-w-4xl">
+      Создание <span style="color:var(--accent)">проекта принтера ASM</span>
+    </h1>
+
+    <p class="mt-4 text-[16px] text-muted max-w-3xl">
+      Генератор проекта на основе шаблона PR1 и связанных файлов.
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-7">
+      <button id="statPrinterCard" type="button" class="stat-card clickable text-left">
+        <div class="stat-label">Статус принтера</div>
+        <div class="mt-2"><span class="stat-num" id="statPrinterStatus" style="color:var(--danger)">offline</span></div>
+        <div class="stat-cap" id="statPrinterStatusSub">проверка при запуске</div>
+      </button>
+
+      <div class="stat-card">
+        <div class="stat-label">Проект</div>
+        <div class="mt-2"><span class="stat-num fit-project" id="statProjectName" style="font-size:32px;">—</span></div>
+        <div class="stat-cap">название платы</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Поля</div>
+        <div class="mt-2">
+          <span class="stat-num" id="statChangedFields">0</span>
+          <span style="font-size:16px;color:var(--muted)" id="statChangedFieldsTotal">/0</span>
+        </div>
+        <div class="stat-cap">изменено / доступно</div>
+      </div>
+
+      <button id="statSaveReadinessCard" type="button" class="stat-card clickable text-left">
+        <div class="stat-label">Готовность сохранения</div>
+        <div class="status-stack">
+          <div class="status-row">
+            <span>локальная</span>
+            <span id="statLocalReady" class="status-row-value danger">offline</span>
+          </div>
+          <div class="status-row">
+            <span>принтер</span>
+            <span id="statPrinterReady" class="status-row-value danger">offline</span>
+          </div>
+          <div class="status-row">
+            <span>AOI</span>
+            <span id="statAoiReady" class="status-row-value danger">offline</span>
+          </div>
+        </div>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="split-layout max-w-[1550px] w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
+  <aside class="scroll-zone scroll-zone-left lg:basis-1/3 xl:max-w-[430px] shrink-0 px-5 lg:px-8 py-8">
+    <div class="space-y-8">
+
+    <section>
+      <div class="eyebrow mb-4"><span>Похожие проекты</span></div>
+      <div class="hint-list" id="similarProjectsList">Начните вводить название проекта.</div>
+      <div class="helper helper-stack" id="workspaceSummary">
+        <div>Файлов в папке: <span id="workspaceFilesCount">0</span></div>
+        <div>Похожих проектов: <span id="workspaceProjectsCount">0</span></div>
+        <div>Подписанных полей в карте: <span id="workspaceKnownFieldsCount">0</span></div>
+      </div>
+    </section>
+
+    <section class="hair-t pt-6">
+      <div class="eyebrow mb-4"><span>Управление</span></div>
+      <div class="space-y-2">
+        <button id="generateBtn" type="button" class="solid-btn w-full">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          Сохранить проект
+        </button>
+
+        <button id="saveAoiBtn" type="button" class="ghost-btn w-full" disabled>
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          Сохранить размеры для АОИ
+        </button>
+
+        <button id="openPrinterFilesBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="folder-tree" class="w-4 h-4"></i>
+          Файлы на принтере
+        </button>
+
+        <button id="resetFormBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          Сбросить форму
+        </button>
+
+        <button id="settingsBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          Настройки
+        </button>
+
+        <div id="settingsPanel" class="settings-panel p-4" hidden>
+          <div class="field-label mb-3">Показывать подсказки</div>
+          <div class="toggle-wrap compact" id="tipsToggle">
+            <button type="button" class="toggle-btn" data-value="0">нет</button>
+            <button type="button" class="toggle-btn active" data-value="1">да</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hair-t pt-6">
+      <div class="eyebrow mb-4"><span>Пути</span></div>
+      <div class="space-y-3">
+        <div>
+          <div class="field-label">Локальная папка</div>
+          <input id="localPathInput" class="field-input" value="C:\settings\Project_Printer_ASM\" />
+        </div>
+        <div>
+          <div class="field-label">Адрес принтера</div>
+          <input id="serverPathInput" class="field-input" value="\\server\common\Novozhilov\" />
+        </div>
+        <div>
+          <div class="field-label">Папка АОИ</div>
+          <input id="aoiPathInput" class="field-input" value="\\server\common\Любимова К.И.\" />
+        </div>
+      </div>
+    </section>
+    </div>
+  </aside>
+
+  <div class="hidden lg:block w-px shrink-0" style="background:var(--border)"></div>
+
+  <main class="scroll-zone flex-1 min-w-0 px-5 lg:px-8 py-8">
+    <section>
+      <div class="eyebrow mb-4"><span>Генератор параметров</span></div>
+
+      <div class="space-y-4">
+        <div class="section-card p-4">
+          <h2 class="section-title">Проект</h2>
+
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div>
+              <div class="field-label">Название платы</div>
+              <input id="boardNameInput" class="field-input" placeholder="NSFT080100.006_20200603_B" />
+              <div class="helper">Используется в именах файлов .PR1 / .ISD / .pxf / .txt</div>
+            </div>
+
+            <div>
+              <div class="field-label">Комментарий</div>
+              <input id="commentInput" class="field-input" maxlength="32" placeholder="Автозаполнение + ваш текст" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Размеры платы</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div class="field-label">Длина платы (X)</div>
+              <input id="boardXInput" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Высота платы (Y)</div>
+              <input id="boardYInput" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Толщина платы</div>
+              <input id="boardThicknessInput" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+          <div class="helper">Значения по умолчанию берутся из шаблона: c:\settings\Project_Printer_ASM\template.PR1</div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Реперные знаки</h2>
+
+          <div class="mb-4">
+            <div class="field-label">Количество реперных знаков</div>
+            <div class="toggle-wrap compact" id="refCountToggle">
+              <button type="button" class="toggle-btn active" data-value="2">2</button>
+              <button type="button" class="toggle-btn" data-value="3">3</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div class="field-label">REF1_X</div>
+              <input id="ref1x" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF2_X</div>
+              <input id="ref2x" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF3_X</div>
+              <input id="ref3x" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">REF1_Y</div>
+              <input id="ref1y" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF2_Y</div>
+              <input id="ref2y" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF3_Y</div>
+              <input id="ref3y" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+          <div class="helper">Значения по умолчанию берутся из шаблона: c:\settings\Project_Printer_ASM\template.PR1</div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Позиционирование платы</h2>
+
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+            <div>
+              <div class="field-label">Режим остановки платы</div>
+              <div class="toggle-wrap compact" id="boardStopModeToggle">
+                <button type="button" class="toggle-btn active" data-value="0">Авто</button>
+                <button type="button" class="toggle-btn" data-value="1">Вручную</button>
+              </div>
+            </div>
+
+            <div>
+              <div class="field-label">Сторона платы</div>
+              <div class="toggle-wrap compact" id="boardSideToggle">
+                <button type="button" class="toggle-btn active" data-value="0">Top</button>
+                <button type="button" class="toggle-btn" data-value="1">Bottom</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div class="field-label">Смещение остановки по X</div>
+              <input id="centerBoardX0" class="field-input tracked-input" type="number" step="any" />
+              <div class="helper">Авто: половина длины платы (X). Вручную: потом проверю</div>
+            </div>
+
+            <div>
+              <div class="field-label">Точка стопора Y</div>
+              <input id="stopBoardY" class="field-input tracked-input" type="number" step="any" />
+              <div class="helper">Всегда по формуле: 70% от высоты платы (Y)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Печать</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+              <div class="field-label">Давление переднего ракеля</div>
+              <input id="frontPressure" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">Давление заднего ракеля</div>
+              <input id="rearPressure" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">Количество проходов ракеля</div>
+              <input id="squeegeePasses" class="field-input tracked-input" type="number" step="1" />
+            </div>
+
+            <div>
+              <div class="field-label">Направление печати</div>
+              <div class="toggle-wrap medium" id="printDirectionToggle">
+                <button type="button" class="toggle-btn" data-value="A">Backward</button>
+                <button type="button" class="toggle-btn active" data-value="B">Forward</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <div class="field-label">Скорость печати переднего ракеля</div>
+              <input id="frontSqueegeeSpeed" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">Скорость печати заднего ракеля</div>
+              <input id="rearSqueegeeSpeed" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+
+          <div class="helper">Параметры печати по умолчанию тоже должны подтягиваться из шаблона PR1.</div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Разделение</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div class="field-label">Скорость разделения</div>
+              <input id="separationRate" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Расстояние разделения</div>
+              <input id="separationDistance" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Паста и обслуживание</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+              <div class="field-label">Количество перемешиваний</div>
+              <input id="pasteStirrings" class="field-input tracked-input" type="number" step="1" />
+            </div>
+            <div>
+              <div class="field-label">Частота очистки</div>
+              <input id="cleaningFrequency" class="field-input tracked-input" type="number" step="1" />
+            </div>
+            <div>
+              <div class="field-label">Давление перемешивания</div>
+              <input id="mixingPressure" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Скорость перемешивания</div>
+              <input id="mixingSpeed" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Расширенные параметры</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div class="field-label">Center Board Minus</div>
+              <input id="centerBoardMinus" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Center Board 3</div>
+              <input id="centerBoard3" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Center Board</div>
+              <input id="centerBoardCommon" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+          <div class="helper">Эти поля автоматически синхронизируются со "Смещением остановки по X".</div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="app-footer mt-auto">
+  <div class="max-w-[1550px] mx-auto px-5 lg:px-8 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+    <div>Генератор проектов трафаретного принтера ASM | Новожилов Артем</div>
+    <div id="footerVersionInfo">Версия — · дата —</div>
+  </div>
+</footer>
+
+<div id="appDialogBackdrop" class="app-dialog-backdrop" hidden>
+  <div class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
+    <div class="app-dialog-head">
+      <div id="appDialogTitle" class="app-dialog-title">Сообщение</div>
+    </div>
+    <div id="appDialogBody" class="app-dialog-body"></div>
+    <div class="app-dialog-actions">
+      <button id="appDialogCloseBtn" type="button" class="solid-btn">Понятно</button>
+    </div>
+  </div>
+</div>
+
+<div id="appTooltip" class="app-tooltip" hidden></div>
+
+<script>
+// Описание: Клиентская логика формы ASM Generator.
+// Версия: 9.9.15
+// Автор: Новожилов Артем
+
+const asmBridge = window.asmApi || {
+  ping: () => "browser-mode",
+  getAppMeta: async () => ({
+    version: "2.0.1",
+    versionDate: "2026-07-25"
+  }),
+  inspectFolder: async () => ({
+    path: $("localPathInput") ? $("localPathInput").value.trim() : "",
+    exists: false,
+    files: [],
+    presentRequiredFiles: [],
+    missingRequiredFiles: ["template.PR1", "template.ISD", "template.pxf", "pr1_known_map.json"]
+  }),
+  checkFolderWritable: async () => ({
+    path: $("localPathInput") ? $("localPathInput").value.trim() : "",
+    writable: false,
+    errorMessage: "Проверка записи доступна только в Electron."
+  }),
+  openFolder: async () => {
+    throw new Error("Открытие папки доступно только в Electron.");
+  },
+  saveProjectJson: async () => {
+    throw new Error("Сохранение JSON доступно только в Electron.");
+  },
+  saveAoiFile: async () => {
+    throw new Error("Сохранение AOI файла доступно только в Electron.");
+  },
+  generateProjectFiles: async () => {
+    throw new Error("Генерация файлов доступна только в Electron.");
+  },
+  loadWorkspaceData: async () => ({
+    folder: {
+      path: $("localPathInput") ? $("localPathInput").value.trim() : "",
+      exists: false,
+      files: [],
+      presentRequiredFiles: [],
+      missingRequiredFiles: ["template.PR1", "template.ISD", "template.pxf", "pr1_known_map.json"]
+    },
+    projectNames: [],
+    knownMapSummary: {
+      exists: false,
+      totalEntries: 0,
+      namedEntries: 0,
+      groupCount: 0
+    },
+    templateDefaults: {
+      exists: false,
+      values: {},
+      toggles: {},
+      comment: ""
+    }
+  })
+};
+
+const state = {
+  theme: localStorage.getItem("asm-theme") || "dark",
+  changedFields: new Set(),
+  values: {
+    refCount: 2,
+    boardStopMode: 0,
+    boardSide: 0,
+    printDirection: "B"
+  },
+  commentWasManuallyEdited: false,
+  workspaceProjects: [],
+  workspaceData: null,
+  templateDefaultsApplied: false,
+  showTooltips: localStorage.getItem("asm-show-tooltips") !== "false",
+  settingsPanelVisible: false,
+  appMeta: {
+    version: "2.0.1",
+    versionDate: "2026-07-25"
+  },
+  initialFieldValues: {},
+  initialToggleValues: {},
+  focusRestoreValues: {},
+  commentSuffix: ""
+};
+
+const PATH_STORAGE_KEY = "asm-path-settings";
+const DEFAULT_PATHS = {
+  local: "C:\\settings\\Project_Printer_ASM\\",
+  printer: "\\\\server\\common\\Novozhilov\\",
+  aoi: "\\\\server\\common\\Любимова К.И.\\"
+};
+
+const fallbackTemplateDefaults = {
+  boardThicknessInput: "1.6",
+  frontPressure: "4",
+  rearPressure: "4",
+  squeegeePasses: "1",
+  separationRate: "20",
+  separationDistance: "3",
+  pasteStirrings: "2",
+  cleaningFrequency: "10",
+  mixingPressure: "3",
+  mixingSpeed: "15",
+  ref1x: "",
+  ref1y: "",
+  ref2x: "",
+  ref2y: "",
+  ref3x: "",
+  ref3y: ""
+};
+
+const demoProjects = [
+  "nsft080100.003_20250908_T",
+  "nsft080100.004_20250911_B",
+  "nsft080100.006_20200603_B"
+];
+
+function $(id){ return document.getElementById(id); }
+
+function showAppDialog(title, body){
+  $("appDialogTitle").textContent = title;
+  $("appDialogBody").textContent = body;
+  $("appDialogBackdrop").hidden = false;
+}
+
+function hideAppDialog(){
+  $("appDialogBackdrop").hidden = true;
+}
+
+function setPrinterStatus(statusText, statusSubText, tone){
+  const statusEl = $("statPrinterStatus");
+  const subEl = $("statPrinterStatusSub");
+  const tones = {
+    danger: "var(--danger)",
+    success: "var(--success)",
+    accent: "var(--accent)"
+  };
+
+  statusEl.textContent = statusText;
+  subEl.textContent = statusSubText;
+  statusEl.style.color = tones[tone] || "var(--danger)";
+}
+
+function setSaveReadinessValue(elementId, textValue, tone){
+  const element = $(elementId);
+  if (!element) return;
+
+  element.textContent = textValue;
+  element.classList.remove("success", "danger");
+  element.classList.add(tone === "success" ? "success" : "danger");
+}
+
+function saveTooltipPreference(enabled){
+  state.showTooltips = Boolean(enabled);
+  localStorage.setItem("asm-show-tooltips", state.showTooltips ? "true" : "false");
+  if (!state.showTooltips) {
+    hideAppTooltip();
+  }
+}
+
+function applySettingsPanelVisibility(){
+  $("settingsPanel").hidden = !state.settingsPanelVisible;
+}
+
+function updateTooltipToggle(){
+  const wrap = $("tipsToggle");
+  const buttons = wrap.querySelectorAll(".toggle-btn");
+  const activeValue = state.showTooltips ? "1" : "0";
+
+  buttons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.value === activeValue);
+  });
+}
+
+function toggleSettingsPanel(){
+  state.settingsPanelVisible = !state.settingsPanelVisible;
+  applySettingsPanelVisibility();
+}
+
+const tooltipState = {
+  timerId: null,
+  target: null
+};
+
+function hideAppTooltip(){
+  const tooltip = $("appTooltip");
+  if (tooltip) {
+    tooltip.hidden = true;
+    tooltip.textContent = "";
+  }
+
+  tooltipState.target = null;
+
+  if (tooltipState.timerId !== null) {
+    window.clearTimeout(tooltipState.timerId);
+    tooltipState.timerId = null;
+  }
+}
+
+function positionAppTooltip(targetElement){
+  const tooltip = $("appTooltip");
+  if (!tooltip || tooltip.hidden) return;
+
+  const rect = targetElement.getBoundingClientRect();
+  const margin = 12;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const tooltipRect = tooltip.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 10;
+
+  if (left + tooltipRect.width > viewportWidth - margin) {
+    left = viewportWidth - margin - tooltipRect.width;
+  }
+
+  if (left < margin) {
+    left = margin;
+  }
+
+  if (top + tooltipRect.height > viewportHeight - margin) {
+    top = rect.top - tooltipRect.height - 10;
+  }
+
+  if (top < margin) {
+    top = margin;
+  }
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function showAppTooltip(targetElement, text){
+  if (!state.showTooltips || !text) return;
+
+  const tooltip = $("appTooltip");
+  tooltipState.target = targetElement;
+  tooltip.textContent = text;
+  tooltip.hidden = false;
+  tooltip.style.visibility = "hidden";
+  tooltip.style.left = "0px";
+  tooltip.style.top = "0px";
+
+  window.requestAnimationFrame(() => {
+    if (tooltip.hidden || tooltipState.target !== targetElement) return;
+    positionAppTooltip(targetElement);
+    tooltip.style.visibility = "visible";
+  });
+}
+
+function scheduleAppTooltip(targetElement){
+  if (!state.showTooltips || !targetElement || !targetElement.dataset.tooltip) return;
+
+  if (tooltipState.timerId !== null) {
+    window.clearTimeout(tooltipState.timerId);
+  }
+
+  tooltipState.target = targetElement;
+  // Показываем подсказку не сразу, а через 1 секунду после наведения.
+  tooltipState.timerId = window.setTimeout(() => {
+    if (!state.showTooltips || tooltipState.target !== targetElement) return;
+    showAppTooltip(targetElement, targetElement.dataset.tooltip);
+  }, 1000);
+}
+
+function wireTooltips(){
+  document.querySelectorAll("[data-tooltip]").forEach((targetElement) => {
+    targetElement.addEventListener("pointerenter", () => scheduleAppTooltip(targetElement));
+    targetElement.addEventListener("pointerleave", hideAppTooltip);
+    targetElement.addEventListener("focus", () => scheduleAppTooltip(targetElement));
+    targetElement.addEventListener("blur", hideAppTooltip);
+  });
+}
+
+function applyTooltipTexts(){
+  const tooltipTexts = {
+    boardNameInput: "Указать название проекта в виде NSFT032100.031_B_20260721. Характеристику брать с кода на плате.",
+    commentInput: "Не более 32 символов. Только английский язык.",
+    boardXInput: "Длина платы от левого нижнего угла до правого нижнего угла по оси X (мм)",
+    boardYInput: "Длина платы от левого нижнего угла до левого верхнего угла по оси Y (мм)",
+    boardThicknessInput: "Толщина платы (мм)",
+    refCountToggle: "Любые два или три репера по краям платы. Если репера два, то стараться брать их по диагонали.",
+    ref1x: "Координаты первого репера по оси X (мм)",
+    ref1y: "Координаты первого репера по оси Y (мм)",
+    ref2x: "Координаты второго репера по оси X (мм)",
+    ref2y: "Координаты второго репера по оси Y (мм)",
+    ref3x: "Координаты третьего репера по оси X (мм)",
+    ref3y: "Координаты третьего репера по оси Y (мм)",
+    boardStopModeToggle: "Режим остановки платы: Авто — центр рельса совпадает с серединой платы, Вручную — дает возможность ввести смещение для остановки платы.",
+    centerBoardX0: "Середина платы окажется правее или левее центра рельса принтера. Чтобы плата переместилась правее, нужно прибавлять к расстоянию половины длины платы X. Чтобы плата оказалась левее — вычитать из половины от длины платы X (мм).",
+    boardSideToggle: "Параметр не влияет на другие. Только информация о стороне.",
+    stopBoardY: "По умолчанию рассчитывается по формуле 70% от ширины платы Y. Можно изменить, если в этом месте у платы, например, вырез (мм).",
+    frontPressure: "Давление на весь ракель (кг). Чем больше, тем больше пасты продавится. По формуле: Давление ракеля = 0,22-0,36 кг/см * Длина ракеля в см. Для 20 см ракеля это от 4,4 до 7,2 кг. Для 35 см ракеля это от 7,7 до 12,6 кг.",
+    rearPressure: "Давление на весь ракель (кг). Чем больше, тем больше пасты продавится. По формуле: Давление ракеля = 0,22-0,36 кг/см * Длина ракеля в см. Для 20 см ракеля это от 4,4 до 7,2 кг. Для 35 см ракеля это от 7,7 до 12,6 кг.",
+    squeegeePasses: "Сколько раз пройдет ракель при печати. Front-Rear или Rear-Front = 1. Туда и обратно = 2.",
+    printDirectionToggle: "С какой стороны будет производиться печать первой платы.",
+    frontSqueegeeSpeed: "Скорость движения ракеля при печати (мм/с). Чем выше давление, тем выше скорость. Диапазон 25 - 150 мм/с.",
+    rearSqueegeeSpeed: "Скорость движения ракеля при печати (мм/с). Чем выше давление, тем выше скорость. Диапазон 25 - 150 мм/с.",
+    separationRate: "Скорость разделения трафарета и платы после печати (мм/с). Чем выше, тем хуже печать, но цикл быстрее.",
+    separationDistance: "Дистанция, которую проходит плата на скорости разделения (мм). Обычно 2-3 мм.",
+    pasteStirrings: "Задает количество перемешиваний пасты для формирования валика пасты. Минимально 1.",
+    cleaningFrequency: "Задает через какое количество плат запустится процесс очистки трафарета.",
+    mixingPressure: "Давление на ракель при формировании валика (кг).",
+    mixingSpeed: "Скорость при перемешивании пасты (мм/с).",
+    centerBoardMinus: "Заполняется автоматически. Не менять без необходимости.",
+    centerBoard3: "Заполняется автоматически. Не менять без необходимости.",
+    centerBoardCommon: "Заполняется автоматически. Не менять без необходимости.",
+    generateBtn: "Сохраняет проект по двум путям, прописанным в \"локальная папка\" и \"адрес принтера\".",
+    saveAoiBtn: "Сохраняет размеры платы в TXT файл по пути, прописанному в \"папка АОИ\".",
+    openPrinterFilesBtn: "Открывает окно проводника по пути \"адрес принтера\".",
+    resetFormBtn: "Сбрасывает все заполненные поля.",
+    settingsBtn: "Открывает или скрывает настройки приложения.",
+    tipsToggle: "Включает или выключает всплывающие подсказки.",
+    similarProjectsList: "Показывает проекты, которые похожи на создаваемый по маске NSFTxxxxxx и находятся по пути \"адрес принтера\".",
+    footerVersionInfo: "Программа создавалась мной бескорыстно и единолично для целей автоматизации процесса создания проекта для принтера ASM. Право на код и использование программы принадлежит автору."
+  };
+
+  Object.entries(tooltipTexts).forEach(([id, text]) => {
+    const element = $(id);
+    if (!element) return;
+    element.dataset.tooltip = text;
+  });
+}
+
+async function refreshSaveReadiness(showDialog){
+  const localFolderPath = $("localPathInput").value.trim();
+  const printerFolderPath = $("serverPathInput").value.trim();
+  const aoiFolderPath = $("aoiPathInput").value.trim();
+
+  const [localResult, printerResult, aoiResult] = await Promise.all([
+    probeFolderAvailability(localFolderPath, { requireWritable: true }),
+    probeFolderAvailability(printerFolderPath),
+    probeFolderAvailability(aoiFolderPath)
+  ]);
+
+  setSaveReadinessValue("statLocalReady", localResult.available ? "online" : "offline", localResult.available ? "success" : "danger");
+  setSaveReadinessValue("statPrinterReady", printerResult.available ? "online" : "offline", printerResult.available ? "success" : "danger");
+  setSaveReadinessValue("statAoiReady", aoiResult.available ? "online" : "offline", aoiResult.available ? "success" : "danger");
+
+  if (showDialog) {
+    showAppDialog(
+      "Готовность сохранения",
+      [
+        `Локальная папка: ${localResult.available ? "online" : "offline"}`,
+        `Путь: ${localResult.path}`,
+        localResult.available ? "" : `Причина: ${localResult.errorMessage || "нет доступа"}`,
+        "",
+        `Принтер: ${printerResult.available ? "online" : "offline"}`,
+        `Путь: ${printerResult.path}`,
+        printerResult.available ? "" : `Причина: ${printerResult.errorMessage || "нет доступа"}`,
+        "",
+        `AOI: ${aoiResult.available ? "online" : "offline"}`,
+        `Путь: ${aoiResult.path}`,
+        aoiResult.available ? "" : `Причина: ${aoiResult.errorMessage || "нет доступа"}`
+      ].filter(Boolean).join("\n")
+    );
+  }
+}
+
+function normalizeSettledResult(settledResult, emptyValue){
+  if (!settledResult || settledResult.status !== "fulfilled") {
+    return emptyValue;
+  }
+
+  return settledResult.value;
+}
+
+async function probeFolderAvailability(folderPath, options = {}){
+  const { requireWritable = false } = options;
+  const [inspectSettled, writableSettled] = await Promise.allSettled([
+    asmBridge.inspectFolder(folderPath),
+    asmBridge.checkFolderWritable(folderPath)
+  ]);
+
+  const inspectResult = normalizeSettledResult(inspectSettled, {
+    path: folderPath,
+    exists: false,
+    errorMessage: "Не удалось проверить папку."
+  });
+  const writableResult = normalizeSettledResult(writableSettled, {
+    path: folderPath,
+    writable: false,
+    errorMessage: "Не удалось проверить запись."
+  });
+  const isAvailable = requireWritable
+    ? Boolean(writableResult.writable || inspectResult.exists)
+    : Boolean(inspectResult.exists || writableResult.writable);
+
+  return {
+    path: inspectResult.path || writableResult.path || folderPath,
+    available: isAvailable,
+    exists: Boolean(inspectResult.exists),
+    writable: Boolean(writableResult.writable),
+    errorMessage: inspectResult.errorMessage || writableResult.errorMessage || ""
+  };
+}
+
+function updateFooterMeta(){
+  $("footerVersionInfo").textContent = `Версия ${state.appMeta.version} · ${state.appMeta.versionDate}`;
+}
+
+function loadSavedPaths(){
+  try {
+    const raw = localStorage.getItem(PATH_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_PATHS };
+
+    return {
+      local: DEFAULT_PATHS.local,
+      printer: DEFAULT_PATHS.printer,
+      aoi: DEFAULT_PATHS.aoi,
+      ...JSON.parse(raw)
+    };
+  } catch {
+    return { ...DEFAULT_PATHS };
+  }
+}
+
+function saveCurrentPaths(){
+  const pathState = {
+    local: $("localPathInput").value.trim() || DEFAULT_PATHS.local,
+    printer: $("serverPathInput").value.trim() || DEFAULT_PATHS.printer,
+    aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi
+  };
+
+  localStorage.setItem(PATH_STORAGE_KEY, JSON.stringify(pathState));
+  return pathState;
+}
+
+function applySavedPaths(){
+  const savedPaths = loadSavedPaths();
+  $("localPathInput").value = savedPaths.local;
+  $("serverPathInput").value = savedPaths.printer;
+  $("aoiPathInput").value = savedPaths.aoi;
+}
+
+function buildProjectSnapshot(){
+  return {
+    description: "Снимок формы ASM Project Generator",
+    version: "2.0.1",
+    author: "Новожилов Артем",
+    createdAt: new Date().toISOString(),
+    paths: {
+      local: $("localPathInput").value.trim(),
+      server: $("serverPathInput").value.trim(),
+      aoi: $("aoiPathInput").value.trim()
+    },
+    values: {
+      boardName: $("boardNameInput").value.trim(),
+      comment: $("commentInput").value.trim(),
+      boardX: $("boardXInput").value.trim(),
+      boardY: $("boardYInput").value.trim(),
+      boardThickness: $("boardThicknessInput").value.trim(),
+      boardXInput: $("boardXInput").value.trim(),
+      boardYInput: $("boardYInput").value.trim(),
+      boardThicknessInput: $("boardThicknessInput").value.trim(),
+      refCount: state.values.refCount,
+      ref1x: $("ref1x").value.trim(),
+      ref1y: $("ref1y").value.trim(),
+      ref2x: $("ref2x").value.trim(),
+      ref2y: $("ref2y").value.trim(),
+      ref3x: $("ref3x").value.trim(),
+      ref3y: $("ref3y").value.trim(),
+      boardStopMode: state.values.boardStopMode,
+      boardSide: state.values.boardSide,
+      centerBoardX0: $("centerBoardX0").value.trim(),
+      stopBoardY: $("stopBoardY").value.trim(),
+      frontPressure: $("frontPressure").value.trim(),
+      rearPressure: $("rearPressure").value.trim(),
+      squeegeePasses: $("squeegeePasses").value.trim(),
+      frontSqueegeeSpeed: $("frontSqueegeeSpeed").value.trim(),
+      rearSqueegeeSpeed: $("rearSqueegeeSpeed").value.trim(),
+      printDirection: state.values.printDirection,
+      separationRate: $("separationRate").value.trim(),
+      separationDistance: $("separationDistance").value.trim(),
+      pasteStirrings: $("pasteStirrings").value.trim(),
+      cleaningFrequency: $("cleaningFrequency").value.trim(),
+      mixingPressure: $("mixingPressure").value.trim(),
+      mixingSpeed: $("mixingSpeed").value.trim(),
+      centerBoardMinus: $("centerBoardMinus").value.trim(),
+      centerBoard3: $("centerBoard3").value.trim(),
+      centerBoardCommon: $("centerBoardCommon").value.trim()
+    }
+  };
+}
+
+function applyToggleSelection(containerId, value){
+  const wrap = $(containerId);
+  if (!wrap) return;
+
+  const buttons = wrap.querySelectorAll(".toggle-btn");
+  buttons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.value === String(value));
+  });
+}
+
+function applyTemplateDefaults(defaults){
+  Object.entries(defaults).forEach(([id, value]) => {
+    const el = $(id);
+    if (!el) return;
+    if (el.value.trim() === "") el.value = value;
+  });
+}
+
+function applyTemplateToggles(templateDefaults){
+  if (!templateDefaults || !templateDefaults.toggles) return;
+
+  if (templateDefaults.toggles.refCount === 2 || templateDefaults.toggles.refCount === 3) {
+    state.values.refCount = templateDefaults.toggles.refCount;
+    applyToggleSelection("refCountToggle", templateDefaults.toggles.refCount);
+  }
+
+  if (templateDefaults.toggles.boardStopMode === 0 || templateDefaults.toggles.boardStopMode === 1) {
+    state.values.boardStopMode = templateDefaults.toggles.boardStopMode;
+    applyToggleSelection("boardStopModeToggle", templateDefaults.toggles.boardStopMode);
+  }
+
+  if (templateDefaults.toggles.boardSide === 0 || templateDefaults.toggles.boardSide === 1) {
+    state.values.boardSide = templateDefaults.toggles.boardSide;
+    applyToggleSelection("boardSideToggle", templateDefaults.toggles.boardSide);
+  }
+
+  if (templateDefaults.toggles.printDirection === "A" || templateDefaults.toggles.printDirection === "B") {
+    state.values.printDirection = templateDefaults.toggles.printDirection;
+    applyToggleSelection("printDirectionToggle", templateDefaults.toggles.printDirection);
+  }
+}
+
+function getComparableInputValue(input){
+  const rawValue = input.value.trim();
+
+  if (input.type === "number") {
+    if (rawValue === "") return "";
+
+    const numericValue = Number(rawValue.replace(",", "."));
+    return Number.isFinite(numericValue) ? String(numericValue) : rawValue;
+  }
+
+  return rawValue;
+}
+
+function getFieldRestoreKey(inputOrId){
+  const inputId = typeof inputOrId === "string" ? inputOrId : inputOrId.id;
+  const fieldKeyMap = {
+    boardNameInput: "boardName",
+    commentInput: "comment",
+    boardXInput: "boardXInput",
+    boardYInput: "boardYInput",
+    boardThicknessInput: "boardThicknessInput",
+    ref1x: "ref1x",
+    ref1y: "ref1y",
+    ref2x: "ref2x",
+    ref2y: "ref2y",
+    ref3x: "ref3x",
+    ref3y: "ref3y",
+    centerBoardX0: "centerBoardX0",
+    stopBoardY: "stopBoardY",
+    frontPressure: "frontPressure",
+    rearPressure: "rearPressure",
+    squeegeePasses: "squeegeePasses",
+    frontSqueegeeSpeed: "frontSqueegeeSpeed",
+    rearSqueegeeSpeed: "rearSqueegeeSpeed",
+    separationRate: "separationRate",
+    separationDistance: "separationDistance",
+    pasteStirrings: "pasteStirrings",
+    cleaningFrequency: "cleaningFrequency",
+    mixingPressure: "mixingPressure",
+    mixingSpeed: "mixingSpeed",
+    centerBoardMinus: "centerBoardMinus",
+    centerBoard3: "centerBoard3",
+    centerBoardCommon: "centerBoardCommon"
+  };
+
+  return fieldKeyMap[inputId] || inputId;
+}
+
+function getInitialFieldValue(key){
+  return Object.prototype.hasOwnProperty.call(state.initialFieldValues, key)
+    ? state.initialFieldValues[key]
+    : "";
+}
+
+function getCommentPrefixFromBoardY(boardYValue){
+  const numericBoardY = typeof boardYValue === "number" ? boardYValue : Number(boardYValue);
+  if (!Number.isFinite(numericBoardY)) return "";
+  return String(Math.round(270 + numericBoardY / 2));
+}
+
+function buildCommentValue(prefixValue, suffixValue){
+  const prefix = String(prefixValue || "").trim();
+  const suffix = String(suffixValue || "").trim();
+
+  if (!prefix) return suffix;
+  if (!suffix) return prefix;
+  return `${prefix} ${suffix}`;
+}
+
+function splitCommentParts(commentValue, expectedPrefix){
+  const rawComment = String(commentValue || "").trim();
+  const prefix = String(expectedPrefix || "").trim();
+
+  if (!rawComment) {
+    return { prefix: prefix, suffix: "" };
+  }
+
+  if (prefix && rawComment === prefix) {
+    return { prefix: prefix, suffix: "" };
+  }
+
+  if (prefix && rawComment.startsWith(`${prefix} `)) {
+    return { prefix: prefix, suffix: rawComment.slice(prefix.length).trim() };
+  }
+
+  return { prefix: prefix, suffix: rawComment };
+}
+
+function syncCommentFromBoardY(options = {}){
+  const { preserveEmpty = false } = options;
+  const boardY = getNum("boardYInput");
+  const prefix = getCommentPrefixFromBoardY(boardY);
+
+  if (!prefix) {
+    if (!preserveEmpty) {
+      $("commentInput").value = state.commentSuffix ? state.commentSuffix : "";
+      markDirty($("commentInput"), "comment", { countInSummary: false });
+    }
+    return;
+  }
+
+  if (preserveEmpty && $("commentInput").value.trim() === "") {
+    return;
+  }
+
+  $("commentInput").value = buildCommentValue(prefix, state.commentSuffix);
+  markDirty($("commentInput"), "comment", { countInSummary: false });
+}
+
+function captureInitialFormState(){
+  [
+    { id: "boardNameInput", key: "boardName" },
+    { id: "commentInput", key: "comment" },
+    { id: "boardXInput", key: "boardXInput" },
+    { id: "boardYInput", key: "boardYInput" },
+    { id: "boardThicknessInput", key: "boardThicknessInput" },
+    { id: "ref1x", key: "ref1x" },
+    { id: "ref1y", key: "ref1y" },
+    { id: "ref2x", key: "ref2x" },
+    { id: "ref2y", key: "ref2y" },
+    { id: "ref3x", key: "ref3x" },
+    { id: "ref3y", key: "ref3y" },
+    { id: "centerBoardX0", key: "centerBoardX0" },
+    { id: "stopBoardY", key: "stopBoardY" },
+    { id: "frontPressure", key: "frontPressure" },
+    { id: "rearPressure", key: "rearPressure" },
+    { id: "squeegeePasses", key: "squeegeePasses" },
+    { id: "frontSqueegeeSpeed", key: "frontSqueegeeSpeed" },
+    { id: "rearSqueegeeSpeed", key: "rearSqueegeeSpeed" },
+    { id: "separationRate", key: "separationRate" },
+    { id: "separationDistance", key: "separationDistance" },
+    { id: "pasteStirrings", key: "pasteStirrings" },
+    { id: "cleaningFrequency", key: "cleaningFrequency" },
+    { id: "mixingPressure", key: "mixingPressure" },
+    { id: "mixingSpeed", key: "mixingSpeed" },
+    { id: "centerBoardMinus", key: "centerBoardMinus" },
+    { id: "centerBoard3", key: "centerBoard3" },
+    { id: "centerBoardCommon", key: "centerBoardCommon" }
+  ].forEach(({ id, key }) => {
+    state.initialFieldValues[key] = getComparableInputValue($(id));
+    $(id).classList.remove("is-dirty");
+  });
+
+  state.initialToggleValues = {
+    refCount: state.values.refCount,
+    boardStopMode: state.values.boardStopMode,
+    boardSide: state.values.boardSide,
+    printDirection: state.values.printDirection
+  };
+
+  state.changedFields.clear();
+  updateChangedCounter();
+}
+
+function applyInitialTemplateData(templateDefaults){
+  const mergedDefaults = {
+    ...fallbackTemplateDefaults,
+    ...((templateDefaults && templateDefaults.values) || {})
+  };
+
+  applyTemplateDefaults(mergedDefaults);
+  applyTemplateToggles(templateDefaults);
+
+  if (!state.commentWasManuallyEdited && templateDefaults && templateDefaults.comment && $("commentInput").value.trim() === "") {
+    $("commentInput").value = templateDefaults.comment;
+  }
+
+  state.commentSuffix = splitCommentParts(
+    $("commentInput").value,
+    getCommentPrefixFromBoardY(getNum("boardYInput"))
+  ).suffix;
+
+  updateRefFieldsByCount();
+  updateCenterBoardXAuto(true);
+  updateStopBoardYAuto(true);
+  updateAoiButtonState();
+  captureInitialFormState();
+}
+
+function updateWorkspaceSummary(){
+  const summaryEl = $("workspaceSummary");
+  const workspaceData = state.workspaceData;
+
+  if (!summaryEl || !workspaceData) return;
+
+  if (!workspaceData.folder.exists) {
+    $("workspaceFilesCount").textContent = "0";
+    $("workspaceProjectsCount").textContent = "0";
+    $("workspaceKnownFieldsCount").textContent = "0";
+    return;
+  }
+
+  $("workspaceFilesCount").textContent = String(workspaceData.folder.files.length);
+  $("workspaceProjectsCount").textContent = String(workspaceData.projectNames.length);
+  $("workspaceKnownFieldsCount").textContent = String(workspaceData.knownMapSummary.namedEntries);
+}
+
+function formatSaveReportLines(savedItems, failedItems, itemLabel) {
+  const lines = [];
+
+  if (savedItems.length) {
+    lines.push(`${itemLabel} сохранены:`);
+    savedItems.forEach((item) => {
+      lines.push(`- ${item.folder}`);
+    });
+  } else {
+    lines.push(`${itemLabel} не сохранены ни в одну папку.`);
+  }
+
+  if (failedItems.length) {
+    lines.push('');
+    lines.push(`${itemLabel} не сохранены:`);
+    failedItems.forEach((item) => {
+      lines.push(`- ${item.folder}`);
+      lines.push(`  Причина: ${item.errorMessage}`);
+    });
+  }
+
+  return lines;
+}
+
+async function loadWorkspaceData(showAlertOnError){
+  const localFolderPath = $("localPathInput").value.trim();
+
+  try {
+    const workspaceData = await asmBridge.loadWorkspaceData(localFolderPath);
+    state.workspaceData = workspaceData;
+    state.workspaceProjects = workspaceData.projectNames.length ? workspaceData.projectNames : [...demoProjects];
+
+    if (!state.templateDefaultsApplied) {
+      applyInitialTemplateData(workspaceData.templateDefaults);
+      state.templateDefaultsApplied = true;
+    }
+
+    updateWorkspaceSummary();
+    updateSimilarProjects();
+  } catch (error) {
+    state.workspaceData = null;
+    state.workspaceProjects = [...demoProjects];
+
+    if (!state.templateDefaultsApplied) {
+      applyInitialTemplateData({ values: fallbackTemplateDefaults, toggles: {}, comment: "" });
+      state.templateDefaultsApplied = true;
+    }
+
+    if (showAlertOnError) {
+      showAppDialog("Не удалось загрузить рабочие данные", error.message);
+    }
+  }
+}
+
+async function refreshPrinterStatus(showDialog){
+  const printerFolderPath = $("serverPathInput").value.trim();
+
+  try {
+    const result = await asmBridge.inspectFolder(printerFolderPath);
+    const workspaceData = state.workspaceData;
+
+    if (!result.exists) {
+      setPrinterStatus("offline", "принтер недоступен", "danger");
+
+      if (showDialog) {
+        showAppDialog(
+          "Статус принтера",
+          `Принтер недоступен.\n\nАдрес: ${result.path}\n` +
+          `${result.errorMessage ? `\nПричина: ${result.errorMessage}` : ""}`
+        );
+      }
+      return;
+    }
+
+    const foundCount = result.presentRequiredFiles.length;
+    const totalCount = result.presentRequiredFiles.length + result.missingRequiredFiles.length;
+    setPrinterStatus("online", `доступен: ${result.files.length} файлов`, "success");
+
+    if (showDialog) {
+      showAppDialog(
+        "Статус принтера",
+        `Принтер доступен.\n\nАдрес: ${result.path}\n\n` +
+        `Найдено обязательных файлов: ${foundCount} из ${totalCount}\n` +
+        `Есть: ${result.presentRequiredFiles.join(", ") || "—"}\n` +
+        `Не хватает: ${result.missingRequiredFiles.join(", ") || "—"}\n\n` +
+        `Известных проектов: ${(workspaceData && workspaceData.projectNames.length) || 0}\n` +
+        `Подписанных полей в карте: ${(workspaceData && workspaceData.knownMapSummary.namedEntries) || 0}`
+      );
+    }
+  } catch (error) {
+    setPrinterStatus("offline", "принтер недоступен", "danger");
+
+    if (showDialog) {
+      showAppDialog("Статус принтера", `Принтер недоступен.\n\n${error.message}`);
+    }
+  }
+}
+
+async function openPrinterFiles(){
+  const printerFolderPath = $("serverPathInput").value.trim();
+
+  try {
+    const result = await asmBridge.inspectFolder(printerFolderPath);
+
+    if (!result.exists) {
+      showAppDialog("Файлы на принтере", `Папка недоступна.\n\n${result.path}`);
+      return;
+    }
+
+    await asmBridge.openFolder(printerFolderPath);
+  } catch (error) {
+    showAppDialog("Файлы на принтере", `Не удалось открыть папку.\n\n${error.message}`);
+  }
+}
+
+async function saveProjectSnapshot(){
+  const snapshot = buildProjectSnapshot();
+  const boardName = snapshot.values.boardName || "";
+
+  try {
+    const result = await asmBridge.saveProjectJson({
+      ...snapshot,
+      targetFolder: snapshot.paths.local,
+      boardName: boardName || "ASM_Project"
+    });
+    let generationResult = null;
+
+    if (boardName.trim() !== "") {
+      generationResult = await asmBridge.generateProjectFiles({
+        targetFolder: snapshot.paths.local,
+        printerTargetFolder: snapshot.paths.server,
+        boardName,
+        formValues: snapshot.values
+      });
+    }
+
+    await refreshPrinterStatus(false);
+    await refreshSaveReadiness(false);
+
+    const saveReports = generationResult ? generationResult.saveReports : [];
+    const savedFolders = saveReports.filter((item) => item.status === 'saved').map((item) => item.folder);
+    const failedFolders = saveReports.filter((item) => item.status === 'failed').map((item) => item.folder);
+    const pr1PatchCount = generationResult ? generationResult.pr1PatchSummary.patchedFields.length : 0;
+    const savedCount = saveReports.length ? savedFolders.length : result.saved.length;
+    const failedCount = saveReports.length ? failedFolders.length : result.failed.length;
+    const saveSummaryLines = [
+      `Название проекта: ${boardName || "—"}`,
+      '',
+      'Файлы проекта сохранены:',
+      ...(savedFolders.length ? savedFolders.map((folder) => `- ${folder}`) : ['- —']),
+      '',
+      'Файлы проекта не сохранены:',
+      ...(failedFolders.length ? failedFolders.map((folder) => `- ${folder}`) : ['- —']),
+      '',
+      `Изменено полей в PR1: ${pr1PatchCount}`,
+      '',
+      savedCount && failedCount
+        ? 'Часть путей была недоступна, но сохранение выполнено в доступные папки.'
+        : savedCount > 1 && !failedCount
+          ? 'Обе папки доступны, сохранение выполнено в обе.'
+          : !savedCount
+            ? 'Сохранение не выполнено.'
+            : 'Сохранение выполнено в доступную папку.'
+    ];
+
+    showAppDialog("Сохранение проекта", saveSummaryLines.join('\n'));
+
+    await loadWorkspaceData(false);
+  } catch (error) {
+    showAppDialog("Сохранение проекта", `Не удалось сохранить проект.\n\n${error.message}`);
+  }
+}
+
+function resetForm(){
+  saveCurrentPaths();
+  window.location.reload();
+}
+
+function applyTheme(mode){
+  document.documentElement.classList.toggle("light", mode === "light");
+  localStorage.setItem("asm-theme", mode);
+  state.theme = mode;
+  setTimeout(fitProjectText, 30);
+}
+
+function setToday(){
+  $("todayLabel").textContent = new Date().toLocaleDateString("ru-RU", {
+    day:"numeric", month:"long", year:"numeric"
+  });
+}
+
+function fitTextElement(el, min=18, max=32){
+  if (!el) return;
+  el.style.fontSize = max + "px";
+  let current = max;
+  while (current > min && (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)) {
+    current -= 1;
+    el.style.fontSize = current + "px";
+  }
+}
+
+function fitProjectText(){
+  fitTextElement($("statProjectName"), 18, 32);
+}
+
+function updateProjectCard(){
+  const v = $("boardNameInput").value.trim();
+  $("statProjectName").textContent = v || "—";
+  $("headerProjectName").textContent = v || "создание-проекта-printer-asm";
+  fitProjectText();
+}
+
+function updateChangedCounter(){
+  $("statChangedFields").textContent = state.changedFields.size;
+  $("statChangedFieldsTotal").textContent = "/28";
+}
+
+function handleFastClearInput(event){
+  const input = event.target;
+  if (!input || input.disabled || input.readOnly) return;
+
+  if (input.dataset.skipAutoClear === "true") return;
+  // Динамическая логика: запоминаем последнее введённое значение и очищаем поле при входе.
+  state.focusRestoreValues[input.id] = input.value;
+  input.value = "";
+}
+
+function restoreInputValueIfNeeded(event){
+  const input = event.target;
+  if (!input || input.dataset.skipAutoClear === "true") return;
+
+  if (input.value.trim() !== "") {
+    delete state.focusRestoreValues[input.id];
+    return;
+  }
+
+  const previousValue = state.focusRestoreValues[input.id];
+  if (previousValue === undefined) return;
+
+  input.value = previousValue === "" ? "" : String(previousValue);
+  delete state.focusRestoreValues[input.id];
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function updateSimilarProjects(){
+  const val = $("boardNameInput").value.trim().toLowerCase();
+  const list = $("similarProjectsList");
+
+  if (!val) {
+    list.textContent = "Начните вводить название проекта.";
+    $("workspaceProjectsCount").textContent = "0";
+    return;
+  }
+
+  const match = val.match(/^nsft(\d{6,})/i);
+  if (!match) {
+    list.textContent = "Для поиска введите имя в формате nsft...";
+    $("workspaceProjectsCount").textContent = "0";
+    return;
+  }
+
+  const prefix = "nsft" + match[1].slice(0, 6);
+  const projectPool = state.workspaceProjects.length ? state.workspaceProjects : demoProjects;
+  const found = projectPool.filter(x => x.toLowerCase().startsWith(prefix));
+  $("workspaceProjectsCount").textContent = String(found.length);
+
+  list.innerHTML = found.length
+    ? found.map(x => `<div style="padding:5px 0">${x}</div>`).join("")
+    : "Похожие проекты не найдены.";
+}
+
+function getNum(id){
+  const v = parseFloat($(id).value);
+  return Number.isFinite(v) ? v : null;
+}
+
+function markDirty(input, key, options = {}){
+  const { countInSummary = true } = options;
+  const baselineValue = getInitialFieldValue(key);
+  const currentValue = getComparableInputValue(input);
+  const isChanged = currentValue !== baselineValue;
+
+  input.classList.toggle("is-dirty", isChanged);
+
+  if (!countInSummary) {
+    state.changedFields.delete(key);
+  } else if (isChanged) {
+    state.changedFields.add(key);
+  } else {
+    state.changedFields.delete(key);
+  }
+
+  updateChangedCounter();
+}
+
+function fillDefaultsFromTemplate(){
+  applyTemplateDefaults(fallbackTemplateDefaults);
+}
+
+function updateCommentAutoPrefix(){
+  syncCommentFromBoardY();
+}
+
+function syncCenterDuplicates(sourceValue){
+  if (sourceValue === null || sourceValue === undefined || sourceValue === "") return;
+
+  const numeric = Number(sourceValue);
+  if (!Number.isFinite(numeric)) return;
+
+  $("centerBoardCommon").value = String(numeric);
+  $("centerBoard3").value = String(numeric);
+  $("centerBoardMinus").value = String(-numeric);
+
+  markDirty($("centerBoardCommon"), "centerBoardCommon", { countInSummary: false });
+  markDirty($("centerBoard3"), "centerBoard3", { countInSummary: false });
+  markDirty($("centerBoardMinus"), "centerBoardMinus", { countInSummary: false });
+}
+
+function updateCenterBoardXAuto(preserveExistingValue){
+  const x = getNum("boardXInput");
+
+  if (state.values.boardStopMode === 0) {
+    $("centerBoardX0").disabled = true;
+    if (x !== null) {
+      const value = x / 2;
+      if (!preserveExistingValue || $("centerBoardX0").value.trim() === "") {
+        $("centerBoardX0").value = String(value);
+        markDirty($("centerBoardX0"), "centerBoardX0", { countInSummary: false });
+        syncCenterDuplicates(value);
+      }
+    }
+  } else {
+    $("centerBoardX0").disabled = false;
+  }
+}
+
+function updateStopBoardYAuto(preserveExistingValue){
+  const y = getNum("boardYInput");
+  if (y === null) return;
+
+  const val = Math.round((y * 0.7) * 1000) / 1000;
+  if (!preserveExistingValue || $("stopBoardY").value.trim() === "") {
+    $("stopBoardY").value = String(val);
+    markDirty($("stopBoardY"), "stopBoardY", { countInSummary: false });
+  }
+}
+
+function updateRefFieldsByCount(){
+  const isThree = state.values.refCount === 3;
+  $("ref3x").disabled = !isThree;
+  $("ref3y").disabled = !isThree;
+
+  if (!isThree) {
+    $("ref3x").value = "";
+    $("ref3y").value = "";
+    $("ref3x").classList.remove("is-dirty");
+    $("ref3y").classList.remove("is-dirty");
+    state.changedFields.delete("ref3x");
+    state.changedFields.delete("ref3y");
+    updateChangedCounter();
+  }
+}
+
+function updateAoiButtonState(){
+  const x = $("boardXInput").value.trim();
+  const y = $("boardYInput").value.trim();
+  $("saveAoiBtn").disabled = !(x && y);
+}
+
+function setupToggle(containerId, key, onChange){
+  const wrap = $(containerId);
+  const buttons = wrap.querySelectorAll(".toggle-btn");
+
+  buttons.forEach(btn => {
+    btn.addEventListener("click", (event) => {
+      // Отменяем стандартное поведение кнопки, чтобы Electron-страница не сбрасывала состояние формы.
+      event.preventDefault();
+      buttons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const raw = btn.dataset.value;
+      state.values[key] = /^\d+$/.test(raw) ? Number(raw) : raw;
+      const baselineValue = Object.prototype.hasOwnProperty.call(state.initialToggleValues, key)
+       ? state.initialToggleValues[key]
+       : null;
+
+      if (state.values[key] !== baselineValue) state.changedFields.add(key);
+      else state.changedFields.delete(key);
+
+      updateChangedCounter();
+      if (onChange) onChange();
+    });
+  });
+}
+
+function saveAoiSizeFile(){
+  const aoiFolderPath = $("aoiPathInput").value.trim();
+  const boardName = $("boardNameInput").value.trim();
+  const x = $("boardXInput").value.trim();
+  const y = $("boardYInput").value.trim();
+
+  if (!x || !y) return;
+
+  const fileName = boardName || "без_названия";
+  const content = `Размер платы ${x} x ${y}`;
+
+  asmBridge.saveAoiFile({
+    targetFolder: aoiFolderPath,
+    boardName: fileName,
+    content
+  }).then((result) => {
+    showAppDialog(
+      "Сохранение AOI",
+      `AOI-файл сохранен.\n\n` +
+      `Файл: ${result.fileName}\n` +
+      `Путь: ${result.path}\n\n` +
+      `Содержимое:\n${content}`
+    );
+  }).catch((error) => {
+    showAppDialog("Сохранение AOI", `Не удалось сохранить AOI-файл.\n\n${error.message}`);
+  });
+}
+
+function setupPathInput(inputId, pathLabel){
+  const input = $(inputId);
+
+  input.addEventListener("input", () => {
+    saveCurrentPaths();
+  });
+
+  input.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    const pathState = saveCurrentPaths();
+
+    if (inputId === "serverPathInput") {
+      await refreshPrinterStatus(false);
+      await refreshSaveReadiness(false);
+    }
+
+    if (inputId === "localPathInput") {
+      await loadWorkspaceData(false);
+      await refreshSaveReadiness(false);
+    }
+
+    if (inputId === "aoiPathInput") {
+      await refreshSaveReadiness(false);
+    }
+
+    showAppDialog(
+      "Пути обновлены",
+      `${pathLabel} изменен.\n\nНовое значение:\n${input.value.trim()}\n\n` +
+      `Изменение сохранено и будет использоваться дальше.`
+    );
+  });
+}
+
+function setupFastClearInputs(){
+  // Неизменная логика: эти поля не очищаются на фокусе и всегда остаются в текущем состоянии.
+  const skipAutoClearIds = new Set([
+    "boardNameInput",
+    "commentInput",
+    "centerBoardX0",
+    "stopBoardY",
+    "centerBoardMinus",
+    "centerBoard3",
+    "centerBoardCommon"
+  ]);
+
+  [
+    "boardNameInput","commentInput",
+    "boardXInput","boardYInput","boardThicknessInput",
+    "ref1x","ref1y","ref2x","ref2y","ref3x","ref3y",
+    "centerBoardX0","stopBoardY",
+    "frontPressure","rearPressure","squeegeePasses",
+    "frontSqueegeeSpeed","rearSqueegeeSpeed",
+    "separationRate","separationDistance",
+    "pasteStirrings","cleaningFrequency","mixingPressure","mixingSpeed",
+    "centerBoardMinus","centerBoard3","centerBoardCommon"
+  ].forEach((id) => {
+    if (skipAutoClearIds.has(id)) {
+      $(id).dataset.skipAutoClear = "true";
+      return;
+    }
+
+    $(id).addEventListener("focus", handleFastClearInput);
+    $(id).addEventListener("blur", restoreInputValueIfNeeded);
+  });
+}
+
+function init(){
+  applyTooltipTexts();
+  applySettingsPanelVisibility();
+  updateTooltipToggle();
+  wireTooltips();
+
+  applySavedPaths();
+  applyTheme(state.theme);
+  setToday();
+  updateFooterMeta();
+
+  $("themeToggle").addEventListener("click", (event) => {
+    event.preventDefault();
+    applyTheme(state.theme === "dark" ? "light" : "dark");
+  });
+
+  $("appDialogCloseBtn").addEventListener("click", hideAppDialog);
+  $("appDialogBackdrop").addEventListener("click", (event) => {
+    if (event.target === $("appDialogBackdrop")) hideAppDialog();
+  });
+
+  $("statPrinterCard").addEventListener("click", (event) => {
+    event.preventDefault();
+    refreshPrinterStatus(true);
+  });
+
+  $("statSaveReadinessCard").addEventListener("click", (event) => {
+    event.preventDefault();
+    refreshSaveReadiness(true);
+  });
+
+  setupPathInput("localPathInput", "Локальная папка");
+  setupPathInput("serverPathInput", "Адрес принтера");
+  setupPathInput("aoiPathInput", "Папка АОИ");
+  setupFastClearInputs();
+
+  $("boardNameInput").addEventListener("input", () => {
+    markDirty($("boardNameInput"), "boardName");
+    updateProjectCard();
+    updateSimilarProjects();
+  });
+
+  $("commentInput").addEventListener("input", () => {
+    state.commentWasManuallyEdited = true;
+    const currentPrefix = getCommentPrefixFromBoardY(getNum("boardYInput"));
+    state.commentSuffix = splitCommentParts($("commentInput").value, currentPrefix).suffix;
+    markDirty($("commentInput"), "comment");
+  });
+
+  [
+    "boardXInput","boardYInput","boardThicknessInput",
+    "ref1x","ref1y","ref2x","ref2y","ref3x","ref3y",
+    "centerBoardX0","stopBoardY",
+    "frontPressure","rearPressure","squeegeePasses",
+    "frontSqueegeeSpeed","rearSqueegeeSpeed",
+    "separationRate","separationDistance",
+    "pasteStirrings","cleaningFrequency","mixingPressure","mixingSpeed",
+    "centerBoardMinus","centerBoard3","centerBoardCommon"
+  ].forEach(id => {
+    $(id).addEventListener("input", () => {
+      markDirty($(id), id);
+    });
+  });
+
+  $("boardXInput").addEventListener("input", () => {
+    updateCenterBoardXAuto();
+    updateAoiButtonState();
+  });
+
+  $("boardYInput").addEventListener("input", () => {
+    updateCommentAutoPrefix();
+    updateStopBoardYAuto();
+    updateAoiButtonState();
+  });
+
+  $("centerBoardX0").addEventListener("input", () => {
+    if (state.values.boardStopMode === 1) {
+      const val = getNum("centerBoardX0");
+      if (val !== null) syncCenterDuplicates(val);
+    }
+  });
+
+  $("generateBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    saveProjectSnapshot();
+  });
+  $("saveAoiBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    saveAoiSizeFile();
+  });
+  $("openPrinterFilesBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    openPrinterFiles();
+  });
+  $("resetFormBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    resetForm();
+  });
+  $("settingsBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    toggleSettingsPanel();
+  });
+
+  $("tipsToggle").querySelectorAll(".toggle-btn").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const rawValue = button.dataset.value;
+      saveTooltipPreference(rawValue === "1");
+      updateTooltipToggle();
+      hideAppTooltip();
+    });
+  });
+
+  setupToggle("refCountToggle", "refCount", updateRefFieldsByCount);
+  setupToggle("boardStopModeToggle", "boardStopMode", updateCenterBoardXAuto);
+  setupToggle("boardSideToggle", "boardSide");
+  setupToggle("printDirectionToggle", "printDirection");
+
+  updateProjectCard();
+  updateSimilarProjects();
+  updateRefFieldsByCount();
+  updateCenterBoardXAuto();
+  updateStopBoardYAuto();
+  updateAoiButtonState();
+  updateChangedCounter();
+  loadWorkspaceData(false);
+  refreshPrinterStatus(false);
+  refreshSaveReadiness(false);
+  window.addEventListener("scroll", hideAppTooltip, true);
+  window.addEventListener("resize", hideAppTooltip);
+
+  asmBridge.getAppMeta().then((appMeta) => {
+    state.appMeta = appMeta;
+    updateFooterMeta();
+  }).catch(() => {
+    updateFooterMeta();
+  });
+
+  lucide.createIcons();
+  window.addEventListener("resize", fitProjectText);
+}
+
+init();
+</script>
+</div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "description": "Снимок формы ASM Project Generator",
+  "version": "1.9.7",
+  "author": "Новожилов Артем",
+  "createdAt": "2026-07-24T06:58:31.839Z",
+  "paths": {
+    "local": "C:\\settings\\Project_Printer_ASM\\",
+    "server": "\\\\server\\common\\Novozhilov\\",
+    "aoi": "\\\\server\\common\\Любимова\\"
+  },
+  "values": {
+    "boardName": "NSFT000100.000_B_00000000",
+    "comment": "330 proverca test platy i ostaln",
+    "boardX": "180",
+    "boardY": "120",
+    "boardThickness": "2",
+    "refCount": 3,
+    "ref1x": "12.5",
+    "ref1y": "12.5",
+    "ref2x": "135",
+    "ref2y": "83.5",
+    "ref3x": "135",
+    "ref3y": "12",
+    "boardStopMode": 0,
+    "boardSide": 1,
+    "centerBoardX0": "90",
+    "stopBoardY": "84",
+    "frontPressure": "6.6",
+    "rearPressure": "6.6",
+    "squeegeePasses": "12",
+    "printDirection": "B",
+    "separationRate": "2",
+    "separationDistance": "5",
+    "pasteStirrings": "2",
+    "cleaningFrequency": "6",
+    "mixingPressure": "6",
+    "mixingSpeed": "15",
+    "centerBoardMinus": "-90",
+    "centerBoard3": "90",
+    "centerBoardCommon": "90"
+  },
+  "targetFolders": [
+    "C:\\settings\\Project_Printer_ASM\\",
+    "\\\\server\\common\\Novozhilov\\"
+  ],
+  "boardName": "NSFT000100.000_B_00000000"
+}

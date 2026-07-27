@@ -1,0 +1,17 @@
+# Build outputs
+dist/
+*.blockmap
+*.exe
+*.zip
+*.rar
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.tmp

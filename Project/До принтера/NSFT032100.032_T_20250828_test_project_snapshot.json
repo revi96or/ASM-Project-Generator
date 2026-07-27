@@ -1,0 +1,47 @@
+{
+  "description": "Снимок формы ASM Project Generator",
+  "version": "1.9.7",
+  "author": "Новожилов Артем",
+  "createdAt": "2026-07-24T11:01:37.349Z",
+  "paths": {
+    "local": "C:\\settings\\Project_Printer_ASM\\",
+    "server": "\\\\server\\common\\Novozhilov\\",
+    "aoi": "\\\\server\\common\\Любимова\\"
+  },
+  "values": {
+    "boardName": "NSFT032100.032_T_20250828_test",
+    "comment": "369",
+    "boardX": "120",
+    "boardY": "197.5",
+    "boardThickness": "1.5",
+    "refCount": 3,
+    "ref1x": "13.5",
+    "ref1y": "7",
+    "ref2x": "13.3",
+    "ref2y": "190",
+    "ref3x": "106",
+    "ref3y": "190",
+    "boardStopMode": 0,
+    "boardSide": 0,
+    "centerBoardX0": "60",
+    "stopBoardY": "138.25",
+    "frontPressure": "8",
+    "rearPressure": "8",
+    "squeegeePasses": "1",
+    "printDirection": "A",
+    "separationRate": "1",
+    "separationDistance": "3",
+    "pasteStirrings": "1",
+    "cleaningFrequency": "1",
+    "mixingPressure": "5",
+    "mixingSpeed": "10",
+    "centerBoardMinus": "-60",
+    "centerBoard3": "60",
+    "centerBoardCommon": "60"
+  },
+  "targetFolders": [
+    "C:\\settings\\Project_Printer_ASM\\",
+    "\\\\server\\common\\Novozhilov\\"
+  ],
+  "boardName": "NSFT032100.032_T_20250828_test"
+}

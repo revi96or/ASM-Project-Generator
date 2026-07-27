@@ -1,0 +1,41 @@
+{
+   "name": "asm_project_generator",
+   "version": "2.0.1",
+   "versionDate": "2026-07-25",
+   "description": "ASM Project Generator Electron wrapper",
+   "main": "main.js",
+   "scripts": {
+      "start": "electron .",
+      "dist:portable": "electron-builder --win portable --x64",
+      "test": "echo \"Error: no test specified\" && exit 1"
+   },
+   "keywords": [],
+   "author": "Новожилов Артем",
+   "license": "ISC",
+   "type": "commonjs",
+   "build": {
+      "appId": "ru.asm.projectgenerator",
+      "productName": "ASM Project Generator",
+      "asar": true,
+      "icon": "assets\\asm-icon.ico",
+      "files": [
+         "**/*",
+         "!dist/**",
+         "!.git/**",
+         "!*.log"
+      ],
+      "win": {
+         "icon": "assets\\asm-icon.ico",
+         "target": [
+            "portable"
+         ]
+      },
+      "portable": {
+         "artifactName": "ASM_Project_Generator-${version}-portable.exe"
+      }
+   },
+   "devDependencies": {
+      "electron": "^43.2.0",
+      "electron-builder": "^26.15.3"
+   }
+}

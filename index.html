@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0A0E18" />
+<title>Создание проекта принтера ASM</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['Inter', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+<style>
+  :root{
+    --bg:#0A0E18;
+    --surface:#121A2C;
+    --surface-alt:#161F34;
+    --border:rgba(148,178,220,.14);
+    --text:#F2F5FA;
+    --muted:#95A2B8;
+    --accent:#4FC8E8;
+    --accent-fg:#04141C;
+    --success:#28C76F;
+    --danger:#E0554F;
+  }
+
+  html.light{
+    --bg:#E5DCCB;
+    --surface:#F2EADF;
+    --surface-alt:#E9DECF;
+    --border:rgba(70,52,28,.14);
+    --text:#17120D;
+    --muted:#554A3F;
+    --accent:#0EA5C4;
+    --accent-fg:#FFFFFF;
+    --success:#1E9B53;
+    --danger:#C84945;
+  }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:Inter,sans-serif;
+  }
+
+  .hero-bg{
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:42px 42px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 100% at 30% 0%, black 40%, transparent 85%);
+            mask-image: radial-gradient(ellipse 90% 100% at 30% 0%, black 40%, transparent 85%);
+    opacity:.5;
+  }
+
+  .hair-b{ border-bottom:1px solid var(--border); }
+  .hair-t{ border-top:1px solid var(--border); }
+
+  .breadcrumb{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:9px;
+  }
+
+  .breadcrumb .dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  html.light .eyebrow{
+    font-weight:700;
+  }
+
+  .eyebrow::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--border);
+  }
+
+  .stat-card{
+    position:relative;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px 20px;
+    background:var(--surface);
+    min-height:130px;
+  }
+
+  .stat-card.clickable{ cursor:pointer; }
+
+  .stat-card::before{
+    content:'';
+    position:absolute;
+    top:-1px;
+    left:-1px;
+    width:18px;
+    height:18px;
+    border-top:2px solid var(--accent);
+    border-left:2px solid var(--accent);
+    border-top-left-radius:14px;
+  }
+
+  .stat-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .stat-num{
+    font-weight:800;
+    font-size:32px;
+    line-height:1.05;
+  }
+
+  .stat-num.fit-project{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    word-break:break-word;
+    hyphens:auto;
+  }
+
+  .stat-cap{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:5px;
+  }
+
+  .section-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+  }
+
+  .section-title{
+    font-size:26px;
+    font-weight:800;
+    margin-bottom:14px;
+    line-height:1.08;
+  }
+
+  .field-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    letter-spacing:.08em;
+    color:var(--muted);
+    text-transform:uppercase;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+
+  .field-input{
+    width:100%;
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:16px;
+    color:var(--text);
+    transition:.15s ease;
+    appearance:textfield;
+    -moz-appearance:textfield;
+  }
+
+  .field-input::-webkit-outer-spin-button,
+  .field-input::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+  }
+
+  .field-input:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .field-input.is-dirty{
+    border-color:color-mix(in srgb, var(--accent) 70%, var(--border));
+    background:color-mix(in srgb, var(--accent) 8%, var(--surface-alt));
+  }
+
+  .field-input:disabled{
+    opacity:.65;
+    cursor:not-allowed;
+  }
+
+  .ghost-btn, .solid-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:15px;
+    font-weight:600;
+  }
+
+  .ghost-btn{
+    border:1px solid var(--border);
+    background:var(--surface-alt);
+    color:var(--text);
+  }
+
+  .solid-btn{
+    background:var(--accent);
+    color:var(--accent-fg);
+    justify-content:flex-start;
+    text-align:left;
+  }
+
+  .solid-btn:disabled,
+  .ghost-btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+  }
+
+  .toggle-wrap{
+    display:flex;
+    gap:6px;
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:3px;
+  }
+
+  .toggle-btn{
+    flex:1;
+    border:none;
+    border-radius:8px;
+    padding:7px 10px;
+    font-size:14px;
+    font-weight:700;
+    color:var(--muted);
+    background:transparent;
+  }
+
+  .toggle-btn.active{
+    background:color-mix(in srgb, var(--accent) 18%, transparent);
+    color:var(--text);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .toggle-wrap.compact{
+    width:50%;
+    min-width:180px;
+  }
+
+  .toggle-wrap.medium{
+    width:25%;
+    min-width:240px;
+  }
+
+  .helper{
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.45;
+    margin-top:5px;
+  }
+
+  .hint-list{
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 12px;
+    font-size:14px;
+    color:var(--muted);
+    max-height:180px;
+    overflow:auto;
+  }
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<header class="hair-b relative overflow-hidden">
+  <div class="hero-bg absolute inset-0 pointer-events-none"></div>
+  <div class="relative max-w-[1550px] mx-auto px-5 lg:px-8 pt-8 pb-8">
+    <div class="flex items-center justify-between gap-4 mb-7">
+      <div class="breadcrumb">
+        <span class="dot"></span>
+        <span id="headerProjectName">создание-проекта-printer-asm</span>
+        <span>·</span>
+        <span>локальный режим</span>
+        <span>·</span>
+        <span id="todayLabel"></span>
+      </div>
+
+      <button id="themeToggle" class="ghost-btn">
+        <i data-lucide="sun-moon" class="w-4 h-4"></i>
+        Тема
+      </button>
+    </div>
+
+    <h1 class="font-display font-extrabold text-[40px] leading-[1.08] tracking-tight max-w-4xl">
+      Создание <span style="color:var(--accent)">проекта принтера ASM</span>
+    </h1>
+
+    <p class="mt-4 text-[16px] text-muted max-w-3xl">
+      Генератор проекта на основе шаблона PR1 и связанных файлов.
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-7">
+      <button class="stat-card clickable text-left">
+        <div class="stat-label">Статус принтера</div>
+        <div class="mt-2"><span class="stat-num" id="statPrinterStatus" style="color:var(--danger)">offline</span></div>
+        <div class="stat-cap" id="statPrinterStatusSub">не подключено</div>
+      </button>
+
+      <div class="stat-card">
+        <div class="stat-label">Проект</div>
+        <div class="mt-2"><span class="stat-num fit-project" id="statProjectName" style="font-size:32px;">—</span></div>
+        <div class="stat-cap">название платы</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Поля</div>
+        <div class="mt-2">
+          <span class="stat-num" id="statChangedFields">0</span>
+          <span style="font-size:16px;color:var(--muted)" id="statChangedFieldsTotal">/0</span>
+        </div>
+        <div class="stat-cap">изменено / доступно</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Последняя генерация</div>
+        <div class="mt-2"><span class="stat-num" id="statLastGeneration" style="font-size:24px;">—</span></div>
+        <div class="stat-cap">время</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="flex-1 max-w-[1550px] w-full mx-auto flex flex-col lg:flex-row">
+  <aside class="lg:w-[390px] shrink-0 px-5 lg:px-8 py-8 lg:border-r border-border space-y-8">
+
+    <section>
+      <div class="eyebrow mb-4">/ 01 <span>Похожие проекты</span></div>
+      <div class="hint-list" id="similarProjectsList">Начните вводить название проекта.</div>
+      <div class="helper">Чтение реальной папки проектов подключается позже через Electron или backend.</div>
+    </section>
+
+    <section class="hair-t pt-6">
+      <div class="eyebrow mb-4">/ 02 <span>Управление</span></div>
+      <div class="space-y-2">
+        <button id="generateBtn" class="solid-btn w-full">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          Сохранить проект
+        </button>
+
+        <button id="saveAoiBtn" class="ghost-btn w-full" disabled>
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          Сохранить размеры для АОИ
+        </button>
+
+        <button id="checkPrinterBtn" class="ghost-btn w-full">
+          <i data-lucide="wifi" class="w-4 h-4"></i>
+          Доступность принтера
+        </button>
+
+        <button id="openPrinterFilesBtn" class="ghost-btn w-full">
+          <i data-lucide="folder-tree" class="w-4 h-4"></i>
+          Файлы на принтере
+        </button>
+
+        <button id="resetFormBtn" class="ghost-btn w-full">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          Сбросить форму
+        </button>
+      </div>
+    </section>
+
+    <section class="hair-t pt-6">
+      <div class="eyebrow mb-4">/ 03 <span>Пути</span></div>
+      <div class="space-y-3">
+        <div>
+          <div class="field-label">Локальная папка</div>
+          <input class="field-input" value="c:\settings\Project_Printer_ASM\" />
+        </div>
+        <div>
+          <div class="field-label">Папка сервера</div>
+          <input class="field-input" value="\\server\common\Novozhilov\" />
+        </div>
+        <div>
+          <div class="field-label">Папка АОИ</div>
+          <input class="field-input" value="\\server\common\Любимова К.И.\" />
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <main class="flex-1 min-w-0 px-5 lg:px-8 py-8">
+    <section>
+      <div class="eyebrow mb-4">/ 04 <span>Генератор параметров</span></div>
+
+      <div class="space-y-4">
+        <div class="section-card p-4">
+          <h2 class="section-title">Проект</h2>
+
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div>
+              <div class="field-label">Название платы</div>
+              <input id="boardNameInput" class="field-input" placeholder="NSFT080100.006_20200603_B" />
+              <div class="helper">Используется в именах файлов .PR1 / .ISD / .pxf / .txt</div>
+            </div>
+
+            <div>
+              <div class="field-label">Комментарий</div>
+              <input id="commentInput" class="field-input" maxlength="32" placeholder="Автозаполнение + ваш текст" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Размеры платы</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div class="field-label">Длина платы (X)</div>
+              <input id="boardXInput" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Высота платы (Y)</div>
+              <input id="boardYInput" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Толщина платы</div>
+              <input id="boardThicknessInput" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+          <div class="helper">Значения по умолчанию должны подтягиваться из шаблона: c:\settings\Project_Printer_ASM\template.PR1</div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Реперы</h2>
+
+          <div class="mb-4">
+            <div class="field-label">Количество реперных знаков</div>
+            <div class="toggle-wrap compact" id="refCountToggle">
+              <button class="toggle-btn active" data-value="2">2</button>
+              <button class="toggle-btn" data-value="3">3</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div class="field-label">REF1_X</div>
+              <input id="ref1x" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF2_X</div>
+              <input id="ref2x" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF3_X</div>
+              <input id="ref3x" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">REF1_Y</div>
+              <input id="ref1y" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF2_Y</div>
+              <input id="ref2y" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">REF3_Y</div>
+              <input id="ref3y" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+          <div class="helper">Значения реперов тоже должны подтягиваться из шаблона PR1.</div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Позиционирование платы</h2>
+
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+            <div>
+              <div class="field-label">Режим остановки платы</div>
+              <div class="toggle-wrap compact" id="boardStopModeToggle">
+                <button class="toggle-btn active" data-value="0">Авто</button>
+                <button class="toggle-btn" data-value="1">Вручную</button>
+              </div>
+            </div>
+
+            <div>
+              <div class="field-label">Сторона платы</div>
+              <div class="toggle-wrap compact" id="boardSideToggle">
+                <button class="toggle-btn active" data-value="0">Top</button>
+                <button class="toggle-btn" data-value="1">Bottom</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div class="field-label">Смещение остановки по X</div>
+              <input id="centerBoardX0" class="field-input tracked-input" type="number" step="any" />
+              <div class="helper">Авто: половина длины платы (X). Вручную: потом проверю</div>
+            </div>
+
+            <div>
+              <div class="field-label">Stop Board Y</div>
+              <input id="stopBoardY" class="field-input tracked-input" type="number" step="any" />
+              <div class="helper">Всегда по формуле: 70% от высоты платы (Y)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Печать</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+              <div class="field-label">Давление переднего ракеля</div>
+              <input id="frontPressure" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">Давление заднего ракеля</div>
+              <input id="rearPressure" class="field-input tracked-input" type="number" step="any" />
+            </div>
+
+            <div>
+              <div class="field-label">Количество проходов ракеля</div>
+              <input id="squeegeePasses" class="field-input tracked-input" type="number" step="1" />
+            </div>
+
+            <div>
+              <div class="field-label">Направление печати</div>
+              <div class="toggle-wrap medium" id="printDirectionToggle">
+                <button class="toggle-btn" data-value="A">Backward</button>
+                <button class="toggle-btn active" data-value="B">Forward</button>
+              </div>
+            </div>
+          </div>
+          <div class="helper">Параметры печати по умолчанию тоже должны подтягиваться из шаблона PR1.</div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Разделение</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div class="field-label">Скорость разделения</div>
+              <input id="separationRate" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Расстояние разделения</div>
+              <input id="separationDistance" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Паста и обслуживание</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+              <div class="field-label">Количество перемешиваний</div>
+              <input id="pasteStirrings" class="field-input tracked-input" type="number" step="1" />
+            </div>
+            <div>
+              <div class="field-label">Частота очистки</div>
+              <input id="cleaningFrequency" class="field-input tracked-input" type="number" step="1" />
+            </div>
+            <div>
+              <div class="field-label">Давление перемешивания</div>
+              <input id="mixingPressure" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Скорость перемешивания</div>
+              <input id="mixingSpeed" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card p-4">
+          <h2 class="section-title">Расширенные параметры</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div class="field-label">Center Board Minus</div>
+              <input id="centerBoardMinus" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Center Board 3</div>
+              <input id="centerBoard3" class="field-input tracked-input" type="number" step="any" />
+            </div>
+            <div>
+              <div class="field-label">Center Board</div>
+              <input id="centerBoardCommon" class="field-input tracked-input" type="number" step="any" />
+            </div>
+          </div>
+          <div class="helper">Эти поля автоматически синхронизируются со "Смещением остановки по X".</div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const state = {
+  theme: localStorage.getItem("asm-theme") || "dark",
+  changedFields: new Set(),
+  values: {
+    refCount: 2,
+    boardStopMode: 0,
+    boardSide: 0,
+    printDirection: "B"
+  },
+  commentWasManuallyEdited: false
+};
+
+const templateDefaults = {
+  boardThicknessInput: "1.6",
+  frontPressure: "4",
+  rearPressure: "4",
+  squeegeePasses: "1",
+  separationRate: "20",
+  separationDistance: "3",
+  pasteStirrings: "2",
+  cleaningFrequency: "10",
+  mixingPressure: "3",
+  mixingSpeed: "15",
+  ref1x: "",
+  ref1y: "",
+  ref2x: "",
+  ref2y: "",
+  ref3x: "",
+  ref3y: ""
+};
+
+const demoProjects = [
+  "nsft080100.003_20250908_T",
+  "nsft080100.004_20250911_B",
+  "nsft080100.006_20200603_B"
+];
+
+function $(id){ return document.getElementById(id); }
+
+function applyTheme(mode){
+  document.documentElement.classList.toggle("light", mode === "light");
+  localStorage.setItem("asm-theme", mode);
+  state.theme = mode;
+  setTimeout(fitProjectText, 30);
+}
+
+function setToday(){
+  $("todayLabel").textContent = new Date().toLocaleDateString("ru-RU", {
+    day:"numeric", month:"long", year:"numeric"
+  });
+}
+
+function fitTextElement(el, min=18, max=32){
+  if (!el) return;
+  el.style.fontSize = max + "px";
+  let current = max;
+  while (current > min && (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)) {
+    current -= 1;
+    el.style.fontSize = current + "px";
+  }
+}
+
+function fitProjectText(){
+  fitTextElement($("statProjectName"), 18, 32);
+}
+
+function updateProjectCard(){
+  const v = $("boardNameInput").value.trim();
+  $("statProjectName").textContent = v || "—";
+  $("headerProjectName").textContent = v || "создание-проекта-printer-asm";
+  fitProjectText();
+}
+
+function updateChangedCounter(){
+  $("statChangedFields").textContent = state.changedFields.size;
+  $("statChangedFieldsTotal").textContent = "/22";
+}
+
+function updateSimilarProjects(){
+  const val = $("boardNameInput").value.trim().toLowerCase();
+  const list = $("similarProjectsList");
+
+  if (!val) {
+    list.textContent = "Начните вводить название проекта.";
+    return;
+  }
+
+  const match = val.match(/^nsft(\d{6,})/i);
+  if (!match) {
+    list.textContent = "Для поиска введите имя в формате nsft...";
+    return;
+  }
+
+  const prefix = "nsft" + match[1].slice(0, 6);
+  const found = demoProjects.filter(x => x.toLowerCase().startsWith(prefix));
+
+  list.innerHTML = found.length
+    ? found.map(x => `<div style="padding:5px 0">${x}</div>`).join("")
+    : "Похожие проекты не найдены.";
+}
+
+function getNum(id){
+  const v = parseFloat($(id).value);
+  return Number.isFinite(v) ? v : null;
+}
+
+function markDirty(input, key){
+  const filled = input.value.trim() !== "";
+  input.classList.toggle("is-dirty", filled);
+
+  if (filled) state.changedFields.add(key);
+  else state.changedFields.delete(key);
+
+  updateChangedCounter();
+}
+
+function fillDefaultsFromTemplate(){
+  Object.entries(templateDefaults).forEach(([id, value]) => {
+    const el = $(id);
+    if (!el) return;
+    if (el.value.trim() === "") el.value = value;
+  });
+}
+
+function updateCommentAutoPrefix(){
+  const boardY = getNum("boardYInput");
+  if (boardY === null) return;
+
+  const autoPrefix = String(Math.round(270 + boardY / 2));
+  if (!state.commentWasManuallyEdited || $("commentInput").value.trim() === "") {
+    $("commentInput").value = autoPrefix;
+    $("commentInput").classList.add("is-dirty");
+    state.changedFields.add("comment");
+    updateChangedCounter();
+  }
+}
+
+function syncCenterDuplicates(sourceValue){
+  if (sourceValue === null || sourceValue === undefined || sourceValue === "") return;
+
+  const numeric = Number(sourceValue);
+  if (!Number.isFinite(numeric)) return;
+
+  $("centerBoardCommon").value = String(numeric);
+  $("centerBoard3").value = String(numeric);
+  $("centerBoardMinus").value = String(-numeric);
+
+  $("centerBoardCommon").classList.add("is-dirty");
+  $("centerBoard3").classList.add("is-dirty");
+  $("centerBoardMinus").classList.add("is-dirty");
+
+  state.changedFields.add("centerBoardCommon");
+  state.changedFields.add("centerBoard3");
+  state.changedFields.add("centerBoardMinus");
+  updateChangedCounter();
+}
+
+function updateCenterBoardXAuto(){
+  const x = getNum("boardXInput");
+
+  if (state.values.boardStopMode === 0) {
+    $("centerBoardX0").disabled = true;
+    if (x !== null) {
+      const value = x / 2;
+      $("centerBoardX0").value = String(value);
+      $("centerBoardX0").classList.add("is-dirty");
+      state.changedFields.add("centerBoardX0");
+      syncCenterDuplicates(value);
+      updateChangedCounter();
+    }
+  } else {
+    $("centerBoardX0").disabled = false;
+  }
+}
+
+function updateStopBoardYAuto(){
+  const y = getNum("boardYInput");
+  if (y === null) return;
+
+  const val = Math.round((y * 0.7) * 1000) / 1000;
+  $("stopBoardY").value = String(val);
+  $("stopBoardY").classList.add("is-dirty");
+  state.changedFields.add("stopBoardY");
+  updateChangedCounter();
+}
+
+function updateRefFieldsByCount(){
+  const isThree = state.values.refCount === 3;
+  $("ref3x").disabled = !isThree;
+  $("ref3y").disabled = !isThree;
+
+  if (!isThree) {
+    $("ref3x").value = "";
+    $("ref3y").value = "";
+    $("ref3x").classList.remove("is-dirty");
+    $("ref3y").classList.remove("is-dirty");
+    state.changedFields.delete("ref3x");
+    state.changedFields.delete("ref3y");
+    updateChangedCounter();
+  }
+}
+
+function updateAoiButtonState(){
+  const x = $("boardXInput").value.trim();
+  const y = $("boardYInput").value.trim();
+  $("saveAoiBtn").disabled = !(x && y);
+}
+
+function setupToggle(containerId, key, onChange){
+  const wrap = $(containerId);
+  const buttons = wrap.querySelectorAll(".toggle-btn");
+
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      buttons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const raw = btn.dataset.value;
+      state.values[key] = /^\d+$/.test(raw) ? Number(raw) : raw;
+      state.changedFields.add(key);
+      updateChangedCounter();
+      if (onChange) onChange();
+    });
+  });
+}
+
+function saveAoiSizeFile(){
+  const boardName = $("boardNameInput").value.trim();
+  const x = $("boardXInput").value.trim();
+  const y = $("boardYInput").value.trim();
+
+  if (!x || !y) return;
+
+  const fileName = boardName || "без_названия";
+  const content = `Размер платы ${x} x ${y}`;
+
+  console.log("AOI TXT:", {
+    path: `\\\\server\\common\\Любимова К.И.\\${fileName}.txt`,
+    content
+  });
+
+  alert(
+    `Подготовлен AOI-файл:\n\n` +
+    `Путь: \\\\server\\common\\Любимова К.И.\\${fileName}.txt\n\n` +
+    `Содержимое:\n${content}\n\n` +
+    `Реальная запись в сетевую папку будет подключена через Electron.`
+  );
+}
+
+function init(){
+  applyTheme(state.theme);
+  setToday();
+  fillDefaultsFromTemplate();
+
+  $("themeToggle").addEventListener("click", () => {
+    applyTheme(state.theme === "dark" ? "light" : "dark");
+  });
+
+  $("boardNameInput").addEventListener("input", () => {
+    markDirty($("boardNameInput"), "boardName");
+    updateProjectCard();
+    updateSimilarProjects();
+  });
+
+  $("commentInput").addEventListener("input", () => {
+    state.commentWasManuallyEdited = true;
+    markDirty($("commentInput"), "comment");
+  });
+
+  [
+    "boardXInput","boardYInput","boardThicknessInput",
+    "ref1x","ref1y","ref2x","ref2y","ref3x","ref3y",
+    "centerBoardX0","stopBoardY",
+    "frontPressure","rearPressure","squeegeePasses",
+    "separationRate","separationDistance",
+    "pasteStirrings","cleaningFrequency","mixingPressure","mixingSpeed",
+    "centerBoardMinus","centerBoard3","centerBoardCommon"
+  ].forEach(id => {
+    $(id).addEventListener("input", () => {
+      markDirty($(id), id);
+    });
+  });
+
+  $("boardXInput").addEventListener("input", () => {
+    updateCenterBoardXAuto();
+    updateAoiButtonState();
+  });
+
+  $("boardYInput").addEventListener("input", () => {
+    updateCommentAutoPrefix();
+    updateStopBoardYAuto();
+    updateAoiButtonState();
+  });
+
+  $("centerBoardX0").addEventListener("input", () => {
+    if (state.values.boardStopMode === 1) {
+      const val = getNum("centerBoardX0");
+      if (val !== null) syncCenterDuplicates(val);
+    }
+  });
+
+  $("saveAoiBtn").addEventListener("click", saveAoiSizeFile);
+
+  setupToggle("refCountToggle", "refCount", updateRefFieldsByCount);
+  setupToggle("boardStopModeToggle", "boardStopMode", updateCenterBoardXAuto);
+  setupToggle("boardSideToggle", "boardSide");
+  setupToggle("printDirectionToggle", "printDirection");
+
+  updateProjectCard();
+  updateSimilarProjects();
+  updateRefFieldsByCount();
+  updateCenterBoardXAuto();
+  updateStopBoardYAuto();
+  updateAoiButtonState();
+  updateChangedCounter();
+
+  $("statPrinterStatus").textContent = "offline";
+  $("statPrinterStatusSub").textContent = "не подключено";
+
+  lucide.createIcons();
+  window.addEventListener("resize", fitProjectText);
+}
+
+init();
+</script>
+</body>
+</html>
