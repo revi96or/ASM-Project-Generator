@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.10.10
+Версия: 9.10.14
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -239,6 +239,7 @@
     word-break:normal;
     overflow-wrap:normal;
     text-overflow:clip;
+    letter-spacing:0;
   }
 
   .stat-cap{
@@ -608,7 +609,7 @@
 
       <div class="stat-card">
         <div class="stat-label">Проект</div>
-        <div class="stat-value-row"><span class="stat-num fit-project stat-hero-value" id="statProjectName">—</span></div>
+        <div class="stat-value-row"><span class="stat-num fit-project" id="statProjectName" style="font-size:28px;">—</span></div>
         <div class="stat-cap">название платы</div>
       </div>
 
@@ -979,13 +980,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.10.10
+// Версия: 9.10.14
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.1.10",
+    version: "2.2.0",
     versionDate: "2026-07-28"
   }),
   getUserSettings: async () => ({
@@ -1045,8 +1046,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.1.10",
-    latestVersion: "2.1.10",
+    currentVersion: "2.2.0",
+    latestVersion: "2.2.0",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1072,7 +1073,7 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.1.10",
+    version: "2.2.0",
     versionDate: "2026-07-28"
   },
   initialFieldValues: {},
@@ -1640,7 +1641,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.1.10",
+    version: "2.2.0",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -2131,8 +2132,8 @@ function fitTextElement(el, min=18, max=32){
 }
 
 function fitProjectText(){
-  // Стартуем с размера первой карточки и ужимаем только по ширине, чтобы название не переносилось.
-  fitTextElement($("statProjectName"), 18, 40);
+  // Стартуем с размера cap-визуала и ужимаем только по ширине, чтобы название не переносилось.
+  fitTextElement($("statProjectName"), 14, 28);
 }
 
 function updateProjectCard(){
