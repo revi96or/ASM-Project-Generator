@@ -36,13 +36,13 @@ npm start
 ## Build
 
 ```bash
-npm run dist:portable
+npm run dist:installer
 ```
 
 ## Versioning
 
-- app version: `2.1.1`
-- UI version: `9.10.1`
+- app version: `2.1.10`
+- UI version: `9.10.10`
 
 ## Update notes
 

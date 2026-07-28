@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.10.1
+Версия: 9.10.10
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -180,6 +180,8 @@
     padding:18px 20px;
     background:var(--surface);
     min-height:130px;
+    display:flex;
+    flex-direction:column;
   }
 
   .stat-card.clickable{ cursor:pointer; }
@@ -197,11 +199,13 @@
   }
 
   .stat-label{
-    font-family:'JetBrains Mono',monospace;
-    font-size:11px;
-    letter-spacing:.09em;
-    text-transform:uppercase;
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    line-height:1.1;
+    letter-spacing:.08em;
     color:var(--muted);
+    font-weight:700;
+    text-transform:uppercase;
   }
 
   .stat-num{
@@ -210,18 +214,39 @@
     line-height:1.05;
   }
 
+  .stat-hero-value{
+    font-size:40px;
+    line-height:1;
+  }
+
+  .stat-value-row{
+    min-height:56px;
+    display:flex;
+    align-items:flex-end;
+    margin-top:14px;
+  }
+
+  .stat-status-stack{
+    min-height:56px;
+    margin-top:14px;
+  }
+
   .stat-num.fit-project{
     display:block;
     max-width:100%;
     overflow:hidden;
-    word-break:break-word;
-    hyphens:auto;
+    white-space:nowrap;
+    word-break:normal;
+    overflow-wrap:normal;
+    text-overflow:clip;
   }
 
   .stat-cap{
     font-size:13px;
     color:var(--muted);
     margin-top:5px;
+    margin-top:auto;
+    padding-top:10px;
   }
 
   .section-card{
@@ -577,28 +602,28 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-7">
       <button id="statPrinterCard" type="button" class="stat-card clickable text-left">
         <div class="stat-label">Статус принтера</div>
-        <div class="mt-2"><span class="stat-num" id="statPrinterStatus" style="color:var(--danger)">offline</span></div>
+        <div class="stat-value-row"><span class="stat-num stat-hero-value" id="statPrinterStatus" style="color:var(--danger)">offline</span></div>
         <div class="stat-cap" id="statPrinterStatusSub">проверка при запуске</div>
       </button>
 
       <div class="stat-card">
         <div class="stat-label">Проект</div>
-        <div class="mt-2"><span class="stat-num fit-project" id="statProjectName" style="font-size:32px;">—</span></div>
+        <div class="stat-value-row"><span class="stat-num fit-project stat-hero-value" id="statProjectName">—</span></div>
         <div class="stat-cap">название платы</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Поля</div>
-        <div class="mt-2">
-          <span class="stat-num" id="statChangedFields">0</span>
-          <span style="font-size:16px;color:var(--muted)" id="statChangedFieldsTotal">/0</span>
+        <div class="stat-value-row">
+          <span class="stat-num stat-hero-value" id="statChangedFields">0</span>
+          <span class="stat-num stat-hero-value" style="color:var(--muted)" id="statChangedFieldsTotal">/0</span>
         </div>
         <div class="stat-cap">изменено / доступно</div>
       </div>
 
       <button id="statSaveReadinessCard" type="button" class="stat-card clickable text-left">
         <div class="stat-label">Готовность сохранения</div>
-        <div class="status-stack">
+        <div class="status-stack stat-status-stack">
           <div class="status-row">
             <span>локальная</span>
             <span id="statLocalReady" class="status-row-value danger">offline</span>
@@ -619,7 +644,7 @@
 
 <div class="split-layout max-w-[1550px] w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
   <aside class="scroll-zone scroll-zone-left lg:basis-1/3 xl:max-w-[430px] shrink-0 px-5 lg:px-8 py-8">
-    <div class="space-y-8">
+    <div class="space-y-5">
 
     <section>
       <div class="eyebrow mb-4"><span>Похожие проекты</span></div>
@@ -631,7 +656,7 @@
       </div>
     </section>
 
-    <section class="hair-t pt-6">
+    <section>
       <div class="eyebrow mb-4"><span>Управление</span></div>
       <div class="space-y-2">
         <button id="generateBtn" type="button" class="solid-btn w-full">
@@ -684,7 +709,7 @@
       </div>
     </section>
 
-    <section class="hair-t pt-6">
+    <section>
       <div class="eyebrow mb-4"><span>Пути</span></div>
       <div class="space-y-3">
         <div>
@@ -954,14 +979,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.10.0
+// Версия: 9.10.10
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.1.1",
-    versionDate: "2026-07-25"
+    version: "2.1.10",
+    versionDate: "2026-07-28"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1020,8 +1045,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.1.1",
-    latestVersion: "2.1.1",
+    currentVersion: "2.1.10",
+    latestVersion: "2.1.10",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1047,8 +1072,8 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.1.1",
-    versionDate: "2026-07-25"
+    version: "2.1.10",
+    versionDate: "2026-07-28"
   },
   initialFieldValues: {},
   initialToggleValues: {},
@@ -1531,25 +1556,29 @@ async function refreshSaveReadiness(showDialog){
     probeFolderAvailability(aoiFolderPath)
   ]);
 
-  setSaveReadinessValue("statLocalReady", localResult.available ? "online" : "offline", localResult.available ? "success" : "danger");
-  setSaveReadinessValue("statPrinterReady", printerResult.available ? "online" : "offline", printerResult.available ? "success" : "danger");
-  setSaveReadinessValue("statAoiReady", aoiResult.available ? "online" : "offline", aoiResult.available ? "success" : "danger");
+  const localReady = Boolean(localResult.exists && localResult.writable);
+  const printerReady = Boolean(printerResult.exists && printerResult.writable);
+  const aoiReady = Boolean(aoiResult.exists && aoiResult.writable);
+
+  setSaveReadinessValue("statLocalReady", localReady ? "online" : "offline", localReady ? "success" : "danger");
+  setSaveReadinessValue("statPrinterReady", printerReady ? "online" : "offline", printerReady ? "success" : "danger");
+  setSaveReadinessValue("statAoiReady", aoiReady ? "online" : "offline", aoiReady ? "success" : "danger");
 
   if (showDialog) {
     showAppDialog(
       "Готовность сохранения",
       [
-        `Локальная папка: ${localResult.available ? "online" : "offline"}`,
+        `Локальная папка: ${localReady ? "online" : "offline"}`,
         `Путь: ${localResult.path}`,
-        localResult.available ? "" : `Причина: ${localResult.errorMessage || "нет доступа"}`,
+        localReady ? "" : `Причина: ${localResult.errorMessage || "нет доступа"}`,
         "",
-        `Принтер: ${printerResult.available ? "online" : "offline"}`,
+        `Принтер: ${printerReady ? "online" : "offline"}`,
         `Путь: ${printerResult.path}`,
-        printerResult.available ? "" : `Причина: ${printerResult.errorMessage || "нет доступа"}`,
+        printerReady ? "" : `Причина: ${printerResult.errorMessage || "нет доступа"}`,
         "",
-        `AOI: ${aoiResult.available ? "online" : "offline"}`,
+        `AOI: ${aoiReady ? "online" : "offline"}`,
         `Путь: ${aoiResult.path}`,
-        aoiResult.available ? "" : `Причина: ${aoiResult.errorMessage || "нет доступа"}`
+        aoiReady ? "" : `Причина: ${aoiResult.errorMessage || "нет доступа"}`
       ].filter(Boolean).join("\n")
     );
   }
@@ -1611,7 +1640,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.1.0",
+    version: "2.1.10",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -1879,22 +1908,23 @@ function applyInitialTemplateData(templateDefaults){
   captureInitialFormState();
 }
 
-function updateWorkspaceSummary(){
+async function updateWorkspaceSummary(){
   const summaryEl = $("workspaceSummary");
   const workspaceData = state.workspaceData;
 
   if (!summaryEl || !workspaceData) return;
 
-  if (!workspaceData.folder.exists) {
-    $("workspaceFilesCount").textContent = "0";
-    $("workspaceProjectsCount").textContent = "0";
-    $("workspaceKnownFieldsCount").textContent = "0";
-    return;
-  }
+  $("workspaceProjectsCount").textContent = workspaceData.folder.exists ? String(workspaceData.projectNames.length) : "0";
+  $("workspaceKnownFieldsCount").textContent = workspaceData.folder.exists ? String(workspaceData.knownMapSummary.namedEntries) : "0";
 
-  $("workspaceFilesCount").textContent = String(workspaceData.folder.files.length);
-  $("workspaceProjectsCount").textContent = String(workspaceData.projectNames.length);
-  $("workspaceKnownFieldsCount").textContent = String(workspaceData.knownMapSummary.namedEntries);
+  try {
+    const printerPath = $("serverPathInput").value.trim();
+    const printerFolder = printerPath ? await asmBridge.inspectFolder(printerPath) : null;
+    // Счетчик в блоке "Похожие проекты" показывает общий объем файлов в папке принтера.
+    $("workspaceFilesCount").textContent = printerFolder && printerFolder.exists ? String(printerFolder.files.length) : "0";
+  } catch {
+    $("workspaceFilesCount").textContent = "0";
+  }
 }
 
 function formatSaveReportLines(savedItems, failedItems, itemLabel) {
@@ -1934,7 +1964,7 @@ async function loadWorkspaceData(showAlertOnError){
       state.templateDefaultsApplied = true;
     }
 
-    updateWorkspaceSummary();
+    await updateWorkspaceSummary();
     updateSimilarProjects();
   } catch (error) {
     state.workspaceData = null;
@@ -1971,17 +2001,14 @@ async function refreshPrinterStatus(showDialog){
       return;
     }
 
-    const foundCount = result.presentRequiredFiles.length;
-    const totalCount = result.presentRequiredFiles.length + result.missingRequiredFiles.length;
-    setPrinterStatus("online", `доступен: ${result.files.length} файлов`, "success");
+    const projectFiles = result.files.filter((fileName) => /\.pr1$/i.test(fileName) && !/^template\.pr1$/i.test(fileName));
+    setPrinterStatus("online", `доступно: ${projectFiles.length} проектов`, "success");
 
     if (showDialog) {
       showAppDialog(
         "Статус принтера",
         `Принтер доступен.\n\nАдрес: ${result.path}\n\n` +
-        `Найдено обязательных файлов: ${foundCount} из ${totalCount}\n` +
-        `Есть: ${result.presentRequiredFiles.join(", ") || "—"}\n` +
-        `Не хватает: ${result.missingRequiredFiles.join(", ") || "—"}\n\n` +
+        `Проектов на принтере: ${projectFiles.length}\n\n` +
         `Известных проектов: ${(workspaceData && workspaceData.projectNames.length) || 0}\n` +
         `Подписанных полей в карте: ${(workspaceData && workspaceData.knownMapSummary.namedEntries) || 0}`
       );
@@ -2094,16 +2121,18 @@ function setToday(){
 
 function fitTextElement(el, min=18, max=32){
   if (!el) return;
+  el.style.whiteSpace = "nowrap";
   el.style.fontSize = max + "px";
   let current = max;
-  while (current > min && (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)) {
+  while (current > min && el.scrollWidth > el.clientWidth) {
     current -= 1;
     el.style.fontSize = current + "px";
   }
 }
 
 function fitProjectText(){
-  fitTextElement($("statProjectName"), 18, 32);
+  // Стартуем с размера первой карточки и ужимаем только по ширине, чтобы название не переносилось.
+  fitTextElement($("statProjectName"), 18, 40);
 }
 
 function updateProjectCard(){
@@ -2328,6 +2357,9 @@ function setupPathInput(inputId, pathLabel){
 
   input.addEventListener("input", () => {
     saveCurrentPaths();
+    if (inputId === "serverPathInput") {
+      updateWorkspaceSummary().catch(() => {});
+    }
   });
 
   input.addEventListener("keydown", async (event) => {
@@ -2339,6 +2371,7 @@ function setupPathInput(inputId, pathLabel){
     if (inputId === "serverPathInput") {
       await refreshPrinterStatus(false);
       await refreshSaveReadiness(false);
+      await updateWorkspaceSummary();
     }
 
     if (inputId === "localPathInput") {

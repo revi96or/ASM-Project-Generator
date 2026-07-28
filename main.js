@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.1.1
+ * Версия: 2.1.10
  * Автор: Новожилов Артем
  */
 
@@ -15,7 +15,7 @@ const REQUIRED_TEMPLATE_FILES = ['template.PR1', 'template.ISD', 'template.pxf',
 const SNAPSHOT_SUFFIX = '_project_snapshot.json';
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-07-25'
+  versionDate: packageJson.versionDate || '2026-07-28'
 };
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
@@ -418,8 +418,6 @@ async function checkFolderWritable(folderPath) {
   const resolvedPath = normalizeFolderPath(folderPath);
 
   try {
-    // Для локальной рабочей папки разрешаем автосоздание, потому что именно так идет реальное сохранение.
-    await fs.mkdir(resolvedPath, { recursive: true });
     await fs.access(resolvedPath, fsConstants.W_OK);
 
     return {
