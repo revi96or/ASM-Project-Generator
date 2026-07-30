@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.11.2
+Версия: 9.11.3
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -861,7 +861,7 @@
         <div class="section-card p-4">
           <h2 class="section-title">Позиционирование платы</h2>
 
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <div class="field-label">Режим остановки платы</div>
               <div class="toggle-wrap compact" id="boardStopModeToggle">
@@ -980,7 +980,7 @@
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <div class="field-label">Center Board Minus</div>
+              <div class="field-label">Center Board 2</div>
               <input id="centerBoardMinus" class="field-input tracked-input" type="number" step="any" />
             </div>
             <div>
@@ -1023,13 +1023,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.11.2
+// Версия: 9.11.3
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.3.2",
+    version: "2.3.3",
     versionDate: "2026-07-30"
   }),
   getUserSettings: async () => ({
@@ -1089,8 +1089,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.3.2",
-    latestVersion: "2.3.2",
+    currentVersion: "2.3.3",
+    latestVersion: "2.3.3",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1116,7 +1116,7 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.3.2",
+    version: "2.3.3",
     versionDate: "2026-07-30"
   },
   initialFieldValues: {},
@@ -1684,7 +1684,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.3.2",
+    version: "2.3.3",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -1954,20 +1954,20 @@ function applyInitialTemplateData(templateDefaults){
 
 async function updateWorkspaceSummary(){
   const summaryEl = $("workspaceSummary");
-  const workspaceData = state.printerWorkspaceData;
+  const localWorkspaceData = state.workspaceData;
+  const printerWorkspaceData = state.printerWorkspaceData;
 
   if (!summaryEl) return;
 
-  if (!workspaceData || !workspaceData.folder.exists) {
-    $("workspaceProjectsCount").textContent = "0";
-    $("workspaceKnownFieldsCount").textContent = "0";
-    $("workspaceFilesCount").textContent = "0";
-    return;
-  }
-
-  $("workspaceProjectsCount").textContent = String(workspaceData.projectNames.length);
-  $("workspaceKnownFieldsCount").textContent = workspaceData.templateDefaults.exists ? String(workspaceData.knownMapSummary.namedEntries) : "0";
-  $("workspaceFilesCount").textContent = String(workspaceData.folder.files.length);
+  $("workspaceProjectsCount").textContent = printerWorkspaceData && printerWorkspaceData.folder.exists
+    ? String(printerWorkspaceData.projectNames.length)
+    : "0";
+  $("workspaceKnownFieldsCount").textContent = localWorkspaceData && localWorkspaceData.knownMapSummary && localWorkspaceData.knownMapSummary.exists
+    ? String(localWorkspaceData.knownMapSummary.namedEntries)
+    : "0";
+  $("workspaceFilesCount").textContent = printerWorkspaceData && printerWorkspaceData.folder.exists
+    ? String(printerWorkspaceData.folder.files.length)
+    : "0";
 }
 
 function formatSaveReportLines(savedItems, failedItems, itemLabel) {
@@ -2048,7 +2048,7 @@ async function refreshPrinterStatus(showDialog){
 
   try {
     const result = await asmBridge.inspectFolder(printerFolderPath);
-    const workspaceData = state.printerWorkspaceData || state.workspaceData;
+    const workspaceData = state.workspaceData;
 
     if (!result.exists) {
       setPrinterStatus("offline", "принтер недоступен", "danger");
@@ -2071,8 +2071,8 @@ async function refreshPrinterStatus(showDialog){
         "Статус принтера",
         `Принтер доступен.\n\nАдрес: ${result.path}\n\n` +
         `Проектов на принтере: ${projectFiles.length}\n\n` +
-        `Известных проектов: ${(workspaceData && workspaceData.projectNames.length) || 0}\n` +
-        `Подписанных полей в карте: ${(workspaceData && workspaceData.knownMapSummary.namedEntries) || 0}`
+        `Известных проектов: ${(state.printerWorkspaceData && state.printerWorkspaceData.projectNames.length) || 0}\n` +
+        `Подписанных полей в карте: ${(workspaceData && workspaceData.knownMapSummary && workspaceData.knownMapSummary.namedEntries) || 0}`
       );
     }
   } catch (error) {
