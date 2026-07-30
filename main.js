@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.3.0
+ * Версия: 2.3.2
  * Автор: Новожилов Артем
  */
 
@@ -949,7 +949,7 @@ function createWindow() {
   const windowRef = new BrowserWindow({
     width: 1600,
     height: 980,
-    minWidth: 1280,
+    minWidth: 1080,
     minHeight: 800,
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'asm-icon.ico'),

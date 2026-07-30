@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.11.0
+Версия: 9.11.2
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -599,15 +599,6 @@
       margin-top:18px;
     }
 
-    .split-layout{
-      flex-direction:column;
-    }
-
-    .scroll-zone-left{
-      margin-right:0;
-      margin-bottom:18px;
-    }
-
     .stat-card{
       padding:14px 16px;
       min-height:116px;
@@ -619,9 +610,6 @@
       margin-top:10px;
     }
 
-    .section-card{
-      padding:12px !important;
-    }
   }
 </style>
 </head>
@@ -698,8 +686,8 @@
   </div>
 </header>
 
-<div class="split-layout max-w-[1550px] w-full mx-auto flex flex-col xl:flex-row overflow-hidden">
-  <aside class="scroll-zone scroll-zone-left xl:basis-1/3 xl:max-w-[430px] shrink-0 px-5 lg:px-8 py-8">
+<div class="split-layout max-w-[1550px] w-full mx-auto flex flex-row overflow-hidden">
+  <aside class="scroll-zone scroll-zone-left w-[430px] shrink-0 px-5 lg:px-8 py-8">
     <div class="space-y-5">
 
     <section>
@@ -1035,13 +1023,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.11.0
+// Версия: 9.11.2
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.3.0",
+    version: "2.3.2",
     versionDate: "2026-07-30"
   }),
   getUserSettings: async () => ({
@@ -1101,8 +1089,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.3.0",
-    latestVersion: "2.3.0",
+    currentVersion: "2.3.2",
+    latestVersion: "2.3.2",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1128,7 +1116,7 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.3.0",
+    version: "2.3.2",
     versionDate: "2026-07-30"
   },
   initialFieldValues: {},
@@ -1696,7 +1684,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.3.0",
+    version: "2.3.2",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
