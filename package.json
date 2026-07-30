@@ -1,7 +1,7 @@
 {
    "name": "asm_project_generator",
-   "version": "2.2.0",
-   "versionDate": "2026-07-28",
+   "version": "2.3.0",
+   "versionDate": "2026-07-30",
    "description": "ASM Project Generator Electron wrapper",
    "main": "main.js",
    "scripts": {
@@ -33,8 +33,15 @@
          "**/*",
          "!dist/**",
          "!release-backups/**",
+         "!templates/**",
          "!.git/**",
          "!*.log"
+      ],
+      "extraResources": [
+         {
+            "from": "templates",
+            "to": "templates"
+         }
       ],
       "win": {
          "icon": "assets\\asm-icon.ico",

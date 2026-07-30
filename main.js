@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.2.0
+ * Версия: 2.3.0
  * Автор: Новожилов Артем
  */
 
@@ -12,10 +12,11 @@ const path = require('path');
 const packageJson = require('./package.json');
 
 const REQUIRED_TEMPLATE_FILES = ['template.PR1', 'template.ISD', 'template.pxf', 'pr1_known_map.json'];
+const TEMPLATE_ASSETS_DIR = 'templates';
 const SNAPSHOT_SUFFIX = '_project_snapshot.json';
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-07-28'
+  versionDate: packageJson.versionDate || '2026-07-30'
 };
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
@@ -158,6 +159,12 @@ function getAppDataSnapshotPath(fileName) {
 // Нормализуем путь один раз, чтобы и окно, и операции с файлами работали одинаково.
 function normalizeFolderPath(folderPath) {
   return path.resolve(folderPath || 'C:\\settings\\Project_Printer_ASM');
+}
+
+function getTemplateAssetsFolder() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, TEMPLATE_ASSETS_DIR)
+    : path.join(app.getAppPath(), TEMPLATE_ASSETS_DIR);
 }
 
 function sendUpdateEvent(payload) {
@@ -466,7 +473,8 @@ function hasRequiredTemplates(fileNames) {
 }
 
 async function resolveTemplateSourceFolder(localTargetFolder, printerTargetFolder) {
-  const sourceCandidates = dedupeFolderPaths([localTargetFolder, printerTargetFolder]);
+  // Шаблоны берём из папки приложения, а старые пути оставляем только как запасной вариант для dev-режима.
+  const sourceCandidates = dedupeFolderPaths([getTemplateAssetsFolder(), localTargetFolder, printerTargetFolder]);
   const inspectedCandidates = [];
 
   for (const candidateFolder of sourceCandidates) {
@@ -836,16 +844,17 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
   ipcMain.handle('asm:load-workspace-data', async (_event, folderPath) => {
     const folder = await inspectFolder(folderPath);
     const projectNames = extractProjectNames(folder.files);
-    const knownMapSummary = folder.exists
-      ? await readKnownMapSummary(folder.path, folder.files)
+    const templateFolder = await inspectFolder(getTemplateAssetsFolder());
+    const knownMapSummary = templateFolder.exists
+      ? await readKnownMapSummary(templateFolder.path, templateFolder.files)
       : {
           exists: false,
           totalEntries: 0,
           namedEntries: 0,
           groupCount: 0
         };
-    const templateDefaults = folder.exists
-      ? await readTemplateDefaults(folder.path, folder.files)
+    const templateDefaults = templateFolder.exists
+      ? await readTemplateDefaults(templateFolder.path, templateFolder.files)
       : {
           exists: false,
           values: {},
@@ -857,7 +866,8 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
       folder,
       projectNames,
       knownMapSummary,
-      templateDefaults
+      templateDefaults,
+      templateFolder
     };
   });
 

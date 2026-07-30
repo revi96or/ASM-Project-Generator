@@ -1,0 +1,3866 @@
+{
+  "0x000A": {
+    "name": "Board Y",
+    "group": "board_size",
+    "comment": "Ширина платы Y",
+    "manualTags": [
+      "y-related"
+    ]
+  },
+  "0x000B": {
+    "name": "Board X",
+    "group": "board_size",
+    "comment": "Длина платы X",
+    "manualTags": [
+      "x-related"
+    ]
+  },
+  "0x000C": {
+    "name": "Board Thickness",
+    "group": "board_thickness",
+    "comment": "Толщина платы",
+    "manualTags": [
+      "thickness-related"
+    ]
+  },
+  "0x0001": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0002": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0003": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0004": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0005": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x000D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x000E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x000F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0010": {
+    "name": "Front squeegee pressure",
+    "group": "",
+    "comment": "Давление переднего ракеля",
+    "manualTags": [
+      "pressure"
+    ]
+  },
+  "0x0011": {
+    "name": "Rear squeegee pressure",
+    "group": "",
+    "comment": "Давление заднего ракеля",
+    "manualTags": [
+      "pressure"
+    ]
+  },
+  "0x0012": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0013": {
+    "name": "Separation Rate",
+    "group": "",
+    "comment": "Скорость разделения",
+    "manualTags": [
+      "speed"
+    ]
+  },
+  "0x0014": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0015": {
+    "name": "Quantity of squeegee passes",
+    "group": "",
+    "comment": "Проходы ракеля. 1=1, 2=2. Проверить на 3 и 4 например.",
+    "manualTags": []
+  },
+  "0x001B": {
+    "name": "Print Direction Pair 2 B",
+    "group": "",
+    "comment": "Группа направления печати, пара 2, элемент B",
+    "manualTags": [
+      "direction-group",
+      "forward-backward",
+      "swap-block",
+      "direction"
+    ]
+  },
+  "0x001C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x001E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x001F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0020": {
+    "name": "Center Board Minus",
+    "comment": "Центр платы с минусом",
+    "group": "",
+    "manualTags": []
+  },
+  "0x0021": {
+    "name": "Center Board 3",
+    "comment": "Центр платы 3",
+    "group": "",
+    "manualTags": []
+  },
+  "0x0022": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0023": {
+    "name": "Quantity of paste stirrings",
+    "group": "",
+    "comment": "Количество перемешиваний пасты. Число соответсвует",
+    "manualTags": []
+  },
+  "0x0024": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0025": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0026": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0027": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0028": {
+    "name": "Cleaning frequency",
+    "group": "",
+    "comment": "Частота очистки",
+    "manualTags": []
+  },
+  "0x0029": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x002A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x002B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x002D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x002E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0032": {
+    "name": "quantity of reference points",
+    "group": "",
+    "comment": "Количество реперов. 3 репера имеет значение 1, 2 репера имеет 0.",
+    "manualTags": []
+  },
+  "0x0033": {
+    "name": "REF1_1X",
+    "group": "",
+    "comment": "Репер 1X",
+    "manualTags": []
+  },
+  "0x0034": {
+    "name": "REF1_1Y",
+    "group": "",
+    "comment": "Репер 1Y",
+    "manualTags": []
+  },
+  "0x0035": {
+    "name": "REF2_2X",
+    "group": "",
+    "comment": "Репер 2X",
+    "manualTags": []
+  },
+  "0x0036": {
+    "name": "REF2_2Y",
+    "group": "",
+    "comment": "Репер 2Y",
+    "manualTags": []
+  },
+  "0x0037": {
+    "name": "REF3_3X",
+    "group": "",
+    "comment": "Репер 3X",
+    "manualTags": []
+  },
+  "0x0038": {
+    "name": "REF3_3Y",
+    "group": "",
+    "comment": "Репер 3Y",
+    "manualTags": []
+  },
+  "0x0039": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x003A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x003B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x003C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x003D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x003E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x003F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0040": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0041": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0042": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0043": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0044": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0046": {
+    "name": "Center Board X_0",
+    "comment": "Центр платы основной. Он же меняется если изменить X стопора платы вручную.",
+    "group": "",
+    "manualTags": []
+  },
+  "0x0047": {
+    "name": "Stop Board Y",
+    "group": "",
+    "comment": "Позиция стопора платы по Y. Меняется с размерами платы по Y. Проверить по изменению только Y платы и понять формулу. Похоже Y*0,66",
+    "manualTags": []
+  },
+  "0x0048": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0049": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x004A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0050": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0053": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0054": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0055": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0056": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0057": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0059": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0064": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0068": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0069": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x006E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0073": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0074": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0078": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x007D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x007E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x007F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0080": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0081": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0093": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0094": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0095": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0096": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0097": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0098": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0099": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x009A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x009B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x009C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x009D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x009E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x009F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00B9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00BB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00BC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00BE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00C7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00DF": {
+    "name": "Print Direction Pair 1 A",
+    "group": "",
+    "comment": "Группа направления печати, пара 1, элемент A",
+    "manualTags": [
+      "direction-group",
+      "direction",
+      "forward-backward",
+      "swap-block"
+    ]
+  },
+  "0x00E1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00E2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00E3": {
+    "name": "Print Direction Pair 3 B",
+    "group": "",
+    "comment": "Группа направления печати, пара 3, элемент B",
+    "manualTags": [
+      "direction-group",
+      "forward-backward",
+      "swap-block",
+      "direction"
+    ]
+  },
+  "0x00E4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00E5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00F5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00F6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00F7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00F8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00FA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00FB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00FC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00FD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00FE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00FF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0100": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0101": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0102": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0103": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0104": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0105": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0106": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0107": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0108": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0109": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x010A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x010B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x010C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x010E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x010F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0111": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0112": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0113": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0114": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0115": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0116": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0118": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x011C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x012D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x012E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0156": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x015C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x015D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0160": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0181": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0183": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0187": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0188": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0189": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x018A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x018B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x018C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x018D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x018F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0191": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0192": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01AC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01AD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01AE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01AF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01B6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01C9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01CA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01CB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01CC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01F5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x01F6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0223": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0224": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0225": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x023B": {
+    "name": "Print Direction Pair 2 A",
+    "group": "",
+    "comment": "Группа направления печати, пара 2, элемент A",
+    "manualTags": [
+      "direction",
+      "direction-group",
+      "forward-backward",
+      "swap-block"
+    ]
+  },
+  "0x0259": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x025A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0271": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0272": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0273": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0274": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0275": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0276": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02B3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02B4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02BA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02BB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02BD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02BE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x02EE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x030B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0310": {
+    "name": "Print Direction Pair 1 B",
+    "group": "",
+    "comment": "Группа направления печати, пара 1, элемент B",
+    "manualTags": [
+      "direction-group",
+      "direction",
+      "forward-backward",
+      "swap-block"
+    ]
+  },
+  "0x0311": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0314": {
+    "name": "Print Direction Pair 3 A",
+    "group": "",
+    "comment": "Группа направления печати, пара 3, элемент A",
+    "manualTags": [
+      "direction",
+      "direction-group",
+      "forward-backward",
+      "swap-block"
+    ]
+  },
+  "0x0315": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0321": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0322": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x033B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x033C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x033D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x033E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x033F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0340": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0346": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0366": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0367": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0368": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0369": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x036A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x036B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x036C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x036D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x036E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x036F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x039D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03A4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03E6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03E8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03E9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03EA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03EB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03FA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x03FB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0408": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0409": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x040A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x040B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x040C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x040D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x040E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x040F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0410": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x041F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0431": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0437": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x043B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x043C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x043D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x043E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x043F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0440": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0441": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0442": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0443": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0444": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0445": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0446": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0447": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0448": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x044E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0459": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x045B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x045C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x045D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x045E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x045F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0460": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0463": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0464": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0465": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0468": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0472": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0473": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0474": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0475": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0476": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0477": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0478": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0479": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x047A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x047F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0480": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0481": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0482": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0483": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0484": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0485": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0486": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0487": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0488": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0489": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x048A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x048B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x048C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x048D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0497": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0498": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x049A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x049D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x049E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x049F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04A0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04A1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04A2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04A3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04AD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04AE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04BA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04BC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04BD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04BE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04DE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04F1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x04FC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x050C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0511": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0513": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0519": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x052D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x052E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BC9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BE9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BEA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BEB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BEC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BEF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0BF6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C14": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C23": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C24": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C25": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C2E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C2F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C36": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C37": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C38": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C3A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C3B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C40": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0C46": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CAA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CAB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CAC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CAD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CAE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CAF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CB0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CB1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CBA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CBB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0CBC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x1409": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x140A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x140B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x140C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x1411": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x1413": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x1416": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x1417": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x146F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x193E": {
+    "name": "Center Board",
+    "comment": "Центр платы",
+    "group": "",
+    "manualTags": []
+  },
+  "0x1996": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x199B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2710": {
+    "name": "Comment",
+    "group": "",
+    "comment": "Коментарии. Только 32 символа",
+    "manualTags": []
+  },
+  "0x2715": {
+    "name": "Separation distance",
+    "group": "",
+    "comment": "Расстояние разделения",
+    "manualTags": []
+  },
+  "0x272F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x274C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x274D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AF8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AF9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AFA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AFB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AFC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AFD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AFE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2AFF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B00": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B01": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B02": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B03": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B04": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B05": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B06": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B5C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B5D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B5E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B5F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B60": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B61": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B62": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B63": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B64": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B65": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B66": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B67": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B68": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B69": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2B6A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BC9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BCA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BCB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BCC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BCD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2BCE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C24": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C25": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C26": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C27": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C28": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C29": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C2A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C2B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C2C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C2D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C2E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C2F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C30": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C31": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C32": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C88": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C89": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C8A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C8B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C8C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C8D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C8E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C8F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C90": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C91": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C92": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C93": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C94": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C95": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2C96": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CEC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CED": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CEE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CEF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CF9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CFA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CFB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CFC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CFD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CFE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2CFF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2D00": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2D50": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2D51": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E18": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E19": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E1A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E1B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E1C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E1D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E1E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E1F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E20": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2E21": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EFB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36B7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36B8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36B9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36BA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36BB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36BC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36BD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36BE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x36BF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7542": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7543": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7544": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7545": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7546": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7547": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7597": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x759E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75A4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75A5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75BB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75C4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75CB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75CE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75CF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x75EB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7613": {
+    "name": "Board stop mode",
+    "group": "",
+    "comment": "Режим остановки платы. Авто=0, вручную=1",
+    "manualTags": []
+  },
+  "0x761D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x762D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x762E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x762F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7630": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7631": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7632": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7633": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7634": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7635": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7636": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7637": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7638": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x763A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7643": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7644": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7645": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7646": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7647": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7648": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7649": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x764A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x764B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x764C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x764D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x764E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x764F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7650": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7651": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7652": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7653": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7654": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7655": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7656": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7657": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7658": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7659": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x765A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x765D": {
+    "name": "Side of the board",
+    "group": "",
+    "comment": "Сторона платы",
+    "manualTags": []
+  },
+  "0x765E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x765F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7661": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7662": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7665": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7666": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7667": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7668": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7669": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x766B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x766C": {
+    "name": "Mixing pressure",
+    "group": "",
+    "comment": "Давление при перемешивании пасты",
+    "manualTags": []
+  },
+  "0x766D": {
+    "name": "Paste mixing speed",
+    "group": "",
+    "comment": "Скорость перемешивания пасты",
+    "manualTags": []
+  },
+  "0x766F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7670": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7671": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x767A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x767B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x767C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7689": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x768B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x768C": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x768D": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x768E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x768F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7690": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7691": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7692": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7693": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7694": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7695": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7696": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7697": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7698": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76BA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76BB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76BE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76BF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C0": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C1": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C2": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x76C7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0072": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x7200": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0xFEFF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00BF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00C3": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x00C4": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x011E": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x011F": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0120": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0124": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x0125": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x012B": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EF6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EF7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EF8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EF9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EFA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EFC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EFD": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2EFE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F00": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F01": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F22": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F23": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F27": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F28": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F29": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F2A": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F35": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x2F36": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30DE": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30DF": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30E5": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30E6": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30E7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30E8": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30E9": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30EA": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30EB": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x30EC": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  },
+  "0x32C7": {
+    "name": "",
+    "group": "",
+    "comment": "",
+    "manualTags": []
+  }
+}

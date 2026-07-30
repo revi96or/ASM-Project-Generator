@@ -24,6 +24,7 @@ Electron desktop app for generating ASM printer project files.
 - `main.js` — Electron main process
 - `preload.js` — renderer bridge
 - `pr1_known_map.json` — PR1 map
+- `templates\` — bundled template files for installed builds
 - `assets\` — app icon files
 
 ## Run
@@ -41,10 +42,11 @@ npm run dist:installer
 
 ## Versioning
 
-- app version: `2.2.0`
-- UI version: `9.10.14`
+- app version: `2.3.0`
+- UI version: `9.11.0`
 
 ## Update notes
 
 The app is configured for GitHub Releases as the update source.
 User settings, paths, snapshots, and cache live under Electron app data instead of the program folder.
+Template files are bundled under `templates\` and copied into the installed app by the installer.

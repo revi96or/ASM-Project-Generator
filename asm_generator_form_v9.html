@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.10.14
+Версия: 9.11.0
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -568,6 +568,61 @@
   .app-tooltip[hidden]{
     display:none;
   }
+
+  @media (max-width:1279px){
+    header > .relative{
+      padding-top:18px;
+      padding-bottom:18px;
+    }
+
+    header > .relative > .flex{
+      margin-bottom:14px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    header > .relative h1{
+      font-size:clamp(28px, 4vw, 40px);
+      line-height:1.04;
+      max-width:100%;
+    }
+
+    header > .relative p{
+      margin-top:12px;
+      font-size:14px;
+      max-width:100%;
+    }
+
+    header > .relative .grid{
+      gap:10px;
+      margin-top:18px;
+    }
+
+    .split-layout{
+      flex-direction:column;
+    }
+
+    .scroll-zone-left{
+      margin-right:0;
+      margin-bottom:18px;
+    }
+
+    .stat-card{
+      padding:14px 16px;
+      min-height:116px;
+    }
+
+    .stat-value-row,
+    .stat-status-stack{
+      min-height:48px;
+      margin-top:10px;
+    }
+
+    .section-card{
+      padding:12px !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -643,8 +698,8 @@
   </div>
 </header>
 
-<div class="split-layout max-w-[1550px] w-full mx-auto flex flex-col lg:flex-row overflow-hidden">
-  <aside class="scroll-zone scroll-zone-left lg:basis-1/3 xl:max-w-[430px] shrink-0 px-5 lg:px-8 py-8">
+<div class="split-layout max-w-[1550px] w-full mx-auto flex flex-col xl:flex-row overflow-hidden">
+  <aside class="scroll-zone scroll-zone-left xl:basis-1/3 xl:max-w-[430px] shrink-0 px-5 lg:px-8 py-8">
     <div class="space-y-5">
 
     <section>
@@ -730,7 +785,7 @@
     </div>
   </aside>
 
-  <div class="hidden lg:block w-px shrink-0" style="background:var(--border)"></div>
+  <div class="hidden xl:block w-px shrink-0" style="background:var(--border)"></div>
 
   <main class="scroll-zone flex-1 min-w-0 px-5 lg:px-8 py-8">
     <section>
@@ -980,14 +1035,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.10.14
+// Версия: 9.11.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.2.0",
-    versionDate: "2026-07-28"
+    version: "2.3.0",
+    versionDate: "2026-07-30"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1046,8 +1101,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.2.0",
-    latestVersion: "2.2.0",
+    currentVersion: "2.3.0",
+    latestVersion: "2.3.0",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1066,15 +1121,15 @@ const state = {
     printDirection: "B"
   },
   commentWasManuallyEdited: false,
-  workspaceProjects: [],
   workspaceData: null,
+  printerWorkspaceData: null,
   templateDefaultsApplied: false,
   showTooltips: true,
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.2.0",
-    versionDate: "2026-07-28"
+    version: "2.3.0",
+    versionDate: "2026-07-30"
   },
   initialFieldValues: {},
   initialToggleValues: {},
@@ -1641,7 +1696,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.2.0",
+    version: "2.3.0",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -1911,21 +1966,20 @@ function applyInitialTemplateData(templateDefaults){
 
 async function updateWorkspaceSummary(){
   const summaryEl = $("workspaceSummary");
-  const workspaceData = state.workspaceData;
+  const workspaceData = state.printerWorkspaceData;
 
-  if (!summaryEl || !workspaceData) return;
+  if (!summaryEl) return;
 
-  $("workspaceProjectsCount").textContent = workspaceData.folder.exists ? String(workspaceData.projectNames.length) : "0";
-  $("workspaceKnownFieldsCount").textContent = workspaceData.folder.exists ? String(workspaceData.knownMapSummary.namedEntries) : "0";
-
-  try {
-    const printerPath = $("serverPathInput").value.trim();
-    const printerFolder = printerPath ? await asmBridge.inspectFolder(printerPath) : null;
-    // Счетчик в блоке "Похожие проекты" показывает общий объем файлов в папке принтера.
-    $("workspaceFilesCount").textContent = printerFolder && printerFolder.exists ? String(printerFolder.files.length) : "0";
-  } catch {
+  if (!workspaceData || !workspaceData.folder.exists) {
+    $("workspaceProjectsCount").textContent = "0";
+    $("workspaceKnownFieldsCount").textContent = "0";
     $("workspaceFilesCount").textContent = "0";
+    return;
   }
+
+  $("workspaceProjectsCount").textContent = String(workspaceData.projectNames.length);
+  $("workspaceKnownFieldsCount").textContent = workspaceData.templateDefaults.exists ? String(workspaceData.knownMapSummary.namedEntries) : "0";
+  $("workspaceFilesCount").textContent = String(workspaceData.folder.files.length);
 }
 
 function formatSaveReportLines(savedItems, failedItems, itemLabel) {
@@ -1958,7 +2012,6 @@ async function loadWorkspaceData(showAlertOnError){
   try {
     const workspaceData = await asmBridge.loadWorkspaceData(localFolderPath);
     state.workspaceData = workspaceData;
-    state.workspaceProjects = workspaceData.projectNames.length ? workspaceData.projectNames : [...demoProjects];
 
     if (!state.templateDefaultsApplied) {
       applyInitialTemplateData(workspaceData.templateDefaults);
@@ -1969,7 +2022,6 @@ async function loadWorkspaceData(showAlertOnError){
     updateSimilarProjects();
   } catch (error) {
     state.workspaceData = null;
-    state.workspaceProjects = [...demoProjects];
 
     if (!state.templateDefaultsApplied) {
       applyInitialTemplateData({ values: fallbackTemplateDefaults, toggles: {}, comment: "" });
@@ -1982,12 +2034,33 @@ async function loadWorkspaceData(showAlertOnError){
   }
 }
 
+async function loadPrinterWorkspaceData(showAlertOnError){
+  const printerFolderPath = $("serverPathInput").value.trim();
+
+  try {
+    const printerWorkspaceData = printerFolderPath
+      ? await asmBridge.loadWorkspaceData(printerFolderPath)
+      : null;
+
+    state.printerWorkspaceData = printerWorkspaceData;
+  } catch (error) {
+    state.printerWorkspaceData = null;
+
+    if (showAlertOnError) {
+      showAppDialog("Не удалось загрузить данные принтера", error.message);
+    }
+  }
+
+  await updateWorkspaceSummary();
+  updateSimilarProjects();
+}
+
 async function refreshPrinterStatus(showDialog){
   const printerFolderPath = $("serverPathInput").value.trim();
 
   try {
     const result = await asmBridge.inspectFolder(printerFolderPath);
-    const workspaceData = state.workspaceData;
+    const workspaceData = state.printerWorkspaceData || state.workspaceData;
 
     if (!result.exists) {
       setPrinterStatus("offline", "принтер недоступен", "danger");
@@ -2178,6 +2251,7 @@ function restoreInputValueIfNeeded(event){
 function updateSimilarProjects(){
   const val = $("boardNameInput").value.trim().toLowerCase();
   const list = $("similarProjectsList");
+  const printerWorkspaceData = state.printerWorkspaceData;
 
   if (!val) {
     list.textContent = "Начните вводить название проекта.";
@@ -2193,7 +2267,7 @@ function updateSimilarProjects(){
   }
 
   const prefix = "nsft" + match[1].slice(0, 6);
-  const projectPool = state.workspaceProjects.length ? state.workspaceProjects : demoProjects;
+  const projectPool = printerWorkspaceData && printerWorkspaceData.folder.exists ? printerWorkspaceData.projectNames : [];
   const found = projectPool.filter(x => x.toLowerCase().startsWith(prefix));
   $("workspaceProjectsCount").textContent = String(found.length);
 
@@ -2359,7 +2433,7 @@ function setupPathInput(inputId, pathLabel){
   input.addEventListener("input", () => {
     saveCurrentPaths();
     if (inputId === "serverPathInput") {
-      updateWorkspaceSummary().catch(() => {});
+      loadPrinterWorkspaceData(false);
     }
   });
 
@@ -2372,7 +2446,7 @@ function setupPathInput(inputId, pathLabel){
     if (inputId === "serverPathInput") {
       await refreshPrinterStatus(false);
       await refreshSaveReadiness(false);
-      await updateWorkspaceSummary();
+      await loadPrinterWorkspaceData(false);
     }
 
     if (inputId === "localPathInput") {
@@ -2573,7 +2647,8 @@ async function init(){
   updateStopBoardYAuto();
   updateAoiButtonState();
   updateChangedCounter();
-  loadWorkspaceData(false);
+  await loadWorkspaceData(false);
+  await loadPrinterWorkspaceData(false);
   refreshPrinterStatus(false);
   refreshSaveReadiness(false);
   window.addEventListener("scroll", hideAppTooltip, true);
