@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.11.4
+Версия: 9.11.5
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -713,6 +713,11 @@
           Сохранить размеры для АОИ
         </button>
 
+        <button id="createAoiProjectBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="files" class="w-4 h-4"></i>
+          Создать проект АОИ
+        </button>
+
         <button id="openPrinterFilesBtn" type="button" class="ghost-btn w-full">
           <i data-lucide="folder-tree" class="w-4 h-4"></i>
           Файлы на принтере
@@ -767,6 +772,10 @@
         <div>
           <div class="field-label">Папка АОИ</div>
           <input id="aoiPathInput" class="field-input" value="\\server\common\Любимова К.И.\" />
+        </div>
+        <div>
+          <div class="field-label">Адрес расстановщика</div>
+          <input id="placerPathInput" class="field-input" value="C:\settings\Placement\" />
         </div>
       </div>
     </section>
@@ -1023,20 +1032,21 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.11.4
+// Версия: 9.11.5
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.3.4",
+    version: "2.3.5",
     versionDate: "2026-08-02"
   }),
   getUserSettings: async () => ({
     paths: {
       local: $("localPathInput") ? $("localPathInput").value.trim() : "C:\\settings\\Project_Printer_ASM\\",
       printer: $("serverPathInput") ? $("serverPathInput").value.trim() : "\\\\server\\common\\Novozhilov\\",
-      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова К.И.\\"
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова К.И.\\",
+      placer: $("placerPathInput") ? $("placerPathInput").value.trim() : "C:\\settings\\Placement\\"
     },
     showTooltips: true,
     autoUpdate: false
@@ -1062,6 +1072,9 @@ const asmBridge = window.asmApi || {
   },
   saveAoiFile: async () => {
     throw new Error("Сохранение AOI файла доступно только в Electron.");
+  },
+  createAoiProjectFromSpp: async () => {
+    throw new Error("Создание AOI проекта доступно только в Electron.");
   },
   generateProjectFiles: async () => {
     throw new Error("Генерация файлов доступна только в Electron.");
@@ -1089,8 +1102,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.3.4",
-    latestVersion: "2.3.4",
+    currentVersion: "2.3.5",
+    latestVersion: "2.3.5",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1116,7 +1129,7 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.3.4",
+    version: "2.3.5",
     versionDate: "2026-08-02"
   },
   initialFieldValues: {},
@@ -1128,7 +1141,8 @@ const state = {
 const DEFAULT_PATHS = {
   local: "C:\\settings\\Project_Printer_ASM\\",
   printer: "\\\\server\\common\\Novozhilov\\",
-  aoi: "\\\\server\\common\\Любимова К.И.\\"
+  aoi: "\\\\server\\common\\Любимова К.И.\\",
+  placer: "C:\\settings\\Placement\\"
 };
 
 const fallbackTemplateDefaults = {
@@ -1233,7 +1247,8 @@ function persistUserSettings(){
     paths: {
       local: $("localPathInput") ? $("localPathInput").value.trim() || DEFAULT_PATHS.local : DEFAULT_PATHS.local,
       printer: $("serverPathInput") ? $("serverPathInput").value.trim() || DEFAULT_PATHS.printer : DEFAULT_PATHS.printer,
-      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi,
+      placer: $("placerPathInput") ? $("placerPathInput").value.trim() || DEFAULT_PATHS.placer : DEFAULT_PATHS.placer
     },
     showTooltips: Boolean(state.showTooltips),
     autoUpdate: Boolean(state.autoUpdate),
@@ -1368,6 +1383,7 @@ async function applyStoredUserSettings(){
   $("localPathInput").value = paths.local || DEFAULT_PATHS.local;
   $("serverPathInput").value = paths.printer || DEFAULT_PATHS.printer;
   $("aoiPathInput").value = paths.aoi || DEFAULT_PATHS.aoi;
+  $("placerPathInput").value = paths.placer || DEFAULT_PATHS.placer;
 
   state.showTooltips = storedSettings && typeof storedSettings.showTooltips === "boolean"
     ? storedSettings.showTooltips
@@ -1571,6 +1587,7 @@ function applyTooltipTexts(){
     centerBoardCommon: "Заполняется автоматически. Не менять без необходимости.",
     generateBtn: "Сохраняет проект по двум путям, прописанным в \"локальная папка\" и \"адрес принтера\".",
     saveAoiBtn: "Сохраняет размеры платы в TXT файл по пути, прописанному в \"папка АОИ\".",
+    createAoiProjectBtn: "Создать проект АОИ на основе файла SPP расстановщика",
     openPrinterFilesBtn: "Открывает окно проводника по пути \"адрес принтера\".",
     resetFormBtn: "Сбрасывает все заполненные поля.",
     settingsBtn: "Открывает или скрывает настройки приложения.",
@@ -1674,7 +1691,8 @@ function saveCurrentPaths(){
   const pathState = {
     local: $("localPathInput").value.trim() || DEFAULT_PATHS.local,
     printer: $("serverPathInput").value.trim() || DEFAULT_PATHS.printer,
-    aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi
+    aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi,
+    placer: $("placerPathInput").value.trim() || DEFAULT_PATHS.placer
   };
 
   persistUserSettings();
@@ -1684,13 +1702,14 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.3.4",
+    version: "2.3.5",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
       local: $("localPathInput").value.trim(),
       server: $("serverPathInput").value.trim(),
-      aoi: $("aoiPathInput").value.trim()
+      aoi: $("aoiPathInput").value.trim(),
+      placer: $("placerPathInput").value.trim()
     },
     values: {
       boardName: $("boardNameInput").value.trim(),
@@ -2418,6 +2437,37 @@ function saveAoiSizeFile(){
   });
 }
 
+async function createAoiProjectFromSpp(){
+  const pathState = saveCurrentPaths();
+
+  try {
+    const result = await asmBridge.createAoiProjectFromSpp({
+      sourceFolder: pathState.placer,
+      targetFolder: pathState.aoi,
+      localTargetFolder: pathState.local
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    showAppDialog(
+      "Создание проекта АОИ",
+      `Проект АОИ создан.\n\n` +
+      `Оригинал и подготовленный проект сохранены:\n` +
+      result.saved.map((item) => (
+        `\nПапка: ${item.folder}\n` +
+        `Оригинал: ${item.originalPath}\n` +
+        `Подготовленный проект: ${item.projectPath}`
+      )).join('\n') +
+      `\n\n` +
+      `Исходный файл расстановщика не изменен.`
+    );
+  } catch (error) {
+    showAppDialog("Создание проекта АОИ", `Не удалось создать проект АОИ.\n\n${error.message}`);
+  }
+}
+
 function setupPathInput(inputId, pathLabel){
   const input = $(inputId);
 
@@ -2526,6 +2576,7 @@ async function init(){
   setupPathInput("localPathInput", "Локальная папка");
   setupPathInput("serverPathInput", "Адрес принтера");
   setupPathInput("aoiPathInput", "Папка АОИ");
+  setupPathInput("placerPathInput", "Адрес расстановщика");
   setupFastClearInputs();
 
   $("boardNameInput").addEventListener("input", () => {
@@ -2581,6 +2632,10 @@ async function init(){
   $("saveAoiBtn").addEventListener("click", (event) => {
     event.preventDefault();
     saveAoiSizeFile();
+  });
+  $("createAoiProjectBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    createAoiProjectFromSpp();
   });
   $("openPrinterFilesBtn").addEventListener("click", (event) => {
     event.preventDefault();

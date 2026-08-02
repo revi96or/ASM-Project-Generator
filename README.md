@@ -16,6 +16,7 @@ Electron desktop app for generating ASM printer project files.
 - saves a project snapshot locally and backs it up to `%AppData%`
 - generates `.PR1`, `.ISD`, `.pxf`
 - saves AOI `.txt`
+- creates AOI projects from `.spp` placement files
 - checks GitHub Releases for updates
 
 ## Project layout
@@ -42,8 +43,8 @@ npm run dist:installer
 
 ## Versioning
 
-- app version: `2.3.4`
-- UI version: `9.11.4`
+- app version: `2.3.5`
+- UI version: `9.11.5`
 
 ## Update notes
 

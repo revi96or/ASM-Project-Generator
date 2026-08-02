@@ -1,10 +1,10 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.3.4
+ * Версия: 2.3.5
  * Автор: Новожилов Артем
  */
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs/promises');
 const { constants: fsConstants } = require('fs');
@@ -21,7 +21,8 @@ const APP_META = {
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
   printer: '\\\\server\\common\\Novozhilov\\',
-  aoi: '\\\\server\\common\\Любимова К.И.\\'
+  aoi: '\\\\server\\common\\Любимова К.И.\\',
+  placer: 'C:\\settings\\Placement\\'
 };
 const USER_SETTINGS_FILE = 'asm-user-settings.json';
 const USER_SNAPSHOT_DIR = 'snapshots';
@@ -112,7 +113,8 @@ function normalizeUserSettings(rawSettings) {
     paths: {
       local: String(incomingPaths.local || DEFAULT_PATHS.local),
       printer: String(incomingPaths.printer || DEFAULT_PATHS.printer),
-      aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi)
+      aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi),
+      placer: String(incomingPaths.placer || DEFAULT_PATHS.placer)
     },
     showTooltips: rawSettings && typeof rawSettings.showTooltips === 'boolean'
       ? rawSettings.showTooltips
@@ -159,6 +161,122 @@ function getAppDataSnapshotPath(fileName) {
 // Нормализуем путь один раз, чтобы и окно, и операции с файлами работали одинаково.
 function normalizeFolderPath(folderPath) {
   return path.resolve(folderPath || 'C:\\settings\\Project_Printer_ASM');
+}
+
+function findSppPlacementDataStart(lines) {
+  const placementSectionIndex = lines.findIndex((line) => (
+    /^\s*@\s*(?:component\s+)?(?:place(?:ment)?|размещени[ея])\b/i.test(line)
+  ));
+
+  if (placementSectionIndex >= 0) {
+    const placementCountLineIndex = placementSectionIndex + 1;
+
+    // В SPP после @Place идёт служебное количество элементов, которое AOI не использует.
+    if (/^\s*\d+\s*$/.test(lines[placementCountLineIndex] || '')) {
+      return placementCountLineIndex + 1;
+    }
+
+    return placementCountLineIndex;
+  }
+
+  const placementHeaderIndex = lines.findIndex((line) => (
+    /\b(?:ref(?:erence)?|designator|component|позицион(?:ное)?\s*обозначени[ея])\b/i.test(line)
+    && /\b(?:x|y|coord(?:inate)?|координат[аы])\b/i.test(line)
+  ));
+
+  if (placementHeaderIndex >= 0) {
+    return placementHeaderIndex;
+  }
+
+  throw new Error(
+    'Не найден блок данных размещения. В файле должна быть секция "@Place" или строка заголовков с обозначением компонента и координатами.'
+  );
+}
+
+function findSppSolderBoundary(lines, startIndex) {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (!/^\s*\*{5,}\s*$/.test(lines[index])) {
+      continue;
+    }
+
+    const nextContentIndex = lines.findIndex(
+      (line, candidateIndex) => candidateIndex > index && line.trim() !== ''
+    );
+
+    if (nextContentIndex >= 0 && /^\s*@\s*solder\b/i.test(lines[nextContentIndex])) {
+      return index;
+    }
+  }
+
+  throw new Error(
+    'Не найдена граница "@ Solder" после данных размещения. Исходный файл не был изменен.'
+  );
+}
+
+function createAoiSppContent(sourceContent) {
+  const lineEnding = sourceContent.includes('\r\n') ? '\r\n' : '\n';
+  const hasFinalLineEnding = sourceContent.endsWith('\r\n') || sourceContent.endsWith('\n');
+  const lines = sourceContent.split(/\r?\n/);
+  // Границы проверяются до преобразования, чтобы незнакомый формат не дал неполный AOI-файл.
+  const placementStart = findSppPlacementDataStart(lines);
+  const solderBoundary = findSppSolderBoundary(lines, placementStart);
+  const placementContent = lines
+    .slice(placementStart, solderBoundary)
+    .join(lineEnding)
+    .replace(/"/g, '')
+    .replace(/;/g, '.');
+
+  return hasFinalLineEnding ? `${placementContent}${lineEnding}` : placementContent;
+}
+
+async function createAoiProjectFromSpp(payload) {
+  const sourceFolder = normalizeFolderPath(payload && payload.sourceFolder);
+  const aoiTargetFolder = normalizeFolderPath(payload && payload.targetFolder);
+  const localTargetFolder = normalizeFolderPath(payload && payload.localTargetFolder);
+  const selection = await dialog.showOpenDialog(mainWindow, {
+    title: 'Выберите файл SPP расстановщика',
+    defaultPath: sourceFolder,
+    properties: ['openFile'],
+    filters: [{ name: 'Файлы расстановщика SPP', extensions: ['spp'] }]
+  });
+
+  if (selection.canceled || !selection.filePaths.length) {
+    return { canceled: true };
+  }
+
+  const sourcePath = selection.filePaths[0];
+  if (path.extname(sourcePath).toLowerCase() !== '.spp') {
+    throw new Error('Нужно выбрать файл с расширением .spp.');
+  }
+
+  const parsedSourcePath = path.parse(sourcePath);
+  const sourceContent = await fs.readFile(sourcePath, 'utf8');
+  const projectContent = createAoiSppContent(sourceContent);
+  const targetFolders = dedupeFolderPaths([aoiTargetFolder, localTargetFolder]);
+  const saved = [];
+
+  for (const targetFolder of targetFolders) {
+    const originalTargetPath = path.join(targetFolder, parsedSourcePath.base);
+    const projectTargetPath = path.join(targetFolder, `${parsedSourcePath.name}_project.spp`);
+
+    await ensureTargetFolder(targetFolder);
+
+    if (path.resolve(sourcePath) !== path.resolve(originalTargetPath)) {
+      await fs.copyFile(sourcePath, originalTargetPath);
+    }
+    await fs.writeFile(projectTargetPath, projectContent, 'utf8');
+    saved.push({
+      folder: targetFolder,
+      originalPath: originalTargetPath,
+      projectPath: projectTargetPath
+    });
+  }
+
+  return {
+    canceled: false,
+    sourcePath,
+    saved
+  };
 }
 
 function getTemplateAssetsFolder() {
@@ -839,6 +957,10 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
       fileName,
       path: targetPath
     };
+  });
+
+  ipcMain.handle('asm:create-aoi-project-from-spp', async (_event, payload) => {
+    return createAoiProjectFromSpp(payload || {});
   });
 
   ipcMain.handle('asm:load-workspace-data', async (_event, folderPath) => {
