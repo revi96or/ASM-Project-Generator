@@ -1,3 +1,3 @@
 PowerShell
-cd C:\ASM_Project_Generator
+cd C:\Users\Pit\.copilot\repos\copilot-worktrees\ASM_Project_Generator\revi77or-miniature-doodle
 npm start
