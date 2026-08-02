@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.11.3
+Версия: 9.11.4
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1023,14 +1023,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.11.3
+// Версия: 9.11.4
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.3.3",
-    versionDate: "2026-07-30"
+    version: "2.3.4",
+    versionDate: "2026-08-02"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1089,8 +1089,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.3.3",
-    latestVersion: "2.3.3",
+    currentVersion: "2.3.4",
+    latestVersion: "2.3.4",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1116,8 +1116,8 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.3.3",
-    versionDate: "2026-07-30"
+    version: "2.3.4",
+    versionDate: "2026-08-02"
   },
   initialFieldValues: {},
   initialToggleValues: {},
@@ -1684,7 +1684,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.3.3",
+    version: "2.3.4",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -2066,6 +2066,9 @@ async function refreshPrinterStatus(showDialog){
     const projectFiles = result.files.filter((fileName) => /\.pr1$/i.test(fileName) && !/^template\.pr1$/i.test(fileName));
     setPrinterStatus("online", `доступно: ${projectFiles.length} проектов`, "success");
 
+    // После проверки статуса перечитываем данные принтера, чтобы список похожих проектов и счетчики не устаревали.
+    await loadPrinterWorkspaceData(false);
+
     if (showDialog) {
       showAppDialog(
         "Статус принтера",
@@ -2434,7 +2437,6 @@ function setupPathInput(inputId, pathLabel){
     if (inputId === "serverPathInput") {
       await refreshPrinterStatus(false);
       await refreshSaveReadiness(false);
-      await loadPrinterWorkspaceData(false);
     }
 
     if (inputId === "localPathInput") {
@@ -2636,8 +2638,7 @@ async function init(){
   updateAoiButtonState();
   updateChangedCounter();
   await loadWorkspaceData(false);
-  await loadPrinterWorkspaceData(false);
-  refreshPrinterStatus(false);
+  await refreshPrinterStatus(false);
   refreshSaveReadiness(false);
   window.addEventListener("scroll", hideAppTooltip, true);
   window.addEventListener("resize", hideAppTooltip);
