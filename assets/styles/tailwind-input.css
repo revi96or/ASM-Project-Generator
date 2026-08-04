@@ -1,0 +1,9 @@
+/*!
+ * Description: Local Tailwind CSS entry point for offline application startup.
+ * Version: 2.3.6
+ * Author: Novozhilov Artem
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

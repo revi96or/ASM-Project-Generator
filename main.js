@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.3.4
+ * Версия: 2.3.6
  * Автор: Новожилов Артем
  */
 
@@ -21,7 +21,8 @@ const APP_META = {
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
   printer: '\\\\server\\common\\Novozhilov\\',
-  aoi: '\\\\server\\common\\Любимова К.И.\\'
+  aoi: '\\\\server\\common\\Любимова К.И.\\',
+  placer: 'C:\\settings\\PickAndPlace\\'
 };
 const USER_SETTINGS_FILE = 'asm-user-settings.json';
 const USER_SNAPSHOT_DIR = 'snapshots';
@@ -112,7 +113,8 @@ function normalizeUserSettings(rawSettings) {
     paths: {
       local: String(incomingPaths.local || DEFAULT_PATHS.local),
       printer: String(incomingPaths.printer || DEFAULT_PATHS.printer),
-      aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi)
+      aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi),
+      placer: String(incomingPaths.placer || DEFAULT_PATHS.placer)
     },
     showTooltips: rawSettings && typeof rawSettings.showTooltips === 'boolean'
       ? rawSettings.showTooltips
@@ -953,6 +955,8 @@ function createWindow() {
     minHeight: 800,
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'asm-icon.ico'),
+    backgroundColor: '#0A0E18',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -962,6 +966,9 @@ function createWindow() {
 
   mainWindow = windowRef;
   mainWindow.loadFile(path.join(__dirname, 'asm_generator_form_v9.html'));
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
   mainWindow.on('closed', () => {
     if (mainWindow === windowRef) {
       mainWindow = null;

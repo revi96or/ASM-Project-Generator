@@ -42,11 +42,12 @@ npm run dist:installer
 
 ## Versioning
 
-- app version: `2.3.4`
-- UI version: `9.11.4`
+- app version: `2.3.6`
+- UI version: `9.11.6`
 
 ## Update notes
 
 The app is configured for GitHub Releases as the update source.
 User settings, paths, snapshots, and cache live under Electron app data instead of the program folder.
 Template files are bundled under `templates\` and copied into the installed app by the installer.
+Tailwind styles, Lucide icons, and Cyrillic fonts are bundled under `assets\`, so the interface starts without an internet connection.

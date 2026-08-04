@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.11.4
+Версия: 9.11.6
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -11,26 +11,9 @@
 <meta name="theme-color" content="#0A0E18" />
 <title>Создание проекта принтера ASM</title>
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: {
-      extend: {
-        fontFamily: {
-          display: ['Inter', 'sans-serif'],
-          body: ['Inter', 'sans-serif'],
-          mono: ['"JetBrains Mono"', 'monospace'],
-        },
-      }
-    }
-  };
-</script>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="stylesheet" href="assets/styles/tailwind.css" />
+<link rel="stylesheet" href="assets/styles/fonts.css" />
+<script src="assets/vendor/lucide.min.js"></script>
 
 <style>
   :root{
@@ -680,6 +663,10 @@
             <span>AOI</span>
             <span id="statAoiReady" class="status-row-value danger">offline</span>
           </div>
+          <div class="status-row">
+            <span>расстановщик</span>
+            <span id="statPlacerReady" class="status-row-value danger">offline</span>
+          </div>
         </div>
       </button>
     </div>
@@ -708,9 +695,9 @@
           Сохранить проект принтера
         </button>
 
-        <button id="saveAoiBtn" type="button" class="ghost-btn w-full" disabled>
-          <i data-lucide="file-text" class="w-4 h-4"></i>
-          Сохранить размеры для АОИ
+        <button id="resetFormBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          Сбросить форму
         </button>
 
         <button id="openPrinterFilesBtn" type="button" class="ghost-btn w-full">
@@ -718,10 +705,45 @@
           Файлы на принтере
         </button>
 
-        <button id="resetFormBtn" type="button" class="ghost-btn w-full">
-          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          Сбросить форму
+        <div class="hair-t my-3"></div>
+
+        <button id="createAoiProjectBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="files" class="w-4 h-4"></i>
+          Создать проект АОИ
         </button>
+
+        <button id="saveAoiBtn" type="button" class="ghost-btn w-full" disabled>
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          Сохранить размеры для АОИ
+        </button>
+
+        <div class="hair-t my-3"></div>
+
+        <button id="catalogTreeBtn" type="button" class="ghost-btn w-full">
+          <i data-lucide="folder-tree" class="w-4 h-4"></i>
+          Дерево каталогов
+        </button>
+
+        <div id="catalogTreePanel" class="settings-panel p-4" hidden>
+          <div class="space-y-3">
+            <div>
+              <div class="field-label">Локальная папка</div>
+              <input id="localPathInput" class="field-input" value="C:\settings\Project_Printer_ASM\" />
+            </div>
+            <div>
+              <div class="field-label">Адрес принтера</div>
+              <input id="serverPathInput" class="field-input" value="\\server\common\Novozhilov\" />
+            </div>
+            <div>
+              <div class="field-label">Папка АОИ</div>
+              <input id="aoiPathInput" class="field-input" value="\\server\common\Любимова К.И.\" />
+            </div>
+            <div>
+              <div class="field-label">Адрес расстановщика</div>
+              <input id="placerPathInput" class="field-input" value="C:\settings\PickAndPlace\" />
+            </div>
+          </div>
+        </div>
 
         <button id="settingsBtn" type="button" class="ghost-btn w-full">
           <i data-lucide="settings" class="w-4 h-4"></i>
@@ -749,24 +771,6 @@
             </div>
             <div class="helper mt-3" id="updateStatusText">Проверка выполняется вручную или при запуске.</div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="eyebrow mb-4"><span>Пути</span></div>
-      <div class="space-y-3">
-        <div>
-          <div class="field-label">Локальная папка</div>
-          <input id="localPathInput" class="field-input" value="C:\settings\Project_Printer_ASM\" />
-        </div>
-        <div>
-          <div class="field-label">Адрес принтера</div>
-          <input id="serverPathInput" class="field-input" value="\\server\common\Novozhilov\" />
-        </div>
-        <div>
-          <div class="field-label">Папка АОИ</div>
-          <input id="aoiPathInput" class="field-input" value="\\server\common\Любимова К.И.\" />
         </div>
       </div>
     </section>
@@ -1023,20 +1027,21 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.11.4
+// Версия: 9.11.6
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.3.4",
+    version: "2.3.5",
     versionDate: "2026-08-02"
   }),
   getUserSettings: async () => ({
     paths: {
       local: $("localPathInput") ? $("localPathInput").value.trim() : "C:\\settings\\Project_Printer_ASM\\",
       printer: $("serverPathInput") ? $("serverPathInput").value.trim() : "\\\\server\\common\\Novozhilov\\",
-      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова К.И.\\"
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова К.И.\\",
+      placer: $("placerPathInput") ? $("placerPathInput").value.trim() : "C:\\settings\\PickAndPlace\\"
     },
     showTooltips: true,
     autoUpdate: false
@@ -1089,8 +1094,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.3.4",
-    latestVersion: "2.3.4",
+    currentVersion: "2.3.5",
+    latestVersion: "2.3.5",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1115,8 +1120,9 @@ const state = {
   showTooltips: true,
   autoUpdate: false,
   settingsPanelVisible: false,
+  catalogTreePanelVisible: false,
   appMeta: {
-    version: "2.3.4",
+    version: "2.3.5",
     versionDate: "2026-08-02"
   },
   initialFieldValues: {},
@@ -1128,7 +1134,8 @@ const state = {
 const DEFAULT_PATHS = {
   local: "C:\\settings\\Project_Printer_ASM\\",
   printer: "\\\\server\\common\\Novozhilov\\",
-  aoi: "\\\\server\\common\\Любимова К.И.\\"
+  aoi: "\\\\server\\common\\Любимова К.И.\\",
+  placer: "C:\\settings\\PickAndPlace\\"
 };
 
 const fallbackTemplateDefaults = {
@@ -1233,7 +1240,8 @@ function persistUserSettings(){
     paths: {
       local: $("localPathInput") ? $("localPathInput").value.trim() || DEFAULT_PATHS.local : DEFAULT_PATHS.local,
       printer: $("serverPathInput") ? $("serverPathInput").value.trim() || DEFAULT_PATHS.printer : DEFAULT_PATHS.printer,
-      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi,
+      placer: $("placerPathInput") ? $("placerPathInput").value.trim() || DEFAULT_PATHS.placer : DEFAULT_PATHS.placer
     },
     showTooltips: Boolean(state.showTooltips),
     autoUpdate: Boolean(state.autoUpdate),
@@ -1258,6 +1266,7 @@ function saveAutoUpdatePreference(enabled){
 
 function applySettingsPanelVisibility(){
   $("settingsPanel").hidden = !state.settingsPanelVisible;
+  $("catalogTreePanel").hidden = !state.catalogTreePanelVisible;
 }
 
 function updateTooltipToggle(){
@@ -1284,6 +1293,11 @@ function updateAutoUpdateToggle(){
 
 function toggleSettingsPanel(){
   state.settingsPanelVisible = !state.settingsPanelVisible;
+  applySettingsPanelVisibility();
+}
+
+function toggleCatalogTreePanel(){
+  state.catalogTreePanelVisible = !state.catalogTreePanelVisible;
   applySettingsPanelVisibility();
 }
 
@@ -1368,6 +1382,7 @@ async function applyStoredUserSettings(){
   $("localPathInput").value = paths.local || DEFAULT_PATHS.local;
   $("serverPathInput").value = paths.printer || DEFAULT_PATHS.printer;
   $("aoiPathInput").value = paths.aoi || DEFAULT_PATHS.aoi;
+  $("placerPathInput").value = paths.placer || DEFAULT_PATHS.placer;
 
   state.showTooltips = storedSettings && typeof storedSettings.showTooltips === "boolean"
     ? storedSettings.showTooltips
@@ -1571,8 +1586,10 @@ function applyTooltipTexts(){
     centerBoardCommon: "Заполняется автоматически. Не менять без необходимости.",
     generateBtn: "Сохраняет проект по двум путям, прописанным в \"локальная папка\" и \"адрес принтера\".",
     saveAoiBtn: "Сохраняет размеры платы в TXT файл по пути, прописанному в \"папка АОИ\".",
+    createAoiProjectBtn: "Создает проект на основе txt файла Pick&Place",
     openPrinterFilesBtn: "Открывает окно проводника по пути \"адрес принтера\".",
     resetFormBtn: "Сбрасывает все заполненные поля.",
+    catalogTreeBtn: "Открывает или скрывает дерево каталогов с адресами рабочих папок.",
     settingsBtn: "Открывает или скрывает настройки приложения.",
     tipsToggle: "Включает или выключает всплывающие подсказки.",
     checkUpdatesBtn: "Проверяет, доступна ли новая версия программы на GitHub Releases.",
@@ -1593,20 +1610,24 @@ async function refreshSaveReadiness(showDialog){
   const localFolderPath = $("localPathInput").value.trim();
   const printerFolderPath = $("serverPathInput").value.trim();
   const aoiFolderPath = $("aoiPathInput").value.trim();
+  const placerFolderPath = $("placerPathInput").value.trim();
 
-  const [localResult, printerResult, aoiResult] = await Promise.all([
+  const [localResult, printerResult, aoiResult, placerResult] = await Promise.all([
     probeFolderAvailability(localFolderPath, { requireWritable: true }),
     probeFolderAvailability(printerFolderPath),
-    probeFolderAvailability(aoiFolderPath)
+    probeFolderAvailability(aoiFolderPath),
+    probeFolderAvailability(placerFolderPath)
   ]);
 
   const localReady = Boolean(localResult.exists && localResult.writable);
   const printerReady = Boolean(printerResult.exists && printerResult.writable);
   const aoiReady = Boolean(aoiResult.exists && aoiResult.writable);
+  const placerReady = Boolean(placerResult.exists && placerResult.writable);
 
   setSaveReadinessValue("statLocalReady", localReady ? "online" : "offline", localReady ? "success" : "danger");
   setSaveReadinessValue("statPrinterReady", printerReady ? "online" : "offline", printerReady ? "success" : "danger");
   setSaveReadinessValue("statAoiReady", aoiReady ? "online" : "offline", aoiReady ? "success" : "danger");
+  setSaveReadinessValue("statPlacerReady", placerReady ? "online" : "offline", placerReady ? "success" : "danger");
 
   if (showDialog) {
     showAppDialog(
@@ -1622,7 +1643,11 @@ async function refreshSaveReadiness(showDialog){
         "",
         `AOI: ${aoiReady ? "online" : "offline"}`,
         `Путь: ${aoiResult.path}`,
-        aoiReady ? "" : `Причина: ${aoiResult.errorMessage || "нет доступа"}`
+        aoiReady ? "" : `Причина: ${aoiResult.errorMessage || "нет доступа"}`,
+        "",
+        `Расстановщик: ${placerReady ? "online" : "offline"}`,
+        `Путь: ${placerResult.path}`,
+        placerReady ? "" : `Причина: ${placerResult.errorMessage || "нет доступа"}`
       ].filter(Boolean).join("\n")
     );
   }
@@ -1674,7 +1699,8 @@ function saveCurrentPaths(){
   const pathState = {
     local: $("localPathInput").value.trim() || DEFAULT_PATHS.local,
     printer: $("serverPathInput").value.trim() || DEFAULT_PATHS.printer,
-    aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi
+    aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi,
+    placer: $("placerPathInput").value.trim() || DEFAULT_PATHS.placer
   };
 
   persistUserSettings();
@@ -1684,13 +1710,14 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.3.4",
+    version: "2.3.5",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
       local: $("localPathInput").value.trim(),
       server: $("serverPathInput").value.trim(),
-      aoi: $("aoiPathInput").value.trim()
+      aoi: $("aoiPathInput").value.trim(),
+      placer: $("placerPathInput").value.trim()
     },
     values: {
       boardName: $("boardNameInput").value.trim(),
@@ -2448,8 +2475,12 @@ function setupPathInput(inputId, pathLabel){
       await refreshSaveReadiness(false);
     }
 
+    if (inputId === "placerPathInput") {
+      await refreshSaveReadiness(false);
+    }
+
     showAppDialog(
-      "Пути обновлены",
+      "Каталог обновлен",
       `${pathLabel} изменен.\n\nНовое значение:\n${input.value.trim()}\n\n` +
       `Изменение сохранено и будет использоваться дальше.`
     );
@@ -2526,6 +2557,7 @@ async function init(){
   setupPathInput("localPathInput", "Локальная папка");
   setupPathInput("serverPathInput", "Адрес принтера");
   setupPathInput("aoiPathInput", "Папка АОИ");
+  setupPathInput("placerPathInput", "Адрес расстановщика");
   setupFastClearInputs();
 
   $("boardNameInput").addEventListener("input", () => {
@@ -2582,6 +2614,10 @@ async function init(){
     event.preventDefault();
     saveAoiSizeFile();
   });
+  $("createAoiProjectBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    showAppDialog("Создание проекта АОИ", "Логика обработки файла Pick&Place будет добавлена позже.");
+  });
   $("openPrinterFilesBtn").addEventListener("click", (event) => {
     event.preventDefault();
     openPrinterFiles();
@@ -2593,6 +2629,10 @@ async function init(){
   $("settingsBtn").addEventListener("click", (event) => {
     event.preventDefault();
     toggleSettingsPanel();
+  });
+  $("catalogTreeBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    toggleCatalogTreePanel();
   });
 
   $("checkUpdatesBtn").addEventListener("click", async (event) => {
