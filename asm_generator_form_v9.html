@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.12.0
+Версия: 9.12.2
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1032,13 +1032,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.12.0
+// Версия: 9.12.2
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.4.0",
+    version: "2.4.2",
     versionDate: "2026-08-02"
   }),
   getUserSettings: async () => ({
@@ -1102,8 +1102,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.4.0",
-    latestVersion: "2.4.0",
+    currentVersion: "2.4.2",
+    latestVersion: "2.4.2",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1129,7 +1129,7 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   appMeta: {
-    version: "2.4.0",
+    version: "2.4.2",
     versionDate: "2026-08-02"
   },
   initialFieldValues: {},
@@ -1702,7 +1702,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.4.0",
+    version: "2.4.2",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -2453,7 +2453,12 @@ async function createAoiProjectFromSpp(){
 
     showAppDialog(
       "Создание проекта АОИ",
-      "Проект АОИ создан."
+      `Проект АОИ создан.\n\n` +
+      `Количество элементов ${result.declaredCount} соответствует количеству строк в проекте.\n` +
+      `Количество столбцов в строке соответствует ${result.columnCount}.\n\n` +
+      `Оригинал SPP и проект АОИ сохранены по пути:\n` +
+      `"Локальная папка"\n` +
+      `"Папка АОИ"`
     );
   } catch (error) {
     showAppDialog("Создание проекта АОИ", `Не удалось создать проект АОИ.\n\n${error.message}`);

@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.4.0
+ * Версия: 2.4.2
  * Автор: Новожилов Артем
  */
 
@@ -163,20 +163,24 @@ function normalizeFolderPath(folderPath) {
   return path.resolve(folderPath || 'C:\\settings\\Project_Printer_ASM');
 }
 
-function findSppPlacementDataStart(lines) {
+function getSppPlacementSection(lines) {
   const placementSectionIndex = lines.findIndex((line) => (
     /^\s*@\s*(?:component\s+)?(?:place(?:ment)?|размещени[ея])\b/i.test(line)
   ));
 
   if (placementSectionIndex >= 0) {
     const placementCountLineIndex = placementSectionIndex + 1;
+    const placementCountText = (lines[placementCountLineIndex] || '').trim();
 
     // В SPP после @Place идёт служебное количество элементов, которое AOI не использует.
-    if (/^\s*\d+\s*$/.test(lines[placementCountLineIndex] || '')) {
-      return placementCountLineIndex + 1;
+    if (!/^\d+$/.test(placementCountText)) {
+      throw new Error('После секции "@Place" не найдено целое количество элементов.');
     }
 
-    return placementCountLineIndex;
+    return {
+      startIndex: placementCountLineIndex + 1,
+      declaredCount: Number(placementCountText)
+    };
   }
 
   const placementHeaderIndex = lines.findIndex((line) => (
@@ -185,7 +189,10 @@ function findSppPlacementDataStart(lines) {
   ));
 
   if (placementHeaderIndex >= 0) {
-    return placementHeaderIndex;
+    return {
+      startIndex: placementHeaderIndex,
+      declaredCount: null
+    };
   }
 
   throw new Error(
@@ -218,15 +225,42 @@ function createAoiSppContent(sourceContent) {
   const hasFinalLineEnding = sourceContent.endsWith('\r\n') || sourceContent.endsWith('\n');
   const lines = sourceContent.split(/\r?\n/);
   // Границы проверяются до преобразования, чтобы незнакомый формат не дал неполный AOI-файл.
-  const placementStart = findSppPlacementDataStart(lines);
-  const solderBoundary = findSppSolderBoundary(lines, placementStart);
-  const placementContent = lines
-    .slice(placementStart, solderBoundary)
+  const placementSection = getSppPlacementSection(lines);
+  const solderBoundary = findSppSolderBoundary(lines, placementSection.startIndex);
+  const placementLines = lines
+    .slice(placementSection.startIndex, solderBoundary)
+    .filter((line) => line.trim() !== '');
+
+  if (
+    placementSection.declaredCount !== null
+    && placementSection.declaredCount !== placementLines.length
+  ) {
+    throw new Error(
+      `Количество элементов после "@Place" (${placementSection.declaredCount}) не соответствует количеству строк размещения (${placementLines.length}).`
+    );
+  }
+
+  const placementContent = placementLines
     .join(lineEnding)
     .replace(/"/g, '')
     .replace(/;/g, '.');
+  const projectLines = placementContent.split(lineEnding);
+  const invalidColumnLineIndex = projectLines.findIndex((line) => line.split('.').length !== 102);
 
-  return hasFinalLineEnding ? `${placementContent}${lineEnding}` : placementContent;
+  // split сохраняет пустые значения между разделителями, поэтому учитывает пустые столбцы.
+  if (invalidColumnLineIndex >= 0) {
+    const actualColumnCount = projectLines[invalidColumnLineIndex].split('.').length;
+    throw new Error(
+      `В строке ${invalidColumnLineIndex + 1} обработанного проекта ${actualColumnCount} столбцов вместо 102. Проект не сохранен.`
+    );
+  }
+
+  return {
+    content: hasFinalLineEnding ? `${placementContent}${lineEnding}` : placementContent,
+    declaredCount: placementSection.declaredCount,
+    placementLineCount: placementLines.length,
+    columnCount: 102
+  };
 }
 
 async function createAoiProjectFromSpp(payload) {
@@ -251,7 +285,7 @@ async function createAoiProjectFromSpp(payload) {
 
   const parsedSourcePath = path.parse(sourcePath);
   const sourceContent = await fs.readFile(sourcePath, 'utf8');
-  const projectContent = createAoiSppContent(sourceContent);
+  const projectData = createAoiSppContent(sourceContent);
   const targetFolders = dedupeFolderPaths([aoiTargetFolder, localTargetFolder]);
   const saved = [];
 
@@ -264,7 +298,7 @@ async function createAoiProjectFromSpp(payload) {
     if (path.resolve(sourcePath) !== path.resolve(originalTargetPath)) {
       await fs.copyFile(sourcePath, originalTargetPath);
     }
-    await fs.writeFile(projectTargetPath, projectContent, 'utf8');
+    await fs.writeFile(projectTargetPath, projectData.content, 'utf8');
     saved.push({
       folder: targetFolder,
       originalPath: originalTargetPath,
@@ -275,6 +309,8 @@ async function createAoiProjectFromSpp(payload) {
   return {
     canceled: false,
     sourcePath,
+    declaredCount: projectData.declaredCount,
+    placementLineCount: projectData.placementLineCount,
     saved
   };
 }
