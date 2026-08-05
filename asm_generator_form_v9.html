@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.11.6
+Версия: 9.13.0
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1027,14 +1027,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.11.6
+// Версия: 9.13.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.3.5",
-    versionDate: "2026-08-02"
+    version: "2.5.0",
+    versionDate: "2026-08-05"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1068,6 +1068,9 @@ const asmBridge = window.asmApi || {
   saveAoiFile: async () => {
     throw new Error("Сохранение AOI файла доступно только в Electron.");
   },
+  createAoiProjectFromTxt: async () => {
+    throw new Error("Создание проекта АОИ доступно только в Electron.");
+  },
   generateProjectFiles: async () => {
     throw new Error("Генерация файлов доступна только в Electron.");
   },
@@ -1094,8 +1097,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.3.5",
-    latestVersion: "2.3.5",
+    currentVersion: "2.5.0",
+    latestVersion: "2.5.0",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1122,8 +1125,8 @@ const state = {
   settingsPanelVisible: false,
   catalogTreePanelVisible: false,
   appMeta: {
-    version: "2.3.5",
-    versionDate: "2026-08-02"
+    version: "2.5.0",
+    versionDate: "2026-08-05"
   },
   initialFieldValues: {},
   initialToggleValues: {},
@@ -1596,7 +1599,7 @@ function applyTooltipTexts(){
     autoUpdateToggle: "Если включить, программа будет автоматически проверять обновления при запуске.",
     updateStatusText: "Показывает состояние последней проверки обновлений.",
     similarProjectsList: "Показывает проекты, которые похожи на создаваемый по маске NSFTxxxxxx и находятся по пути \"адрес принтера\".",
-    footerVersionInfo: "Программа создавалась мной бескорыстно и единолично для целей автоматизации процесса создания проекта для принтера ASM. Право на код и использование программы принадлежит автору."
+    footerVersionInfo: "Программа создавалась мной бескорыстно и единолично для целей автоматизации процесса создания проекта принтера ASM DEC и проекта АОИ Omron. Право на код и использование программы принадлежит автору"
   };
 
   Object.entries(tooltipTexts).forEach(([id, text]) => {
@@ -1710,7 +1713,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.3.5",
+    version: "2.5.0",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -2167,15 +2170,12 @@ async function saveProjectSnapshot(){
       'Файлы проекта сохранены:',
       ...(savedFolders.length ? savedFolders.map((folder) => `- ${folder}`) : ['- —']),
       '',
-      'Файлы проекта не сохранены:',
-      ...(failedFolders.length ? failedFolders.map((folder) => `- ${folder}`) : ['- —']),
-      '',
       `Изменено полей в PR1: ${pr1PatchCount}`,
       '',
       savedCount && failedCount
         ? 'Часть путей была недоступна, но сохранение выполнено в доступные папки.'
         : savedCount > 1 && !failedCount
-          ? 'Обе папки доступны, сохранение выполнено в обе.'
+          ? 'Оба пути сохранения доступны, сохранение выполнено.'
           : !savedCount
             ? 'Сохранение не выполнено.'
             : 'Сохранение выполнено в доступную папку.'
@@ -2445,6 +2445,59 @@ function saveAoiSizeFile(){
   });
 }
 
+async function createAoiProjectFromTxt(){
+  const pathState = saveCurrentPaths();
+
+  try {
+    const result = await asmBridge.createAoiProjectFromTxt({
+      sourceFolder: pathState.placer,
+      targetFolder: pathState.aoi,
+      localTargetFolder: pathState.local
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const savedSummary = result.saved.map((folderInfo) => {
+      const fileLines = folderInfo.files.map((fileInfo) => (
+        `- ${fileInfo.fileName} — ${fileInfo.componentCount} компонентов`
+      ));
+
+      return [
+        folderInfo.folder,
+        ...fileLines
+      ].join("\n");
+    }).join("\n\n");
+
+    showAppDialog(
+      "Создание проекта АОИ",
+      (() => {
+        const lines = [
+          "Проект АОИ создан.",
+          "",
+          `Исходник: ${result.sourceCount} компонентов.`,
+          `TopLayer: ${result.topCount} компонентов.`,
+          `BottomLayer: ${result.bottomCount} компонентов.`,
+          `Удалено REF: ${result.refCount} компонентов.`
+        ];
+
+        if (result.accountedCount !== result.sourceCount) {
+          lines.push(`Компоненты не попали в проект: ${result.sourceCount - result.accountedCount}.`);
+        } else {
+          lines.push("Все компоненты попали в проект.");
+        }
+
+        lines.push("", "Сохранено:", savedSummary);
+
+        return lines.join("\n");
+      })()
+    );
+  } catch (error) {
+    showAppDialog("Создание проекта АОИ", `Не удалось создать проект АОИ.\n\n${error.message}`);
+  }
+}
+
 function setupPathInput(inputId, pathLabel){
   const input = $(inputId);
 
@@ -2616,7 +2669,7 @@ async function init(){
   });
   $("createAoiProjectBtn").addEventListener("click", (event) => {
     event.preventDefault();
-    showAppDialog("Создание проекта АОИ", "Логика обработки файла Pick&Place будет добавлена позже.");
+    createAoiProjectFromTxt();
   });
   $("openPrinterFilesBtn").addEventListener("click", (event) => {
     event.preventDefault();

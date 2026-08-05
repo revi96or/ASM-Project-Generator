@@ -1,10 +1,10 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.3.6
+ * Версия: 2.5.0
  * Автор: Новожилов Артем
  */
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs/promises');
 const { constants: fsConstants } = require('fs');
@@ -14,9 +14,10 @@ const packageJson = require('./package.json');
 const REQUIRED_TEMPLATE_FILES = ['template.PR1', 'template.ISD', 'template.pxf', 'pr1_known_map.json'];
 const TEMPLATE_ASSETS_DIR = 'templates';
 const SNAPSHOT_SUFFIX = '_project_snapshot.json';
+const PNP_LAYER_MARKER_PATTERN = /_(T|B|R)_/i;
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-07-30'
+  versionDate: packageJson.versionDate || '2026-08-05'
 };
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
@@ -161,6 +162,217 @@ function getAppDataSnapshotPath(fileName) {
 // Нормализуем путь один раз, чтобы и окно, и операции с файлами работали одинаково.
 function normalizeFolderPath(folderPath) {
   return path.resolve(folderPath || 'C:\\settings\\Project_Printer_ASM');
+}
+
+function detectPlacementTxtMode(fileName) {
+  const match = String(fileName || '').match(PNP_LAYER_MARKER_PATTERN);
+
+  if (!match) {
+    throw new Error('В имени файла не найден маркер слоя _T_, _B_ или _R_.');
+  }
+
+  return match[1].toUpperCase();
+}
+
+function getPlacementTxtRows(sourceContent) {
+  const allLines = String(sourceContent || '').split(/\r?\n/);
+
+  if (allLines.length < 3) {
+    throw new Error('Файл расстановщика должен содержать минимум 3 строки.');
+  }
+
+  // Пропускаем первые две служебные строки, а пустые строки внутри данных игнорируем.
+  return allLines
+    .slice(2)
+    .map((line, index) => ({
+      line,
+      lineNumber: index + 3
+    }))
+    .filter((entry) => {
+      const trimmed = entry.line.trim();
+
+      if (trimmed === '') {
+        return false;
+      }
+
+      // Третья строка часто является заголовком таблицы и не считается компонентом.
+      if (trimmed.toUpperCase().startsWith('DESIGNATOR ')) {
+        return false;
+      }
+
+      return true;
+    });
+}
+
+function isPlacementRefRow(line) {
+  // Реперные строки начинаются с REF и не должны попадать в итоговые файлы.
+  return /^REF/i.test(String(line || '').trim());
+}
+
+function parsePlacementTxtRow(rowEntry) {
+  const columns = String(rowEntry.line || '').trim().split(/\s+/);
+
+  if (columns.length !== 7) {
+    throw new Error(`Строка ${rowEntry.lineNumber}: ожидалось 7 столбцов, найдено ${columns.length}.`);
+  }
+
+  return {
+    designator: columns[0],
+    footprint: columns[1],
+    centerX: columns[2],
+    centerY: columns[3],
+    layer: columns[4],
+    rotation: columns[5],
+    comment: columns[6]
+  };
+}
+
+function formatPlacementTxtRow(row) {
+  return [
+    row.designator,
+    `${row.comment}_${row.footprint}`,
+    row.layer,
+    row.rotation,
+    row.centerX,
+    row.centerY
+  ].join(';');
+}
+
+function replacePlacementTxtLayerMarker(fileName, nextMarker) {
+  const baseName = path.basename(String(fileName || ''));
+
+  if (PNP_LAYER_MARKER_PATTERN.test(baseName)) {
+    return baseName.replace(PNP_LAYER_MARKER_PATTERN, nextMarker);
+  }
+
+  return baseName;
+}
+
+function buildPlacementTxtOutputs(sourceContent, sourceFileName) {
+  const mode = detectPlacementTxtMode(sourceFileName);
+  const sourceRows = getPlacementTxtRows(sourceContent);
+  const refRows = sourceRows.filter((entry) => isPlacementRefRow(entry.line));
+  const dataRows = sourceRows
+    .filter((entry) => !isPlacementRefRow(entry.line))
+    .map(parsePlacementTxtRow);
+  const sourceCount = sourceRows.length;
+  const refCount = refRows.length;
+
+  if (mode === 'R') {
+    // Для смешанного файла сначала делим уже очищенные строки по физическим слоям.
+    const topRows = dataRows.filter((row) => row.layer === 'TopLayer');
+    const bottomRows = dataRows.filter((row) => row.layer === 'BottomLayer');
+    const accountedCount = topRows.length + bottomRows.length + refCount;
+
+    return {
+      sourceCount,
+      refCount,
+      topCount: topRows.length,
+      bottomCount: bottomRows.length,
+      accountedCount,
+      outputs: [
+        {
+          fileName: replacePlacementTxtLayerMarker(sourceFileName, '_T_'),
+          layer: 'TopLayer',
+          componentCount: topRows.length,
+          content: topRows.map(formatPlacementTxtRow).join('\r\n')
+        },
+        {
+          fileName: replacePlacementTxtLayerMarker(sourceFileName, '_B_'),
+          layer: 'BottomLayer',
+          componentCount: bottomRows.length,
+          content: bottomRows.map(formatPlacementTxtRow).join('\r\n')
+        }
+      ]
+    };
+  }
+
+  const singleLayerRows = dataRows;
+  const singleLayerCount = singleLayerRows.length;
+
+  return {
+    sourceCount,
+    refCount,
+    topCount: mode === 'T' ? singleLayerCount : 0,
+    bottomCount: mode === 'B' ? singleLayerCount : 0,
+    accountedCount: singleLayerCount + refCount,
+    outputs: [
+      {
+        fileName: path.basename(String(sourceFileName || 'project.txt')),
+        layer: mode === 'T' ? 'TopLayer' : 'BottomLayer',
+        componentCount: singleLayerCount,
+        content: singleLayerRows.map(formatPlacementTxtRow).join('\r\n')
+      }
+    ]
+  };
+}
+
+async function savePlacementTxtOutputs(targetFolders, outputs, sourcePath) {
+  const saved = [];
+
+  for (const targetFolder of targetFolders) {
+    await ensureTargetFolder(targetFolder);
+
+    const savedFiles = [];
+
+    for (const output of outputs) {
+      const targetPath = path.join(targetFolder, output.fileName);
+
+      // Не перезаписываем исходный файл расстановщика, если он случайно лежит в папке назначения.
+      if (path.resolve(targetPath) === path.resolve(sourcePath)) {
+        throw new Error(`Отказ от записи в исходный файл: ${targetPath}`);
+      }
+
+      await fs.writeFile(targetPath, output.content, 'utf8');
+      savedFiles.push({
+        fileName: output.fileName,
+        path: targetPath,
+        layer: output.layer,
+        componentCount: output.componentCount
+      });
+    }
+
+    saved.push({
+      folder: targetFolder,
+      files: savedFiles
+    });
+  }
+
+  return saved;
+}
+
+async function createAoiProjectFromTxt(payload) {
+  const sourceFolder = normalizeFolderPath(payload && payload.sourceFolder);
+  const aoiTargetFolder = normalizeFolderPath(payload && payload.targetFolder);
+  const localTargetFolder = normalizeFolderPath(payload && payload.localTargetFolder);
+  const selection = await dialog.showOpenDialog(mainWindow, {
+    title: 'Выберите txt файл расстановщика',
+    defaultPath: sourceFolder,
+    properties: ['openFile'],
+    filters: [{ name: 'Текстовые файлы', extensions: ['txt'] }]
+  });
+
+  if (selection.canceled || !selection.filePaths.length) {
+    return { canceled: true };
+  }
+
+  const sourcePath = selection.filePaths[0];
+  const sourceContent = await fs.readFile(sourcePath, 'utf8');
+  const outputBundle = buildPlacementTxtOutputs(sourceContent, sourcePath);
+  const targetFolders = dedupeFolderPaths([aoiTargetFolder, localTargetFolder]);
+  const saved = await savePlacementTxtOutputs(targetFolders, outputBundle.outputs, sourcePath);
+
+  return {
+    canceled: false,
+    sourcePath,
+    sourceCount: outputBundle.sourceCount,
+    refCount: outputBundle.refCount,
+    topCount: outputBundle.topCount,
+    bottomCount: outputBundle.bottomCount,
+    accountedCount: outputBundle.accountedCount,
+    outputs: outputBundle.outputs,
+    saved
+  };
 }
 
 function getTemplateAssetsFolder() {
@@ -841,6 +1053,10 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
       fileName,
       path: targetPath
     };
+  });
+
+  ipcMain.handle('asm:create-aoi-project-from-txt', async (_event, payload) => {
+    return createAoiProjectFromTxt(payload || {});
   });
 
   ipcMain.handle('asm:load-workspace-data', async (_event, folderPath) => {
