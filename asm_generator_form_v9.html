@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.13.0
+Версия: 9.13.1
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -9,7 +9,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0A0E18" />
-<title>Создание проекта принтера ASM</title>
+<title>Создание прокта ASM и OMRON</title>
 
 <link rel="stylesheet" href="assets/styles/tailwind.css" />
 <link rel="stylesheet" href="assets/styles/fonts.css" />
@@ -601,32 +601,20 @@
 
 <header class="hair-b relative overflow-hidden shrink-0">
   <div class="hero-bg absolute inset-0 pointer-events-none"></div>
-  <div class="relative max-w-[1550px] mx-auto px-5 lg:px-8 pt-8 pb-8">
-    <div class="flex items-center justify-between gap-4 mb-7">
-      <div class="breadcrumb">
-        <span class="dot"></span>
-        <span id="headerProjectName">создание-проекта-printer-asm</span>
-        <span>·</span>
-        <span>локальный режим</span>
-        <span>·</span>
-        <span id="todayLabel"></span>
-      </div>
-
+  <div class="relative max-w-[1550px] mx-auto px-5 lg:px-8 pt-4 pb-6">
+    <div class="flex items-center justify-end gap-4 mb-3">
       <button id="themeToggle" type="button" class="ghost-btn">
         <i data-lucide="sun-moon" class="w-4 h-4"></i>
         Тема
       </button>
     </div>
 
-    <h1 class="font-display font-extrabold text-[40px] leading-[1.08] tracking-tight max-w-4xl">
-      Создание <span style="color:var(--accent)">проекта принтера ASM</span>
+    <h1 class="font-display font-extrabold text-[40px] leading-[1.08] tracking-tight max-w-4xl flex items-start gap-3">
+      <span class="dot mt-3"></span>
+      <span>Создание прокта ASM и OMRON</span>
     </h1>
 
-    <p class="mt-4 text-[16px] text-muted max-w-3xl">
-      Генератор проекта на основе шаблона PR1 и связанных файлов.
-    </p>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-7">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
       <button id="statPrinterCard" type="button" class="stat-card clickable text-left">
         <div class="stat-label">Статус принтера</div>
         <div class="stat-value-row"><span class="stat-num stat-hero-value" id="statPrinterStatus" style="color:var(--danger)">offline</span></div>
@@ -1006,7 +994,7 @@
 
 <footer class="app-footer mt-auto">
   <div class="max-w-[1550px] mx-auto px-5 lg:px-8 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-    <div>Генератор проектов трафаретного принтера ASM | Новожилов Артем</div>
+    <div>Генератор проектов трафаретного принтера ASM и оптической инспекции OMRON | Новожилов Артем</div>
     <div id="footerVersionInfo">Версия — · дата —</div>
   </div>
 </footer>
@@ -1027,14 +1015,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.13.0
+// Версия: 9.13.1
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.5.0",
-    versionDate: "2026-08-05"
+    version: "2.5.1",
+    versionDate: "2026-08-06"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1097,8 +1085,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.5.0",
-    latestVersion: "2.5.0",
+    currentVersion: "2.5.1",
+    latestVersion: "2.5.1",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1125,8 +1113,8 @@ const state = {
   settingsPanelVisible: false,
   catalogTreePanelVisible: false,
   appMeta: {
-    version: "2.5.0",
-    versionDate: "2026-08-05"
+    version: "2.5.1",
+    versionDate: "2026-08-06"
   },
   initialFieldValues: {},
   initialToggleValues: {},
@@ -1713,7 +1701,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.5.0",
+    version: "2.5.1",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -2206,7 +2194,10 @@ function applyTheme(mode){
 }
 
 function setToday(){
-  $("todayLabel").textContent = new Date().toLocaleDateString("ru-RU", {
+  const todayLabel = $("todayLabel");
+  if (!todayLabel) return;
+
+  todayLabel.textContent = new Date().toLocaleDateString("ru-RU", {
     day:"numeric", month:"long", year:"numeric"
   });
 }
@@ -2230,7 +2221,6 @@ function fitProjectText(){
 function updateProjectCard(){
   const v = $("boardNameInput").value.trim();
   $("statProjectName").textContent = v || "—";
-  $("headerProjectName").textContent = v || "создание-проекта-printer-asm";
   fitProjectText();
 }
 
