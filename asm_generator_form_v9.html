@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.13.1
+Версия: 9.14.0
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -9,7 +9,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0A0E18" />
-<title>Создание прокта ASM и OMRON</title>
+<title>Создание проекта ASM и OMRON</title>
 
 <link rel="stylesheet" href="assets/styles/tailwind.css" />
 <link rel="stylesheet" href="assets/styles/fonts.css" />
@@ -115,6 +115,10 @@
   .hair-b{ border-bottom:1px solid var(--border); }
   .hair-t{ border-top:1px solid var(--border); }
 
+  .hero-divider{
+    margin-top:16px;
+  }
+
   .breadcrumb{
     font-family:'JetBrains Mono',monospace;
     font-size:12px;
@@ -126,7 +130,7 @@
     gap:9px;
   }
 
-  .breadcrumb .dot{
+  .dot{
     width:6px;
     height:6px;
     border-radius:50%;
@@ -599,20 +603,20 @@
 <body>
 <div class="app-shell">
 
-<header class="hair-b relative overflow-hidden shrink-0">
+<header class="relative overflow-hidden shrink-0">
   <div class="hero-bg absolute inset-0 pointer-events-none"></div>
-  <div class="relative max-w-[1550px] mx-auto px-5 lg:px-8 pt-4 pb-6">
-    <div class="flex items-center justify-end gap-4 mb-3">
-      <button id="themeToggle" type="button" class="ghost-btn">
+  <div class="relative max-w-[1550px] mx-auto px-5 lg:px-8 pt-4 pb-20">
+    <div class="flex items-center justify-between gap-4 mb-4">
+      <h1 class="font-display font-extrabold text-[40px] leading-[1.08] tracking-tight max-w-4xl flex items-center gap-3">
+        <span class="dot"></span>
+        <span><span style="color:var(--text)">Создание</span> <span style="color:var(--accent)">проекта ASM и OMRON</span></span>
+      </h1>
+
+      <button id="themeToggle" type="button" class="ghost-btn shrink-0">
         <i data-lucide="sun-moon" class="w-4 h-4"></i>
         Тема
       </button>
     </div>
-
-    <h1 class="font-display font-extrabold text-[40px] leading-[1.08] tracking-tight max-w-4xl flex items-start gap-3">
-      <span class="dot mt-3"></span>
-      <span>Создание прокта ASM и OMRON</span>
-    </h1>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
       <button id="statPrinterCard" type="button" class="stat-card clickable text-left">
@@ -658,6 +662,9 @@
         </div>
       </button>
     </div>
+
+    <div class="h-6"></div>
+    <div class="hero-divider hair-b"></div>
   </div>
 </header>
 
@@ -806,7 +813,7 @@
               <input id="boardThicknessInput" class="field-input tracked-input" type="number" step="any" />
             </div>
           </div>
-          <div class="helper">Значения по умолчанию берутся из шаблона: c:\settings\Project_Printer_ASM\template.PR1</div>
+          <div class="helper">Значения по умолчанию берутся из шаблона: template.PR1</div>
         </div>
 
         <div class="section-card p-4">
@@ -847,7 +854,7 @@
               <input id="ref3y" class="field-input tracked-input" type="number" step="any" />
             </div>
           </div>
-          <div class="helper">Значения по умолчанию берутся из шаблона: c:\settings\Project_Printer_ASM\template.PR1</div>
+          <div class="helper">Значения по умолчанию берутся из шаблона: template.PR1</div>
         </div>
 
         <div class="section-card p-4">
@@ -875,13 +882,13 @@
             <div>
               <div class="field-label">Смещение остановки по X</div>
               <input id="centerBoardX0" class="field-input tracked-input" type="number" step="any" />
-              <div class="helper">Авто: половина длины платы (X). Вручную: потом проверю</div>
+              <div class="helper">Авто: половина длины платы (X). Вручную: можно вписать</div>
             </div>
 
             <div>
               <div class="field-label">Точка стопора Y</div>
               <input id="stopBoardY" class="field-input tracked-input" type="number" step="any" />
-              <div class="helper">Всегда по формуле: 70% от высоты платы (Y)</div>
+              <div class="helper">Расчитывается по формуле: 70% от высоты платы (Y)</div>
             </div>
           </div>
         </div>
@@ -926,7 +933,7 @@
             </div>
           </div>
 
-          <div class="helper">Параметры печати по умолчанию тоже должны подтягиваться из шаблона PR1.</div>
+          <div class="helper">Параметры печати по умолчанию берутся из шаблона: template.PR1</div>
         </div>
 
         <div class="section-card p-4">
@@ -994,7 +1001,7 @@
 
 <footer class="app-footer mt-auto">
   <div class="max-w-[1550px] mx-auto px-5 lg:px-8 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-    <div>Генератор проектов трафаретного принтера ASM и оптической инспекции OMRON | Новожилов Артем</div>
+    <div>Генератор проектов ASM и OMRON | Новожилов Артем</div>
     <div id="footerVersionInfo">Версия — · дата —</div>
   </div>
 </footer>
@@ -1015,13 +1022,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.13.1
+// Версия: 9.14.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.5.1",
+    version: "2.6.0",
     versionDate: "2026-08-06"
   }),
   getUserSettings: async () => ({
@@ -1085,8 +1092,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.5.1",
-    latestVersion: "2.5.1",
+    currentVersion: "2.6.0",
+    latestVersion: "2.6.0",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1113,7 +1120,7 @@ const state = {
   settingsPanelVisible: false,
   catalogTreePanelVisible: false,
   appMeta: {
-    version: "2.5.1",
+    version: "2.6.0",
     versionDate: "2026-08-06"
   },
   initialFieldValues: {},
@@ -1701,7 +1708,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.5.1",
+    version: "2.6.0",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

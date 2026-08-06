@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.5.0
+ * Версия: 2.6.0
  * Автор: Новожилов Артем
  */
 
@@ -238,6 +238,36 @@ function formatPlacementTxtRow(row) {
   ].join(';');
 }
 
+function flipPlacementXValue(value) {
+  // Для нижнего слоя X отражаем относительно нуля, но сохраняем исходный формат числа.
+  const text = String(value || '');
+
+  if (!text) {
+    return text;
+  }
+
+  if (text.charAt(0) === '-') {
+    return text.slice(1);
+  }
+
+  if (text.charAt(0) === '+') {
+    return `-${text.slice(1)}`;
+  }
+
+  return `-${text}`;
+}
+
+function rotatePlacementBottomRow(row) {
+  // Нижний слой переворачиваем по углу и зеркалим по X, верхний слой не трогаем.
+  const nextRotation = (Number(row.rotation) + 180) % 360;
+
+  return {
+    ...row,
+    rotation: String(nextRotation),
+    centerX: flipPlacementXValue(row.centerX)
+  };
+}
+
 function replacePlacementTxtLayerMarker(fileName, nextMarker) {
   const baseName = path.basename(String(fileName || ''));
 
@@ -261,7 +291,9 @@ function buildPlacementTxtOutputs(sourceContent, sourceFileName) {
   if (mode === 'R') {
     // Для смешанного файла сначала делим уже очищенные строки по физическим слоям.
     const topRows = dataRows.filter((row) => row.layer === 'TopLayer');
-    const bottomRows = dataRows.filter((row) => row.layer === 'BottomLayer');
+    const bottomRows = dataRows
+      .filter((row) => row.layer === 'BottomLayer')
+      .map(rotatePlacementBottomRow);
     const accountedCount = topRows.length + bottomRows.length + refCount;
 
     return {
@@ -289,6 +321,9 @@ function buildPlacementTxtOutputs(sourceContent, sourceFileName) {
 
   const singleLayerRows = dataRows;
   const singleLayerCount = singleLayerRows.length;
+  const outputRows = mode === 'B'
+    ? singleLayerRows.map(rotatePlacementBottomRow)
+    : singleLayerRows;
 
   return {
     sourceCount,
@@ -301,7 +336,7 @@ function buildPlacementTxtOutputs(sourceContent, sourceFileName) {
         fileName: path.basename(String(sourceFileName || 'project.txt')),
         layer: mode === 'T' ? 'TopLayer' : 'BottomLayer',
         componentCount: singleLayerCount,
-        content: singleLayerRows.map(formatPlacementTxtRow).join('\r\n')
+        content: outputRows.map(formatPlacementTxtRow).join('\r\n')
       }
     ]
   };
@@ -1045,7 +1080,8 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
     await ensureTargetFolder(targetFolder);
 
-    const fileName = `${boardName}.txt`;
+    // Для AOI-описания всегда добавляем суффикс, чтобы файл было легко отличить от других TXT.
+    const fileName = `${boardName}_описание.txt`;
     const targetPath = path.join(targetFolder, fileName);
     await fs.writeFile(targetPath, content, 'utf8');
 
