@@ -257,14 +257,41 @@ function flipPlacementXValue(value) {
   return `-${text}`;
 }
 
-function rotatePlacementBottomRow(row) {
-  // Нижний слой переворачиваем по углу и зеркалим по X, верхний слой не трогаем.
-  const nextRotation = (Number(row.rotation) + 180) % 360;
+function normalizePlacementRotation(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error(`Некорректное значение угла: ${value}`);
+  }
+
+  return ((numericValue % 360) + 360) % 360;
+}
+
+function transformPlacementRotation(rotation, layer, rotationDelta = 0) {
+  const currentRotation = Number(rotation);
+  const delta = Number(rotationDelta);
+
+  if (!Number.isFinite(currentRotation) || !Number.isFinite(delta)) {
+    throw new Error(`Некорректное значение угла: ${rotation}`);
+  }
+
+  // Зеркальное отображение BottomLayer меняет направление отсчета угла.
+  const layerRotation = layer === 'BottomLayer'
+    ? 180 - currentRotation
+    : currentRotation;
+
+  return normalizePlacementRotation(layerRotation - delta);
+}
+
+function transformPlacementRow(row) {
+  const nextRotation = transformPlacementRotation(row.rotation, row.layer);
 
   return {
     ...row,
     rotation: String(nextRotation),
-    centerX: flipPlacementXValue(row.centerX)
+    centerX: row.layer === 'BottomLayer'
+      ? flipPlacementXValue(row.centerX)
+      : row.centerX
   };
 }
 
@@ -290,10 +317,12 @@ function buildPlacementTxtOutputs(sourceContent, sourceFileName) {
 
   if (mode === 'R') {
     // Для смешанного файла сначала делим уже очищенные строки по физическим слоям.
-    const topRows = dataRows.filter((row) => row.layer === 'TopLayer');
+    const topRows = dataRows
+      .filter((row) => row.layer === 'TopLayer')
+      .map(transformPlacementRow);
     const bottomRows = dataRows
       .filter((row) => row.layer === 'BottomLayer')
-      .map(rotatePlacementBottomRow);
+      .map(transformPlacementRow);
     const accountedCount = topRows.length + bottomRows.length + refCount;
 
     return {
@@ -321,9 +350,7 @@ function buildPlacementTxtOutputs(sourceContent, sourceFileName) {
 
   const singleLayerRows = dataRows;
   const singleLayerCount = singleLayerRows.length;
-  const outputRows = mode === 'B'
-    ? singleLayerRows.map(rotatePlacementBottomRow)
-    : singleLayerRows;
+  const outputRows = singleLayerRows.map(transformPlacementRow);
 
   return {
     sourceCount,
