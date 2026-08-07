@@ -268,11 +268,15 @@ function normalizePlacementRotation(value) {
 }
 
 function transformPlacementRotation(rotation, layer, rotationDelta = 0) {
-  const currentRotation = Number(rotation);
+  const currentRotation = normalizePlacementRotation(rotation);
   const delta = Number(rotationDelta);
 
-  if (!Number.isFinite(currentRotation) || !Number.isFinite(delta)) {
-    throw new Error(`Некорректное значение угла или дельты: ${rotation}, ${rotationDelta}`);
+  if (!Number.isFinite(delta)) {
+    throw new Error(`Некорректное значение дельты: ${rotationDelta}`);
+  }
+
+  if (layer !== 'TopLayer' && layer !== 'BottomLayer') {
+    throw new Error(`Неизвестный слой компонента: ${layer}`);
   }
 
   // Зеркальное отображение BottomLayer меняет направление отсчета угла.
