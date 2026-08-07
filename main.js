@@ -272,7 +272,7 @@ function transformPlacementRotation(rotation, layer, rotationDelta = 0) {
   const delta = Number(rotationDelta);
 
   if (!Number.isFinite(currentRotation) || !Number.isFinite(delta)) {
-    throw new Error(`Некорректное значение угла: ${rotation}`);
+    throw new Error(`Некорректное значение угла или дельты: ${rotation}, ${rotationDelta}`);
   }
 
   // Зеркальное отображение BottomLayer меняет направление отсчета угла.
