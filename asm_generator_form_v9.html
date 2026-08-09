@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.14.0
+Версия: 9.17.0
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -686,7 +686,12 @@
       <div class="space-y-2">
         <button id="generateBtn" type="button" class="solid-btn w-full">
           <i data-lucide="save" class="w-4 h-4"></i>
-          Сохранить проект принтера
+          <span id="generateBtnLabel">Сохранить проект ASM</span>
+        </button>
+
+        <button id="loadPr1Btn" type="button" class="ghost-btn w-full">
+          <i data-lucide="folder-open" class="w-4 h-4"></i>
+          Открыть проект ASM
         </button>
 
         <button id="resetFormBtn" type="button" class="ghost-btn w-full">
@@ -1021,14 +1026,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.14.0
+// Версия: 9.17.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.6.0",
-    versionDate: "2026-08-06"
+    version: "2.7.2",
+    versionDate: "2026-08-09"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1059,12 +1064,18 @@ const asmBridge = window.asmApi || {
   saveProjectJson: async () => {
     throw new Error("Сохранение JSON доступно только в Electron.");
   },
+  saveProjectState: async () => {
+    throw new Error("Единое сохранение доступно только в Electron.");
+  },
   saveAoiFile: async () => {
     throw new Error("Сохранение AOI файла доступно только в Electron.");
   },
   createAoiProjectFromTxt: async () => {
     throw new Error("Создание проекта АОИ доступно только в Electron.");
   },
+  loadPr1Project: async () => ({
+    canceled: true
+  }),
   generateProjectFiles: async () => {
     throw new Error("Генерация файлов доступна только в Electron.");
   },
@@ -1091,8 +1102,8 @@ const asmBridge = window.asmApi || {
     }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "2.6.0",
-    latestVersion: "2.6.0",
+    currentVersion: "2.7.2",
+    latestVersion: "2.7.2",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1119,9 +1130,11 @@ const state = {
   settingsPanelVisible: false,
   catalogTreePanelVisible: false,
   appMeta: {
-    version: "2.6.0",
-    versionDate: "2026-08-06"
+    version: "2.7.2",
+    versionDate: "2026-08-09"
   },
+  projectMode: "create",
+  pr1SourcePath: "",
   initialFieldValues: {},
   initialToggleValues: {},
   focusRestoreValues: {},
@@ -1581,7 +1594,8 @@ function applyTooltipTexts(){
     centerBoardMinus: "Заполняется автоматически. Не менять без необходимости.",
     centerBoard3: "Заполняется автоматически. Не менять без необходимости.",
     centerBoardCommon: "Заполняется автоматически. Не менять без необходимости.",
-    generateBtn: "Сохраняет проект по двум путям, прописанным в \"локальная папка\" и \"адрес принтера\".",
+    generateBtn: "Сохраняет новый или измененный проект принтера ASM",
+    loadPr1Btn: "Открывает существующий проект принтера ASM и переводит форму в режим редактирования.",
     saveAoiBtn: "Сохраняет размеры платы в TXT файл по пути, прописанному в \"папка АОИ\".",
     createAoiProjectBtn: "Создает проект на основе txt файла Pick&Place",
     openPrinterFilesBtn: "Открывает окно проводника по пути \"адрес принтера\".",
@@ -1692,6 +1706,23 @@ function updateFooterMeta(){
   $("footerVersionInfo").textContent = `Версия ${state.appMeta.version} · ${state.appMeta.versionDate}`;
 }
 
+function updateProjectModeUi(){
+  const generateBtnLabel = $("generateBtnLabel");
+  const isEditMode = state.projectMode === "edit";
+
+  if (generateBtnLabel) {
+    generateBtnLabel.textContent = isEditMode
+      ? "Сохранить изменения ASM"
+      : "Сохранить проект ASM";
+  }
+}
+
+function setProjectMode(mode, details = {}){
+  state.projectMode = mode === "edit" ? "edit" : "create";
+  state.pr1SourcePath = state.projectMode === "edit" ? String(details.pr1SourcePath || state.pr1SourcePath || "") : "";
+  updateProjectModeUi();
+}
+
 function saveCurrentPaths(){
   const pathState = {
     local: $("localPathInput").value.trim() || DEFAULT_PATHS.local,
@@ -1707,7 +1738,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.6.0",
+    version: "2.7.2",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -1770,6 +1801,14 @@ function applyTemplateDefaults(defaults){
     const el = $(id);
     if (!el) return;
     if (el.value.trim() === "") el.value = value;
+  });
+}
+
+function applyLoadedProjectValues(values){
+  Object.entries(values || {}).forEach(([id, value]) => {
+    const el = $(id);
+    if (!el) return;
+    el.value = value;
   });
 }
 
@@ -2128,38 +2167,75 @@ async function openPrinterFiles(){
   }
 }
 
-async function saveProjectSnapshot(){
+async function loadExistingPr1Project(){
+  const pathState = saveCurrentPaths();
+
+  try {
+    const result = await asmBridge.loadPr1Project({
+      sourceFolder: pathState.local
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const projectDefaults = result.templateDefaults || { exists: true, values: {}, toggles: {}, comment: "" };
+
+    $("boardNameInput").value = result.boardName || "";
+    applyLoadedProjectValues({
+      boardNameInput: result.boardName || "",
+      ...(projectDefaults.values || {})
+    });
+    state.commentWasManuallyEdited = false;
+    applyTemplateToggles(projectDefaults);
+    $("commentInput").value = projectDefaults.comment || "";
+    state.commentSuffix = splitCommentParts(
+      $("commentInput").value,
+      getCommentPrefixFromBoardY(getNum("boardYInput"))
+    ).suffix;
+    updateRefFieldsByCount();
+    updateCenterBoardXAuto(true);
+    updateStopBoardYAuto(true);
+    updateAoiButtonState();
+    captureInitialFormState();
+    state.templateDefaultsApplied = true;
+    updateProjectCard();
+    setProjectMode("edit", { pr1SourcePath: result.sourcePath });
+    await loadWorkspaceData(false);
+  } catch (error) {
+    showAppDialog("Открытие PR1", `Не удалось открыть PR1.\n\n${error.message}`);
+  }
+}
+
+async function saveProjectState(){
   const snapshot = buildProjectSnapshot();
   const boardName = snapshot.values.boardName || "";
 
   try {
-    const result = await asmBridge.saveProjectJson({
+    const result = await asmBridge.saveProjectState({
       ...snapshot,
+      mode: state.projectMode,
       targetFolder: snapshot.paths.local,
+      printerTargetFolder: snapshot.paths.server,
+      pr1SourcePath: state.pr1SourcePath,
+      formValues: snapshot.values,
       boardName: boardName || "ASM_Project"
     });
-    let generationResult = null;
-
-    if (boardName.trim() !== "") {
-      generationResult = await asmBridge.generateProjectFiles({
-        targetFolder: snapshot.paths.local,
-        printerTargetFolder: snapshot.paths.server,
-        boardName,
-        formValues: snapshot.values
-      });
-    }
 
     await refreshPrinterStatus(false);
     await refreshSaveReadiness(false);
 
-    const saveReports = generationResult ? generationResult.saveReports : [];
+    const snapshotResult = result.snapshotResult;
+    const generatedResult = result.generatedResult;
+    const saveReports = generatedResult.saveReports || [];
     const savedFolders = saveReports.filter((item) => item.status === 'saved').map((item) => item.folder);
     const failedFolders = saveReports.filter((item) => item.status === 'failed').map((item) => item.folder);
-    const pr1PatchCount = generationResult ? generationResult.pr1PatchSummary.patchedFields.length : 0;
-    const savedCount = saveReports.length ? savedFolders.length : result.saved.length;
-    const failedCount = saveReports.length ? failedFolders.length : result.failed.length;
+    const pr1PatchCount = state.changedFields.size;
+    const savedCount = saveReports.length ? savedFolders.length : snapshotResult.saved.length;
+    const failedCount = saveReports.length ? failedFolders.length : snapshotResult.failed.length;
     const saveSummaryLines = [
       `Название проекта: ${boardName || "—"}`,
+      `Режим: ${state.projectMode === "edit" ? "редактирование PR1" : "новый проект"}`,
       '',
       'Файлы проекта сохранены:',
       ...(savedFolders.length ? savedFolders.map((folder) => `- ${folder}`) : ['- —']),
@@ -2178,6 +2254,11 @@ async function saveProjectSnapshot(){
     showAppDialog("Сохранение проекта", saveSummaryLines.join('\n'));
 
     await loadWorkspaceData(false);
+    if (state.projectMode === "edit") {
+      setProjectMode("edit", { pr1SourcePath: state.pr1SourcePath });
+    } else {
+      setProjectMode("create");
+    }
   } catch (error) {
     showAppDialog("Сохранение проекта", `Не удалось сохранить проект.\n\n${error.message}`);
   }
@@ -2337,21 +2418,17 @@ function syncCenterDuplicates(sourceValue){
   markDirty($("centerBoardMinus"), "centerBoardMinus", { countInSummary: false });
 }
 
-function updateCenterBoardXAuto(preserveExistingValue){
+function updateCenterBoardXAuto(preserveExistingValue, forceSync){
   const x = getNum("boardXInput");
+  const shouldWriteDerivedValue = state.values.boardStopMode === 0 && (Boolean(forceSync) || !preserveExistingValue || $("centerBoardX0").value.trim() === "");
 
-  if (state.values.boardStopMode === 0) {
-    $("centerBoardX0").disabled = true;
-    if (x !== null) {
-      const value = x / 2;
-      if (!preserveExistingValue || $("centerBoardX0").value.trim() === "") {
-        $("centerBoardX0").value = String(value);
-        markDirty($("centerBoardX0"), "centerBoardX0", { countInSummary: false });
-        syncCenterDuplicates(value);
-      }
-    }
-  } else {
-    $("centerBoardX0").disabled = false;
+  $("centerBoardX0").disabled = state.values.boardStopMode === 0;
+
+  if (x !== null && shouldWriteDerivedValue) {
+    const value = x / 2;
+    $("centerBoardX0").value = String(value);
+    markDirty($("centerBoardX0"), "centerBoardX0", { countInSummary: false });
+    syncCenterDuplicates(value);
   }
 }
 
@@ -2580,6 +2657,7 @@ async function init(){
   applyTheme(state.theme);
   setToday();
   updateFooterMeta();
+  updateProjectModeUi();
 
   $("themeToggle").addEventListener("click", (event) => {
     event.preventDefault();
@@ -2638,7 +2716,7 @@ async function init(){
   });
 
   $("boardXInput").addEventListener("input", () => {
-    updateCenterBoardXAuto();
+    updateCenterBoardXAuto(false, true);
     updateAoiButtonState();
   });
 
@@ -2657,7 +2735,11 @@ async function init(){
 
   $("generateBtn").addEventListener("click", (event) => {
     event.preventDefault();
-    saveProjectSnapshot();
+    saveProjectState();
+  });
+  $("loadPr1Btn").addEventListener("click", (event) => {
+    event.preventDefault();
+    loadExistingPr1Project();
   });
   $("saveAoiBtn").addEventListener("click", (event) => {
     event.preventDefault();

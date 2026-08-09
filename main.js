@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.6.0
+ * Версия: 2.7.2
  * Автор: Новожилов Артем
  */
 
@@ -17,7 +17,7 @@ const SNAPSHOT_SUFFIX = '_project_snapshot.json';
 const PNP_LAYER_MARKER_PATTERN = /_(T|B|R)_/i;
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-08-05'
+  versionDate: packageJson.versionDate || '2026-08-09'
 };
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
@@ -652,6 +652,36 @@ function readTemplateComment(buffer) {
   return raw.toString('latin1').split('\u0000')[0].trim();
 }
 
+function readPr1TemplateDefaultsFromBuffer(buffer) {
+  const values = {};
+  const toggles = {};
+
+  TEMPLATE_NUMERIC_FIELD_SPECS.forEach((fieldSpec) => {
+    const value = chooseNumericCandidate(findNumericCandidates(buffer, fieldSpec.id), fieldSpec.validate);
+
+    if (value !== null) {
+      values[fieldSpec.uiKey] = String(value);
+    }
+  });
+
+  TEMPLATE_TOGGLE_FIELD_SPECS.forEach((fieldSpec) => {
+    const value = chooseNumericCandidate(findNumericCandidates(buffer, fieldSpec.id), fieldSpec.validate);
+
+    if (value !== null) {
+      toggles[fieldSpec.key] = fieldSpec.mapValue(value);
+    }
+  });
+
+  toggles.printDirection = readPrintDirectionTemplateData(buffer).direction;
+
+  return {
+    exists: true,
+    values,
+    toggles,
+    comment: readTemplateComment(buffer)
+  };
+}
+
 function sanitizeCommentValue(commentValue) {
   return String(commentValue || '')
     .replace(/[^\x20-\x7E]/g, ' ')
@@ -749,16 +779,19 @@ async function resolveTemplateSourceFolder(localTargetFolder, printerTargetFolde
   throw new Error(`Не найден доступный источник шаблонов.\n${details.join('\n')}`);
 }
 
-async function buildGeneratedArtifacts(sourceFolder, boardName, formValues) {
+async function buildGeneratedArtifacts(sourceFolder, boardName, formValues, options = {}) {
   const generatedArtifacts = [];
   let pr1PatchSummary = {
     patchedFields: [],
     skippedFields: []
   };
+  const pr1SourcePath = options && options.pr1SourcePath ? options.pr1SourcePath : '';
 
   for (const templateFile of TEMPLATE_GENERATION_FILES) {
-    const sourcePath = path.join(sourceFolder, templateFile.templateName);
     const outputFileName = `${boardName}${templateFile.outputExtension}`;
+    const sourcePath = templateFile.outputExtension === '.PR1' && pr1SourcePath
+      ? pr1SourcePath
+      : path.join(sourceFolder, templateFile.templateName);
     const fileBuffer = await fs.readFile(sourcePath);
     let patchSummary = null;
 
@@ -779,6 +812,150 @@ async function buildGeneratedArtifacts(sourceFolder, boardName, formValues) {
   return {
     generatedArtifacts,
     pr1PatchSummary
+  };
+}
+
+async function saveProjectSnapshotData(payload) {
+  // Snapshot предназначен только для локальной папки, чтобы не размножать служебный JSON на принтере.
+  const targetFolders = dedupeFolderPaths([payload && payload.targetFolder]);
+  const boardName = String((payload && payload.boardName) || 'project').trim() || 'project';
+  const safeBoardName = boardName.replace(/[<>:"/\\|?*]+/g, '_');
+  const fileName = `${safeBoardName}_project_snapshot.json`;
+  const saved = [];
+  const failed = [];
+  const content = JSON.stringify(payload, null, 2);
+
+  for (const targetFolder of targetFolders) {
+    const targetPath = path.join(targetFolder, fileName);
+
+    try {
+      // Каждую папку проверяем отдельно, чтобы недоступный адрес не ломал сохранение в рабочий адрес.
+      await fs.mkdir(targetFolder, { recursive: true });
+      await fs.writeFile(targetPath, content, 'utf8');
+      saved.push({
+        folder: targetFolder,
+        path: targetPath
+      });
+    } catch (error) {
+      failed.push({
+        folder: targetFolder,
+        errorMessage: error && error.message ? error.message : 'Не удалось сохранить JSON.'
+      });
+    }
+  }
+
+  try {
+    // Дублируем снимок в AppData, чтобы пользовательские данные не лежали рядом с программой.
+    const snapshotDir = getUserSnapshotDir();
+    const snapshotPath = getAppDataSnapshotPath(fileName);
+    await fs.mkdir(snapshotDir, { recursive: true });
+    await fs.writeFile(snapshotPath, content, 'utf8');
+  } catch (error) {
+    failed.push({
+      folder: getUserSnapshotDir(),
+      errorMessage: error && error.message ? error.message : 'Не удалось сохранить JSON в AppData.'
+    });
+  }
+
+  if (!saved.length) {
+    throw new Error(
+      `Не удалось сохранить JSON ни в одну папку.\n${failed.map((item) => `${item.folder} — ${item.errorMessage}`).join('\n')}`
+    );
+  }
+
+  return {
+    path: saved[0].path,
+    fileName,
+    saved,
+    failed
+  };
+}
+
+async function saveGeneratedProjectFiles(payload) {
+  const targetFolder = normalizeFolderPath(payload && payload.targetFolder);
+  const printerTargetFolder = normalizeFolderPath(payload && payload.printerTargetFolder);
+  const boardName = normalizeProjectFileStem(payload && payload.boardName);
+  const formValues = (payload && (payload.formValues || payload.values)) || {};
+  const saveMode = String((payload && payload.mode) || 'create').toLowerCase();
+  const pr1SourcePath = saveMode === 'edit' && payload && payload.pr1SourcePath
+    ? String(payload.pr1SourcePath)
+    : '';
+
+  if (!boardName) {
+    throw new Error('Нужно заполнить поле "Название платы".');
+  }
+
+  const sourceResolution = await resolveTemplateSourceFolder(targetFolder, printerTargetFolder);
+  const destinationFolders = dedupeFolderPaths([targetFolder, printerTargetFolder]);
+  const generatedArtifactsResult = await buildGeneratedArtifacts(
+    sourceResolution.sourceFolder,
+    boardName,
+    formValues,
+    { pr1SourcePath }
+  );
+  const saveReports = [];
+
+  for (const destinationFolder of destinationFolders) {
+    const savedFiles = [];
+
+    try {
+      await ensureTargetFolder(destinationFolder);
+
+      for (const artifact of generatedArtifactsResult.generatedArtifacts) {
+        const targetPath = path.join(destinationFolder, artifact.fileName);
+        await fs.writeFile(targetPath, artifact.content);
+        savedFiles.push({
+          template: artifact.template,
+          fileName: artifact.fileName,
+          path: targetPath,
+          patchSummary: artifact.patchSummary
+        });
+      }
+
+      saveReports.push({
+        folder: destinationFolder,
+        label: getFolderRoleLabel(destinationFolder, targetFolder, printerTargetFolder),
+        status: 'saved',
+        files: savedFiles
+      });
+    } catch (error) {
+      saveReports.push({
+        folder: destinationFolder,
+        label: getFolderRoleLabel(destinationFolder, targetFolder, printerTargetFolder),
+        status: 'failed',
+        files: [],
+        errorMessage: error && error.message ? error.message : 'Не удалось сохранить файлы проекта.'
+      });
+    }
+  }
+
+  if (!saveReports.some((item) => item.status === 'saved')) {
+    throw new Error(
+      `Не удалось сохранить файлы проекта ни в одну папку.\n${saveReports
+        .map((item) => `${item.label}: ${item.folder} — ${item.errorMessage || 'неизвестная ошибка'}`)
+        .join('\n')}`
+    );
+  }
+
+  return {
+    sourceFolder: sourceResolution.sourceFolder,
+    targetFolder,
+    printerTargetFolder,
+    boardName,
+    generatedFiles: saveReports.flatMap((item) => item.files),
+    saveReports,
+    pr1PatchSummary: generatedArtifactsResult.pr1PatchSummary
+  };
+}
+
+async function saveProjectState(payload) {
+  const snapshotResult = await saveProjectSnapshotData(payload);
+  const generatedResult = await saveGeneratedProjectFiles(payload);
+
+  return {
+    mode: String((payload && payload.mode) || 'create').toLowerCase(),
+    snapshotResult,
+    generatedResult
   };
 }
 
@@ -917,32 +1094,19 @@ async function readTemplateDefaults(folderPath, fileNames) {
 
   const templatePath = path.join(folderPath, 'template.PR1');
   const buffer = await fs.readFile(templatePath);
-  const values = {};
-  const toggles = {};
+  return readPr1TemplateDefaultsFromBuffer(buffer);
+}
 
-  TEMPLATE_NUMERIC_FIELD_SPECS.forEach((fieldSpec) => {
-    const value = chooseNumericCandidate(findNumericCandidates(buffer, fieldSpec.id), fieldSpec.validate);
-
-    if (value !== null) {
-      values[fieldSpec.uiKey] = String(value);
-    }
-  });
-
-  TEMPLATE_TOGGLE_FIELD_SPECS.forEach((fieldSpec) => {
-    const value = chooseNumericCandidate(findNumericCandidates(buffer, fieldSpec.id), fieldSpec.validate);
-
-    if (value !== null) {
-      toggles[fieldSpec.key] = fieldSpec.mapValue(value);
-    }
-  });
-
-  toggles.printDirection = readPrintDirectionTemplateData(buffer).direction;
+async function readPr1ProjectDefaults(filePath) {
+  const buffer = await fs.readFile(filePath);
+  const templateDefaults = readPr1TemplateDefaultsFromBuffer(buffer);
+  const boardName = path.basename(filePath).replace(/\.(pr1)$/i, '');
 
   return {
-    exists: true,
-    values,
-    toggles,
-    comment: readTemplateComment(buffer)
+    sourcePath: filePath,
+    folderPath: path.dirname(filePath),
+    boardName,
+    templateDefaults
   };
 }
 
@@ -1011,59 +1175,7 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
   });
 
   ipcMain.handle('asm:save-project-json', async (_event, payload) => {
-    // Snapshot предназначен только для локальной папки, чтобы не размножать служебный JSON на принтере.
-    const targetFolders = dedupeFolderPaths([payload && payload.targetFolder]);
-    const boardName = String((payload && payload.boardName) || 'project').trim() || 'project';
-    const safeBoardName = boardName.replace(/[<>:"/\\|?*]+/g, '_');
-    const fileName = `${safeBoardName}_project_snapshot.json`;
-    const saved = [];
-    const failed = [];
-    const content = JSON.stringify(payload, null, 2);
-
-    for (const targetFolder of targetFolders) {
-      const targetPath = path.join(targetFolder, fileName);
-
-      try {
-        // Каждую папку проверяем отдельно, чтобы недоступный адрес не ломал сохранение в рабочий адрес.
-        await fs.mkdir(targetFolder, { recursive: true });
-        await fs.writeFile(targetPath, content, 'utf8');
-        saved.push({
-          folder: targetFolder,
-          path: targetPath
-        });
-      } catch (error) {
-        failed.push({
-          folder: targetFolder,
-          errorMessage: error && error.message ? error.message : 'Не удалось сохранить JSON.'
-        });
-      }
-    }
-
-    try {
-      // Дублируем снимок в AppData, чтобы пользовательские данные не лежали рядом с программой.
-      const snapshotDir = getUserSnapshotDir();
-      const snapshotPath = getAppDataSnapshotPath(fileName);
-      await fs.mkdir(snapshotDir, { recursive: true });
-      await fs.writeFile(snapshotPath, content, 'utf8');
-    } catch (error) {
-      failed.push({
-        folder: getUserSnapshotDir(),
-        errorMessage: error && error.message ? error.message : 'Не удалось сохранить JSON в AppData.'
-      });
-    }
-
-    if (!saved.length) {
-      throw new Error(
-        `Не удалось сохранить JSON ни в одну папку.\n${failed.map((item) => `${item.folder} — ${item.errorMessage}`).join('\n')}`
-      );
-    }
-
-    return {
-      path: saved[0].path,
-      fileName,
-      saved,
-      failed
-    };
+    return saveProjectSnapshotData(payload || {});
   });
 
   ipcMain.handle('asm:save-aoi-file', async (_event, payload) => {
@@ -1090,6 +1202,22 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:create-aoi-project-from-txt', async (_event, payload) => {
     return createAoiProjectFromTxt(payload || {});
+  });
+
+  ipcMain.handle('asm:load-pr1-project', async (_event, payload) => {
+    const sourceFolder = normalizeFolderPath(payload && payload.sourceFolder);
+    const selection = await dialog.showOpenDialog(mainWindow, {
+      title: 'Выберите PR1 файл проекта',
+      defaultPath: sourceFolder,
+      properties: ['openFile'],
+      filters: [{ name: 'PR1 files', extensions: ['pr1'] }]
+    });
+
+    if (selection.canceled || !selection.filePaths.length) {
+      return { canceled: true };
+    }
+
+    return readPr1ProjectDefaults(selection.filePaths[0]);
   });
 
   ipcMain.handle('asm:load-workspace-data', async (_event, folderPath) => {
@@ -1123,75 +1251,11 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
   });
 
   ipcMain.handle('asm:generate-project-files', async (_event, payload) => {
-    const targetFolder = normalizeFolderPath(payload && payload.targetFolder);
-    const printerTargetFolder = normalizeFolderPath(payload && payload.printerTargetFolder);
-    const boardName = normalizeProjectFileStem(payload && payload.boardName);
-    const formValues = (payload && payload.formValues) || {};
+    return saveGeneratedProjectFiles(payload || {});
+  });
 
-    if (!boardName) {
-      throw new Error('Нужно заполнить поле "Название платы".');
-    }
-
-    const sourceResolution = await resolveTemplateSourceFolder(targetFolder, printerTargetFolder);
-    const destinationFolders = dedupeFolderPaths([targetFolder, printerTargetFolder]);
-    const { generatedArtifacts, pr1PatchSummary } = await buildGeneratedArtifacts(
-      sourceResolution.sourceFolder,
-      boardName,
-      formValues
-    );
-    const saveReports = [];
-
-    for (const destinationFolder of destinationFolders) {
-      const savedFiles = [];
-
-      try {
-        await ensureTargetFolder(destinationFolder);
-
-        for (const artifact of generatedArtifacts) {
-          const targetPath = path.join(destinationFolder, artifact.fileName);
-          await fs.writeFile(targetPath, artifact.content);
-          savedFiles.push({
-            template: artifact.template,
-            fileName: artifact.fileName,
-            path: targetPath,
-            patchSummary: artifact.patchSummary
-          });
-        }
-
-        saveReports.push({
-          folder: destinationFolder,
-          label: getFolderRoleLabel(destinationFolder, targetFolder, printerTargetFolder),
-          status: 'saved',
-          files: savedFiles
-        });
-      } catch (error) {
-        saveReports.push({
-          folder: destinationFolder,
-          label: getFolderRoleLabel(destinationFolder, targetFolder, printerTargetFolder),
-          status: 'failed',
-          files: [],
-          errorMessage: error && error.message ? error.message : 'Не удалось сохранить файлы проекта.'
-        });
-      }
-    }
-
-    if (!saveReports.some((item) => item.status === 'saved')) {
-      throw new Error(
-        `Не удалось сохранить файлы проекта ни в одну папку.\n${saveReports
-          .map((item) => `${item.label}: ${item.folder} — ${item.errorMessage || 'неизвестная ошибка'}`)
-          .join('\n')}`
-      );
-    }
-
-    return {
-      sourceFolder: sourceResolution.sourceFolder,
-      targetFolder,
-      printerTargetFolder,
-      boardName,
-      generatedFiles: saveReports.flatMap((item) => item.files),
-      saveReports,
-      pr1PatchSummary
-    };
+  ipcMain.handle('asm:save-project-state', async (_event, payload) => {
+    return saveProjectState(payload || {});
   });
 }
 
