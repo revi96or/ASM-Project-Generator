@@ -258,12 +258,9 @@ function flipPlacementXValue(value) {
 }
 
 function rotatePlacementBottomRow(row) {
-  // Нижний слой переворачиваем по углу и зеркалим по X, верхний слой не трогаем.
-  const nextRotation = (Number(row.rotation) + 180) % 360;
-
+  // Для нижнего слоя меняем только X, угол оставляем как в исходнике.
   return {
     ...row,
-    rotation: String(nextRotation),
     centerX: flipPlacementXValue(row.centerX)
   };
 }
