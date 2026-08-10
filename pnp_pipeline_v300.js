@@ -1082,6 +1082,7 @@ module.exports = {
   loadStateFile,
   saveDictFile,
   saveStateFile,
+  savePnpXlsxFile,
   importCsvFile,
   exportFiles
 };

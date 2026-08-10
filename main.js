@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.15
+ * Версия: 3.1.16
  * Автор: Новожилов Артем
  */
 
@@ -1038,7 +1038,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.15',
+    version: '3.1.16',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1081,6 +1081,7 @@ async function importPnpCsv(payload) {
   clearOperationCancel();
   assertOperationNotCancelled();
   const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
+  const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   let sourcePath = rawPath;
 
   if (!sourcePath) {
@@ -1102,13 +1103,25 @@ async function importPnpCsv(payload) {
   assertOperationNotCancelled();
   const dict = await pnpPipeline.importCsvFile(sourcePath);
   assertOperationNotCancelled();
+  let xlsxResult = null;
+
+  if (exportXlsxFolder) {
+    xlsxResult = await pnpPipeline.savePnpXlsxFile(
+      path.resolve(exportXlsxFolder),
+      dict && dict.importInfo && dict.importInfo.baseName ? dict.importInfo.baseName : path.basename(sourcePath, path.extname(sourcePath)),
+      dict.importInfo || null,
+      sourcePath
+    );
+  }
+
   return {
     exists: true,
     filePath: sourcePath,
     dict,
     importInfo: dict.importInfo || null,
     stats: pnpPipeline.getStats(dict),
-    previewHtml: pnpPipeline.buildPreviewHtml(dict)
+    previewHtml: pnpPipeline.buildPreviewHtml(dict),
+    xlsx: xlsxResult
   };
 }
 

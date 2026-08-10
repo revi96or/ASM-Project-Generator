@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.15
+Версия: 9.19.16
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.15",
+    version: "3.1.16",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.15",
-    latestVersion: "3.1.15",
+    currentVersion: "3.1.16",
+    latestVersion: "3.1.16",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.15",
+    version: "3.1.16",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -2729,7 +2729,8 @@ async function importPnpCsvFile(options = {}){
 
   try {
     const result = await asmBridge.pnpImportCsv({
-      filePath: csvPath
+      filePath: csvPath,
+      exportXlsxFolder: state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : "")
     });
 
     if (result && result.canceled) {
@@ -2741,7 +2742,8 @@ async function importPnpCsvFile(options = {}){
       localPath: state.pnp.localPath,
       csvPath: result.filePath || csvPath,
       importCsvPath: result.filePath || csvPath,
-      sourcePath: result.filePath || csvPath
+      sourcePath: result.filePath || csvPath,
+      exportXlsxFolder: result.xlsx && result.xlsx.path ? state.pnp.exportXlsx.folder : (state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""))
     });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось импортировать CSV.\n\n${error.message}`);
@@ -2822,7 +2824,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.15",
+    version: "3.1.16",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
