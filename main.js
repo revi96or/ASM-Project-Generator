@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.4
+ * Версия: 3.1.6
  * Автор: Новожилов Артем
  */
 
@@ -102,6 +102,26 @@ const DEFAULT_USER_SETTINGS = {
 
 let mainWindow = null;
 let userSettings = { ...DEFAULT_USER_SETTINGS, paths: { ...DEFAULT_PATHS } };
+let operationCancelRequested = false;
+
+function requestOperationCancel() {
+  operationCancelRequested = true;
+  return { cancelRequested: true };
+}
+
+function clearOperationCancel() {
+  operationCancelRequested = false;
+}
+
+function assertOperationNotCancelled() {
+  if (!operationCancelRequested) {
+    return;
+  }
+
+  const error = new Error('Операция отменена пользователем.');
+  error.code = 'ERR_OPERATION_CANCELLED';
+  throw error;
+}
 
 function getUserSettingsPath() {
   return path.join(app.getPath('userData'), USER_SETTINGS_FILE);
@@ -979,11 +999,12 @@ function getPnpDefaultExportFolder() {
 function buildPnpState(dict, overrides = {}) {
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.2',
+    version: '3.1.6',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
     importCsvPath: String(overrides.importCsvPath || ''),
+    exportXlsxFolder: String(overrides.exportXlsxFolder || ''),
     exportFolder: String(overrides.exportFolder || getPnpDefaultExportFolder()),
     dictPath: String(overrides.dictPath || getPnpRootDictPath()),
     dict
@@ -991,9 +1012,12 @@ function buildPnpState(dict, overrides = {}) {
 }
 
 async function loadPnpDict(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
   const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
   const sourcePath = rawPath ? path.resolve(rawPath) : getPnpRootDictPath();
   const dict = await pnpPipeline.loadDictFile(sourcePath);
+  assertOperationNotCancelled();
 
   return {
     exists: true,
@@ -1005,6 +1029,8 @@ async function loadPnpDict(payload) {
 }
 
 async function importPnpCsv(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
   const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
   let sourcePath = rawPath;
 
@@ -1024,7 +1050,9 @@ async function importPnpCsv(payload) {
   }
 
   sourcePath = path.resolve(sourcePath);
+  assertOperationNotCancelled();
   const dict = await pnpPipeline.importCsvFile(sourcePath);
+  assertOperationNotCancelled();
   return {
     exists: true,
     filePath: sourcePath,
@@ -1036,6 +1064,8 @@ async function importPnpCsv(payload) {
 }
 
 async function exportPnpFiles(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
   const dict = payload && payload.dict ? payload.dict : null;
   const stateDict = dict || (payload && payload.state && payload.state.dict ? payload.state.dict : null);
 
@@ -1046,14 +1076,18 @@ async function exportPnpFiles(payload) {
   const targetFolder = path.resolve(String(payload && payload.targetFolder) || getPnpDefaultExportFolder());
   const exportStem = String((payload && payload.exportStem) || 'pnp_export_v300').trim() || 'pnp_export_v300';
 
-  return pnpPipeline.exportFiles(stateDict, targetFolder, {
+  const result = await pnpPipeline.exportFiles(stateDict, targetFolder, {
     exportStem,
     sourcePath: payload && payload.sourcePath ? payload.sourcePath : '',
     sourceFile: payload && payload.sourceFile ? payload.sourceFile : ''
   });
+  assertOperationNotCancelled();
+  return result;
 }
 
 async function savePnpState(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
   const state = payload && payload.state ? payload.state : payload || {};
   const filePath = path.resolve(String(payload && payload.filePath) || getPnpDefaultStatePath());
   const dict = state && state.dict
@@ -1063,14 +1097,17 @@ async function savePnpState(payload) {
         mode: 'state'
       })
     : await pnpPipeline.loadDictFile(getPnpRootDictPath());
+  assertOperationNotCancelled();
   const nextState = buildPnpState(dict, {
     mode: state.mode || 'dict',
     importCsvPath: state.importCsvPath || '',
+    exportXlsxFolder: state.exportXlsxFolder || '',
     exportFolder: state.exportFolder || getPnpDefaultExportFolder(),
     dictPath: state.dictPath || getPnpRootDictPath()
   });
 
   await pnpPipeline.saveStateFile(filePath, nextState);
+  assertOperationNotCancelled();
   return {
     filePath,
     state: nextState,
@@ -1079,8 +1116,11 @@ async function savePnpState(payload) {
 }
 
 async function loadPnpState(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
   const filePath = path.resolve(String(payload && payload.filePath) || getPnpDefaultStatePath());
   const loadedState = await pnpPipeline.loadStateFile(filePath);
+  assertOperationNotCancelled();
 
   if (loadedState) {
     const loadedDict = loadedState.dict
@@ -1090,9 +1130,11 @@ async function loadPnpState(payload) {
           mode: 'state'
         })
       : await pnpPipeline.loadDictFile(getPnpRootDictPath());
+    assertOperationNotCancelled();
     const nextState = buildPnpState(loadedDict, {
       mode: loadedState.mode || 'dict',
       importCsvPath: loadedState.importCsvPath || '',
+      exportXlsxFolder: loadedState.exportXlsxFolder || '',
       exportFolder: loadedState.exportFolder || getPnpDefaultExportFolder(),
       dictPath: loadedState.dictPath || getPnpRootDictPath()
     });
@@ -1288,6 +1330,10 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:save-user-settings', async (_event, payload) => {
     return saveUserSettings(payload || {});
+  });
+
+  ipcMain.handle('asm:request-operation-cancel', async () => {
+    return requestOperationCancel();
   });
 
   ipcMain.handle('asm:check-for-updates', async (_event, payload) => {

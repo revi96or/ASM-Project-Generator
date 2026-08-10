@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('asmApi', {
   loadPr1Project: (payload) => ipcRenderer.invoke('asm:load-pr1-project', payload),
   loadWorkspaceData: (folderPath) => ipcRenderer.invoke('asm:load-workspace-data', folderPath),
   generateProjectFiles: (payload) => ipcRenderer.invoke('asm:generate-project-files', payload),
+  requestOperationCancel: () => ipcRenderer.invoke('asm:request-operation-cancel'),
   pnpImportCsv: (payload) => ipcRenderer.invoke('asm:pnp-import-csv', payload),
   pnpLoadDict: (payload) => ipcRenderer.invoke('asm:pnp-load-dict', payload),
   pnpExportFiles: (payload) => ipcRenderer.invoke('asm:pnp-export-files', payload),
