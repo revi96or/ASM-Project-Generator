@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.9
+ * Версия: 3.1.11
  * Автор: Новожилов Артем
  */
 
@@ -95,13 +95,25 @@ const TEMPLATE_TOGGLE_FIELD_SPECS = [
 ];
 const DEFAULT_USER_SETTINGS = {
   paths: { ...DEFAULT_PATHS },
+  pnpPaths: {
+    localPath: '',
+    dictPath: 'Dict\\pnp_dict_v300.js',
+    importCsvPath: '',
+    exportXlsxFolder: '',
+    exportFolder: '',
+    statePath: ''
+  },
   showTooltips: true,
   autoUpdate: false,
   theme: 'dark'
 };
 
 let mainWindow = null;
-let userSettings = { ...DEFAULT_USER_SETTINGS, paths: { ...DEFAULT_PATHS } };
+let userSettings = {
+  ...DEFAULT_USER_SETTINGS,
+  paths: { ...DEFAULT_PATHS },
+  pnpPaths: { ...DEFAULT_USER_SETTINGS.pnpPaths }
+};
 let operationCancelRequested = false;
 
 function requestOperationCancel() {
@@ -133,6 +145,7 @@ function getUserSnapshotDir() {
 
 function normalizeUserSettings(rawSettings) {
   const incomingPaths = rawSettings && rawSettings.paths ? rawSettings.paths : {};
+  const incomingPnpPaths = rawSettings && rawSettings.pnpPaths ? rawSettings.pnpPaths : {};
 
   return {
     paths: {
@@ -140,6 +153,14 @@ function normalizeUserSettings(rawSettings) {
       printer: String(incomingPaths.printer || DEFAULT_PATHS.printer),
       aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi),
       placer: String(incomingPaths.placer || DEFAULT_PATHS.placer)
+    },
+    pnpPaths: {
+      localPath: String(incomingPnpPaths.localPath || ''),
+      dictPath: String(incomingPnpPaths.dictPath || getPnpRootDictPath()),
+      importCsvPath: String(incomingPnpPaths.importCsvPath || ''),
+      exportXlsxFolder: String(incomingPnpPaths.exportXlsxFolder || ''),
+      exportFolder: String(incomingPnpPaths.exportFolder || getPnpDefaultExportFolder()),
+      statePath: String(incomingPnpPaths.statePath || getPnpDefaultStatePath())
     },
     showTooltips: rawSettings && typeof rawSettings.showTooltips === 'boolean'
       ? rawSettings.showTooltips
@@ -158,7 +179,11 @@ async function loadUserSettings() {
     const raw = await fs.readFile(getUserSettingsPath(), 'utf8');
     userSettings = normalizeUserSettings(JSON.parse(raw));
   } catch {
-    userSettings = { ...DEFAULT_USER_SETTINGS, paths: { ...DEFAULT_PATHS } };
+    userSettings = {
+      ...DEFAULT_USER_SETTINGS,
+      paths: { ...DEFAULT_PATHS },
+      pnpPaths: { ...DEFAULT_USER_SETTINGS.pnpPaths }
+    };
   }
 
   return userSettings;
@@ -1013,7 +1038,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.9',
+    version: '3.1.11',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),

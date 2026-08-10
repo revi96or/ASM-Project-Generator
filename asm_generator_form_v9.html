@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.7
+Версия: 9.19.9
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.9",
+    version: "3.1.11",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.9",
-    latestVersion: "3.1.9",
+    currentVersion: "3.1.11",
+    latestVersion: "3.1.11",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.9",
+    version: "3.1.11",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -1680,6 +1680,14 @@ function persistUserSettings(){
       aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi,
       placer: $("placerPathInput") ? $("placerPathInput").value.trim() || DEFAULT_PATHS.placer : DEFAULT_PATHS.placer
     },
+    pnpPaths: {
+      localPath: state.pnp.localPath || ($("pnpLocalPathInput") ? $("pnpLocalPathInput").value.trim() : ""),
+      dictPath: state.pnp.dict.path || ($("pnpDictPathInput") ? $("pnpDictPathInput").value.trim() : "Dict\\pnp_dict_v300.js"),
+      importCsvPath: state.pnp.csv.path || ($("pnpImportCsvPathInput") ? $("pnpImportCsvPathInput").value.trim() : ""),
+      exportXlsxFolder: state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""),
+      exportFolder: state.pnp.export.folder || ($("pnpExportPathInput") ? $("pnpExportPathInput").value.trim() : ""),
+      statePath: state.pnp.state.path || ($("pnpStatePathInput") ? $("pnpStatePathInput").value.trim() : "")
+    },
     showTooltips: Boolean(state.showTooltips),
     autoUpdate: Boolean(state.autoUpdate),
     theme: state.theme
@@ -1815,11 +1823,31 @@ async function applyStoredUserSettings(){
 
   const storedSettings = await asmBridge.getUserSettings();
   const paths = storedSettings && storedSettings.paths ? storedSettings.paths : DEFAULT_PATHS;
+  const pnpPaths = storedSettings && storedSettings.pnpPaths ? storedSettings.pnpPaths : {
+    localPath: "",
+    dictPath: "Dict\\pnp_dict_v300.js",
+    importCsvPath: "",
+    exportXlsxFolder: "",
+    exportFolder: "",
+    statePath: ""
+  };
 
   $("localPathInput").value = paths.local || DEFAULT_PATHS.local;
   $("serverPathInput").value = paths.printer || DEFAULT_PATHS.printer;
   $("aoiPathInput").value = paths.aoi || DEFAULT_PATHS.aoi;
   $("placerPathInput").value = paths.placer || DEFAULT_PATHS.placer;
+  state.pnp.localPath = pnpPaths.localPath || state.pnp.localPath || "";
+  state.pnp.dict.path = pnpPaths.dictPath || state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
+  state.pnp.csv.path = pnpPaths.importCsvPath || state.pnp.csv.path || "";
+  state.pnp.exportXlsx.folder = pnpPaths.exportXlsxFolder || state.pnp.exportXlsx.folder || "";
+  state.pnp.export.folder = pnpPaths.exportFolder || state.pnp.export.folder || "";
+  state.pnp.state.path = pnpPaths.statePath || state.pnp.state.path || "";
+  setPnpPathInputValue("pnpLocalPathInput", state.pnp.localPath);
+  setPnpPathInputValue("pnpDictPathInput", state.pnp.dict.path);
+  setPnpPathInputValue("pnpImportCsvPathInput", state.pnp.csv.path);
+  setPnpPathInputValue("pnpExportXlsxPathInput", state.pnp.exportXlsx.folder);
+  setPnpPathInputValue("pnpExportPathInput", state.pnp.export.folder);
+  setPnpPathInputValue("pnpStatePathInput", state.pnp.state.path);
 
   state.showTooltips = storedSettings && typeof storedSettings.showTooltips === "boolean"
     ? storedSettings.showTooltips
@@ -2794,7 +2822,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.9",
+    version: "3.1.11",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -3715,6 +3743,7 @@ function setupPnpPathInput(inputId, pathLabel){
 
   input.addEventListener("input", () => {
     syncPnpPathStateFromInputs();
+    persistUserSettings();
   });
 
   input.addEventListener("keydown", async (event) => {
@@ -3722,6 +3751,7 @@ function setupPnpPathInput(inputId, pathLabel){
 
     event.preventDefault();
     const paths = syncPnpPathStateFromInputs();
+    persistUserSettings();
     showAppDialog(
       "Каталог обновлен",
       `${pathLabel} изменен.\n\nНовое значение:\n${input.value.trim()}\n\n` +
