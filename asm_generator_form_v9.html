@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.6
+Версия: 9.19.7
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.8",
+    version: "3.1.9",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.8",
-    latestVersion: "3.1.8",
+    currentVersion: "3.1.9",
+    latestVersion: "3.1.9",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.8",
+    version: "3.1.9",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -2794,7 +2794,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.8",
+    version: "3.1.9",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -3684,6 +3684,53 @@ function setupPathInput(inputId, pathLabel){
   });
 }
 
+function syncPnpPathStateFromInputs(){
+  const localPathInput = $("pnpLocalPathInput");
+  const dictPathInput = $("pnpDictPathInput");
+  const importPathInput = $("pnpImportCsvPathInput");
+  const exportXlsxPathInput = $("pnpExportXlsxPathInput");
+  const exportPathInput = $("pnpExportPathInput");
+  const statePathInput = $("pnpStatePathInput");
+
+  state.pnp.localPath = localPathInput ? localPathInput.value.trim() : state.pnp.localPath || "";
+  state.pnp.dict.path = dictPathInput ? dictPathInput.value.trim() : state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
+  state.pnp.csv.path = importPathInput ? importPathInput.value.trim() : state.pnp.csv.path || "";
+  state.pnp.exportXlsx.folder = exportXlsxPathInput ? exportXlsxPathInput.value.trim() : state.pnp.exportXlsx.folder || "";
+  state.pnp.export.folder = exportPathInput ? exportPathInput.value.trim() : state.pnp.export.folder || "";
+  state.pnp.state.path = statePathInput ? statePathInput.value.trim() : state.pnp.state.path || "";
+
+  return {
+    localPath: state.pnp.localPath,
+    dictPath: state.pnp.dict.path,
+    importCsvPath: state.pnp.csv.path,
+    exportXlsxFolder: state.pnp.exportXlsx.folder,
+    exportFolder: state.pnp.export.folder,
+    statePath: state.pnp.state.path
+  };
+}
+
+function setupPnpPathInput(inputId, pathLabel){
+  const input = $(inputId);
+  if (!input) return;
+
+  input.addEventListener("input", () => {
+    syncPnpPathStateFromInputs();
+  });
+
+  input.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    const paths = syncPnpPathStateFromInputs();
+    showAppDialog(
+      "Каталог обновлен",
+      `${pathLabel} изменен.\n\nНовое значение:\n${input.value.trim()}\n\n` +
+      `Изменение сохранено и будет использоваться дальше.`
+    );
+    return paths;
+  });
+}
+
 function setupFastClearInputs(){
   // Неизменная логика: эти поля не очищаются на фокусе и всегда остаются в текущем состоянии.
   const skipAutoClearIds = new Set([
@@ -3757,6 +3804,11 @@ async function init(){
   setupPathInput("serverPathInput", "Адрес принтера");
   setupPathInput("aoiPathInput", "Папка АОИ");
   setupPathInput("placerPathInput", "Адрес расстановщика");
+  setupPnpPathInput("pnpDictPathInput", "Путь к единственному корню словаря P&P");
+  setupPnpPathInput("pnpImportCsvPathInput", "Путь к CSV импорта P&P");
+  setupPnpPathInput("pnpExportXlsxPathInput", "Путь к XLSX экспорта P&P");
+  setupPnpPathInput("pnpExportPathInput", "Папка экспорта P&P");
+  setupPnpPathInput("pnpStatePathInput", "Файл состояния P&P");
   setupFastClearInputs();
 
   $("boardNameInput").addEventListener("input", () => {
