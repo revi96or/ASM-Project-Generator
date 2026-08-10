@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 2.7.2
+ * Версия: 3.1.4
  * Автор: Новожилов Артем
  */
 
@@ -10,6 +10,7 @@ const fs = require('fs/promises');
 const { constants: fsConstants } = require('fs');
 const path = require('path');
 const packageJson = require('./package.json');
+const pnpPipeline = require('./pnp_pipeline_v300');
 
 const REQUIRED_TEMPLATE_FILES = ['template.PR1', 'template.ISD', 'template.pxf', 'pr1_known_map.json'];
 const TEMPLATE_ASSETS_DIR = 'templates';
@@ -17,8 +18,11 @@ const SNAPSHOT_SUFFIX = '_project_snapshot.json';
 const PNP_LAYER_MARKER_PATTERN = /_(T|B|R)_/i;
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-08-09'
+  versionDate: packageJson.versionDate || '2026-08-10'
 };
+const PNP_DEFAULT_DICT_FILE = path.join('Dict', 'pnp_dict_v300.js');
+const PNP_DEFAULT_STATE_FILE_NAME = 'pnp_state_v300.js';
+const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
   printer: '\\\\server\\common\\Novozhilov\\',
@@ -959,6 +963,161 @@ async function saveProjectState(payload) {
   };
 }
 
+function getPnpRootDictPath() {
+  // Корневой Dict/ оставляем единственным источником словаря для P&P.
+  return path.join(app.getAppPath(), PNP_DEFAULT_DICT_FILE);
+}
+
+function getPnpDefaultStatePath() {
+  return path.join(app.getPath('userData'), PNP_DEFAULT_STATE_FILE_NAME);
+}
+
+function getPnpDefaultExportFolder() {
+  return path.join(app.getPath('userData'), PNP_DEFAULT_EXPORT_FOLDER_NAME);
+}
+
+function buildPnpState(dict, overrides = {}) {
+  return {
+    description: 'Состояние Pick and Place',
+    version: '3.1.2',
+    author: 'Новожилов Артем',
+    savedAt: new Date().toISOString(),
+    mode: String(overrides.mode || 'dict'),
+    importCsvPath: String(overrides.importCsvPath || ''),
+    exportFolder: String(overrides.exportFolder || getPnpDefaultExportFolder()),
+    dictPath: String(overrides.dictPath || getPnpRootDictPath()),
+    dict
+  };
+}
+
+async function loadPnpDict(payload) {
+  const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
+  const sourcePath = rawPath ? path.resolve(rawPath) : getPnpRootDictPath();
+  const dict = await pnpPipeline.loadDictFile(sourcePath);
+
+  return {
+    exists: true,
+    filePath: sourcePath,
+    dict,
+    stats: pnpPipeline.getStats(dict),
+    previewHtml: pnpPipeline.buildPreviewHtml(dict)
+  };
+}
+
+async function importPnpCsv(payload) {
+  const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
+  let sourcePath = rawPath;
+
+  if (!sourcePath) {
+    const selection = await dialog.showOpenDialog(mainWindow, {
+      title: 'Выберите CSV-файл Pick and Place',
+      defaultPath: pnpPipeline.DEFAULT_IMPORT_START_DIR,
+      properties: ['openFile'],
+      filters: [{ name: 'CSV files', extensions: ['csv'] }]
+    });
+
+    if (selection.canceled || !selection.filePaths.length) {
+      return { canceled: true };
+    }
+
+    sourcePath = selection.filePaths[0];
+  }
+
+  sourcePath = path.resolve(sourcePath);
+  const dict = await pnpPipeline.importCsvFile(sourcePath);
+  return {
+    exists: true,
+    filePath: sourcePath,
+    dict,
+    importInfo: dict.importInfo || null,
+    stats: pnpPipeline.getStats(dict),
+    previewHtml: pnpPipeline.buildPreviewHtml(dict)
+  };
+}
+
+async function exportPnpFiles(payload) {
+  const dict = payload && payload.dict ? payload.dict : null;
+  const stateDict = dict || (payload && payload.state && payload.state.dict ? payload.state.dict : null);
+
+  if (!stateDict) {
+    throw new Error('Сначала загрузите словарь или импортируйте CSV.');
+  }
+
+  const targetFolder = path.resolve(String(payload && payload.targetFolder) || getPnpDefaultExportFolder());
+  const exportStem = String((payload && payload.exportStem) || 'pnp_export_v300').trim() || 'pnp_export_v300';
+
+  return pnpPipeline.exportFiles(stateDict, targetFolder, {
+    exportStem,
+    sourcePath: payload && payload.sourcePath ? payload.sourcePath : '',
+    sourceFile: payload && payload.sourceFile ? payload.sourceFile : ''
+  });
+}
+
+async function savePnpState(payload) {
+  const state = payload && payload.state ? payload.state : payload || {};
+  const filePath = path.resolve(String(payload && payload.filePath) || getPnpDefaultStatePath());
+  const dict = state && state.dict
+    ? pnpPipeline.normalizeDict(state.dict, {
+        sourcePath: state.dictPath || getPnpRootDictPath(),
+        sourceFile: path.basename(String(state.dictPath || getPnpRootDictPath())),
+        mode: 'state'
+      })
+    : await pnpPipeline.loadDictFile(getPnpRootDictPath());
+  const nextState = buildPnpState(dict, {
+    mode: state.mode || 'dict',
+    importCsvPath: state.importCsvPath || '',
+    exportFolder: state.exportFolder || getPnpDefaultExportFolder(),
+    dictPath: state.dictPath || getPnpRootDictPath()
+  });
+
+  await pnpPipeline.saveStateFile(filePath, nextState);
+  return {
+    filePath,
+    state: nextState,
+    stats: pnpPipeline.getStats(dict)
+  };
+}
+
+async function loadPnpState(payload) {
+  const filePath = path.resolve(String(payload && payload.filePath) || getPnpDefaultStatePath());
+  const loadedState = await pnpPipeline.loadStateFile(filePath);
+
+  if (loadedState) {
+    const loadedDict = loadedState.dict
+      ? pnpPipeline.normalizeDict(loadedState.dict, {
+          sourcePath: loadedState.dictPath || getPnpRootDictPath(),
+          sourceFile: path.basename(String(loadedState.dictPath || getPnpRootDictPath())),
+          mode: 'state'
+        })
+      : await pnpPipeline.loadDictFile(getPnpRootDictPath());
+    const nextState = buildPnpState(loadedDict, {
+      mode: loadedState.mode || 'dict',
+      importCsvPath: loadedState.importCsvPath || '',
+      exportFolder: loadedState.exportFolder || getPnpDefaultExportFolder(),
+      dictPath: loadedState.dictPath || getPnpRootDictPath()
+    });
+
+    return {
+      exists: true,
+      filePath,
+      state: nextState,
+      dict: loadedDict,
+      stats: pnpPipeline.getStats(loadedDict)
+    };
+  }
+
+  const fallbackDict = await pnpPipeline.loadDictFile(getPnpRootDictPath());
+  const fallbackState = buildPnpState(fallbackDict, {});
+
+  return {
+    exists: false,
+    filePath,
+    state: fallbackState,
+    dict: fallbackDict,
+    stats: pnpPipeline.getStats(fallbackDict)
+  };
+}
+
 function readPrintDirectionTemplateData(buffer) {
   const pairs = PRINT_DIRECTION_PAIR_SPECS.map((pairSpec) => {
     const aRecord = chooseNumericRecord(findNumericCandidates(buffer, pairSpec.aId), pairSpec.validate);
@@ -1252,6 +1411,26 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:generate-project-files', async (_event, payload) => {
     return saveGeneratedProjectFiles(payload || {});
+  });
+
+  ipcMain.handle('asm:pnp-import-csv', async (_event, payload) => {
+    return importPnpCsv(payload || {});
+  });
+
+  ipcMain.handle('asm:pnp-load-dict', async (_event, payload) => {
+    return loadPnpDict(payload || {});
+  });
+
+  ipcMain.handle('asm:pnp-export-files', async (_event, payload) => {
+    return exportPnpFiles(payload || {});
+  });
+
+  ipcMain.handle('asm:pnp-save-state', async (_event, payload) => {
+    return savePnpState(payload || {});
+  });
+
+  ipcMain.handle('asm:pnp-load-state', async (_event, payload) => {
+    return loadPnpState(payload || {});
   });
 
   ipcMain.handle('asm:save-project-state', async (_event, payload) => {

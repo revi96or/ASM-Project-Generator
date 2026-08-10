@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.17.0
+Версия: 9.19.2
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -141,6 +141,7 @@
   .eyebrow{
     font-family:'JetBrains Mono',monospace;
     font-size:13px;
+    line-height:1.08;
     letter-spacing:.1em;
     text-transform:uppercase;
     color:var(--accent);
@@ -295,6 +296,21 @@
     cursor:not-allowed;
   }
 
+  .catalog-path-input{
+    width:calc(100% - 18px);
+    margin-left:18px;
+    font-size:14px;
+    padding:9px 11px;
+  }
+
+  .catalog-group{
+    padding-left:2px;
+  }
+
+  .catalog-field-label{
+    margin-left:18px;
+  }
+
   .ghost-btn, .solid-btn{
     display:flex;
     align-items:center;
@@ -381,6 +397,19 @@
     scrollbar-color:var(--bg) transparent;
   }
 
+  /* Версия 3.1.4 (Новожилов Артем): контейнер таблицы P&P не должен
+     наследовать ограничение высоты 260px от .hint-list — карточка
+     .pnp-workbook-panel сама управляет своей высотой и растягиванием. */
+  #pnpTablePlaceholder{
+    max-height:none;
+    min-height:0;
+    height:calc(100% - 34px);
+    background:transparent;
+    border:none;
+    padding:0;
+    overflow:visible;
+  }
+
   .hint-list::-webkit-scrollbar{
     width:10px;
     height:10px;
@@ -423,6 +452,250 @@
 
   .status-row-value.danger{
     color:var(--danger);
+  }
+
+  .pnp-shell{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:var(--surface-alt);
+    overflow:hidden;
+  }
+
+  .pnp-preview-shell{
+    max-height:620px;
+    overflow:auto;
+    scrollbar-width:thin;
+    scrollbar-color:var(--surface) transparent;
+  }
+
+  .pnp-workbook-shell{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    min-height:0;
+    height:100%;
+  }
+
+  .pnp-workbook-panel{
+    /* Версия 3.1.4 (Новожилов Артем): уменьшена высота по умолчанию (было 1000px)
+       и снижен min-height, чтобы за угол можно было тянуть карточку
+       не только вниз (увеличение), но и вверх (уменьшение). */
+    min-height:280px;
+    height:620px;
+    max-height:85vh;
+    width:100%;
+    resize:vertical;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    box-sizing:border-box;
+  }
+
+  .pnp-workbook-body{
+    --pnp-zoom:1;
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    scrollbar-width:thin;
+    scrollbar-color:var(--surface) transparent;
+  }
+
+  .pnp-workbook-body .pnp-table{
+    font-size:calc(12px * var(--pnp-zoom));
+  }
+
+  .pnp-workbook-body .pnp-table th,
+  .pnp-workbook-body .pnp-table td{
+    padding:calc(8px * var(--pnp-zoom)) calc(10px * var(--pnp-zoom));
+  }
+
+  .pnp-workbook-body .pnp-table th{
+    font-size:calc(11px * var(--pnp-zoom));
+  }
+
+  .pnp-sheet-tab{
+    border:1px solid var(--border);
+    border-bottom-color:transparent;
+    border-radius:10px 10px 0 0;
+    background:var(--surface-alt);
+    color:var(--muted);
+    padding:8px 14px;
+    font-size:12px;
+    line-height:1;
+    cursor:pointer;
+  }
+
+  .pnp-sheet-tabs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:auto;
+    padding-top:2px;
+  }
+
+  .pnp-sheet-tab.active{
+    background:var(--surface);
+    color:var(--text);
+    box-shadow:0 -1px 0 var(--surface), 0 1px 0 var(--surface);
+  }
+
+  .pnp-sheet-scroll{
+    min-height:0;
+    max-height:none;
+    overflow-y:scroll;
+    overflow-x:auto;
+    scrollbar-gutter:stable;
+    scrollbar-width:thin;
+    scrollbar-color:var(--text) var(--surface-alt);
+  }
+
+  .pnp-sheet-scroll::-webkit-scrollbar{
+    width:12px;
+    height:12px;
+  }
+
+  .pnp-sheet-scroll::-webkit-scrollbar-track{
+    background:var(--surface-alt);
+    border-radius:999px;
+  }
+
+  .pnp-sheet-scroll::-webkit-scrollbar-thumb{
+    background:var(--muted);
+    border-radius:999px;
+    border:2px solid var(--surface-alt);
+    min-height:96px;
+  }
+
+  .pnp-table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    font-size:12px;
+  }
+
+  .pnp-table th,
+  .pnp-table td{
+    padding:8px 10px;
+    border-bottom:1px solid var(--border);
+    vertical-align:top;
+    white-space:nowrap;
+  }
+
+  .pnp-table th{
+    position:sticky;
+    top:0;
+    z-index:1;
+    background:var(--surface);
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-size:11px;
+  }
+
+  .pnp-table td{
+    background:var(--surface-alt);
+  }
+
+  .pnp-mode-btn{
+    min-width:120px;
+  }
+
+  .pnp-mini-stat{
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--surface);
+    padding:12px;
+  }
+
+  .pnp-mini-stat-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+
+  .pnp-mini-stat-value{
+    font-size:28px;
+    font-weight:800;
+    line-height:1;
+  }
+
+  .nav-accordion{
+    border:none;
+    background:transparent;
+    overflow:visible;
+  }
+
+  .nav-accordion-head{
+    margin:0 0 12px;
+    padding:0 0 12px;
+    border-bottom:1px solid var(--border);
+  }
+
+  .nav-main-btn{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:13px 14px;
+    text-align:left;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--surface-alt);
+    color:var(--text);
+    font-weight:800;
+    transition:.16s ease;
+  }
+
+  .nav-main-btn .nav-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+  }
+
+  .nav-main-btn .nav-title span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .nav-main-btn.active{
+    background:var(--accent);
+    color:var(--accent-fg);
+    border-color:color-mix(in srgb, var(--accent) 80%, black);
+    box-shadow:0 8px 20px rgba(79,200,232,.24);
+  }
+
+  .nav-subpanel{
+    padding:8px 0 0 22px;
+  }
+
+  .nav-subpanel[hidden]{
+    display:none;
+  }
+
+  .nav-sub-btn{
+    width:calc(100% - 18px);
+    margin-left:18px;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:10px;
+    padding:11px 12px;
+    border:1px solid var(--border);
+    border-radius:11px;
+    background:color-mix(in srgb, var(--surface-alt) 88%, transparent);
+    color:var(--text);
+    font-size:13px;
+    font-weight:700;
+  }
+
+  .nav-sub-btn + .nav-sub-btn{
+    margin-top:8px;
   }
 
   .helper-stack{
@@ -620,19 +893,19 @@
 
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
       <button id="statPrinterCard" type="button" class="stat-card clickable text-left">
-        <div class="stat-label">Статус принтера</div>
+        <div class="stat-label" id="statPrimaryCardLabel">Статус принтера</div>
         <div class="stat-value-row"><span class="stat-num stat-hero-value" id="statPrinterStatus" style="color:var(--danger)">offline</span></div>
         <div class="stat-cap" id="statPrinterStatusSub">проверка при запуске</div>
       </button>
 
       <div class="stat-card">
-        <div class="stat-label">Проект</div>
+        <div class="stat-label" id="statProjectCardLabel">Проект</div>
         <div class="stat-value-row"><span class="stat-num fit-project" id="statProjectName" style="font-size:28px;">—</span></div>
         <div class="stat-cap">название платы</div>
       </div>
 
       <div class="stat-card">
-        <div class="stat-label">Поля</div>
+        <div class="stat-label" id="statCounterCardLabel">Поля</div>
         <div class="stat-value-row">
           <span class="stat-num stat-hero-value" id="statChangedFields">0</span>
           <span class="stat-num stat-hero-value" style="color:var(--muted)" id="statChangedFieldsTotal">/0</span>
@@ -641,22 +914,22 @@
       </div>
 
       <button id="statSaveReadinessCard" type="button" class="stat-card clickable text-left">
-        <div class="stat-label">Готовность сохранения</div>
+        <div class="stat-label" id="statReadinessCardLabel">Готовность сохранения</div>
         <div class="status-stack stat-status-stack">
           <div class="status-row">
-            <span>локальная</span>
+            <span id="statLocalLabel">локальная</span>
             <span id="statLocalReady" class="status-row-value danger">offline</span>
           </div>
           <div class="status-row">
-            <span>принтер</span>
+            <span id="statPrinterLabel">принтер</span>
             <span id="statPrinterReady" class="status-row-value danger">offline</span>
           </div>
           <div class="status-row">
-            <span>AOI</span>
+            <span id="statAoiLabel">AOI</span>
             <span id="statAoiReady" class="status-row-value danger">offline</span>
           </div>
           <div class="status-row">
-            <span>расстановщик</span>
+            <span id="statPlacerLabel">расстановщик</span>
             <span id="statPlacerReady" class="status-row-value danger">offline</span>
           </div>
         </div>
@@ -671,104 +944,161 @@
   <aside class="scroll-zone scroll-zone-left w-[430px] shrink-0 px-5 lg:px-8 py-8">
     <div class="space-y-5">
 
-    <section>
-      <div class="eyebrow mb-4"><span>Похожие проекты</span></div>
-      <div class="hint-list" id="similarProjectsList">Начните вводить название проекта.</div>
-      <div class="helper helper-stack" id="workspaceSummary">
-        <div>Файлов в папке: <span id="workspaceFilesCount">0</span></div>
-        <div>Похожих проектов: <span id="workspaceProjectsCount">0</span></div>
-        <div>Подписанных полей в карте: <span id="workspaceKnownFieldsCount">0</span></div>
-      </div>
-    </section>
-
-    <section>
+    <section class="nav-accordion">
       <div class="eyebrow mb-4"><span>Управление</span></div>
       <div class="space-y-2">
-        <button id="generateBtn" type="button" class="solid-btn w-full">
-          <i data-lucide="save" class="w-4 h-4"></i>
-          <span id="generateBtnLabel">Сохранить проект ASM</span>
+        <button type="button" class="nav-main-btn" data-nav-preview-btn="placer">
+          <span class="nav-title"><i data-lucide="move-3d" class="w-4 h-4"></i><span>Расстановщик</span></span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
         </button>
-
-        <button id="loadPr1Btn" type="button" class="ghost-btn w-full">
-          <i data-lucide="folder-open" class="w-4 h-4"></i>
-          Открыть проект ASM
-        </button>
-
-        <button id="resetFormBtn" type="button" class="ghost-btn w-full">
-          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          Сбросить форму
-        </button>
-
-        <button id="openPrinterFilesBtn" type="button" class="ghost-btn w-full">
-          <i data-lucide="folder-tree" class="w-4 h-4"></i>
-          Файлы на принтере
-        </button>
-
-        <div class="hair-t my-3"></div>
-
-        <button id="createAoiProjectBtn" type="button" class="ghost-btn w-full">
-          <i data-lucide="files" class="w-4 h-4"></i>
-          Создать проект АОИ
-        </button>
-
-        <button id="saveAoiBtn" type="button" class="ghost-btn w-full" disabled>
-          <i data-lucide="file-text" class="w-4 h-4"></i>
-          Сохранить размеры для АОИ
-        </button>
-
-        <div class="hair-t my-3"></div>
-
-        <button id="catalogTreeBtn" type="button" class="ghost-btn w-full">
-          <i data-lucide="folder-tree" class="w-4 h-4"></i>
-          Дерево каталогов
-        </button>
-
-        <div id="catalogTreePanel" class="settings-panel p-4" hidden>
-          <div class="space-y-3">
-            <div>
-              <div class="field-label">Локальная папка</div>
-              <input id="localPathInput" class="field-input" value="C:\settings\Project_Printer_ASM\" />
-            </div>
-            <div>
-              <div class="field-label">Адрес принтера</div>
-              <input id="serverPathInput" class="field-input" value="\\server\common\Novozhilov\" />
-            </div>
-            <div>
-              <div class="field-label">Папка АОИ</div>
-              <input id="aoiPathInput" class="field-input" value="\\server\common\Любимова К.И.\" />
-            </div>
-            <div>
-              <div class="field-label">Адрес расстановщика</div>
-              <input id="placerPathInput" class="field-input" value="C:\settings\PickAndPlace\" />
-            </div>
-          </div>
+        <div class="nav-subpanel" data-nav-preview-panel="placer" hidden>
+          <button id="pnpCreateProjectBtn" type="button" class="nav-sub-btn">
+            <i data-lucide="file-input" class="w-4 h-4"></i>
+            Создать проект P&P
+          </button>
+          <button id="pnpStatsBtn" type="button" class="nav-sub-btn">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            Статистика по проекту
+          </button>
+          <button id="pnpReserveBtn" type="button" class="nav-sub-btn">
+            <i data-lucide="square-dashed" class="w-4 h-4"></i>
+            Пока резерв
+          </button>
         </div>
 
-        <button id="settingsBtn" type="button" class="ghost-btn w-full">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-          Настройки
+        <button type="button" class="nav-main-btn" data-nav-preview-btn="printer">
+          <span class="nav-title"><i data-lucide="printer" class="w-4 h-4"></i><span>Трафаретный принтер</span></span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
         </button>
-
-        <div id="settingsPanel" class="settings-panel p-4" hidden>
-          <div class="field-label mb-3">Показывать подсказки</div>
-          <div class="toggle-wrap compact" id="tipsToggle">
-            <button type="button" class="toggle-btn" data-value="0">нет</button>
-            <button type="button" class="toggle-btn active" data-value="1">да</button>
+        <div class="nav-subpanel" data-nav-preview-panel="printer" hidden>
+          <div class="eyebrow mb-4"><span>Похожие проекты</span></div>
+          <div class="hint-list" id="similarProjectsList">Начните вводить название проекта.</div>
+          <div class="helper helper-stack" id="workspaceSummary">
+            <div>Файлов в папке: <span id="workspaceFilesCount">0</span></div>
+            <div>Похожих проектов: <span id="workspaceProjectsCount">0</span></div>
+            <div>Подписанных полей в карте: <span id="workspaceKnownFieldsCount">0</span></div>
           </div>
 
-          <div class="mt-4 pt-4 hair-t">
-            <div class="field-label mb-3">Обновления программы</div>
-            <button id="checkUpdatesBtn" type="button" class="ghost-btn w-full">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-              Проверить обновления
-            </button>
+          <button id="generateBtn" type="button" class="ghost-btn w-full">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span id="generateBtnLabel">Сохранить проект ASM</span>
+          </button>
+          <button id="loadPr1Btn" type="button" class="ghost-btn w-full" style="margin-top:8px">
+            <i data-lucide="folder-open" class="w-4 h-4"></i>
+            Открыть проект ASM
+          </button>
+          <button id="resetFormBtn" type="button" class="ghost-btn w-full" style="margin-top:8px">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            Сбросить форму
+          </button>
+          <button id="openPrinterFilesBtn" type="button" class="ghost-btn w-full" style="margin-top:8px">
+            <i data-lucide="folder-tree" class="w-4 h-4"></i>
+            Файлы на принтере
+          </button>
+        </div>
 
-            <div class="field-label mt-4 mb-3">Обновляться автоматически</div>
-            <div class="toggle-wrap compact" id="autoUpdateToggle">
-              <button type="button" class="toggle-btn" data-value="0">Нет</button>
-              <button type="button" class="toggle-btn active" data-value="1">Да</button>
+        <button type="button" class="nav-main-btn" data-nav-preview-btn="aoi">
+          <span class="nav-title"><i data-lucide="scan-search" class="w-4 h-4"></i><span>Оптическая инспекция</span></span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+        <div class="nav-subpanel" data-nav-preview-panel="aoi" hidden>
+          <button id="createAoiProjectBtn" type="button" class="nav-sub-btn">
+            <i data-lucide="files" class="w-4 h-4"></i>
+            Создать проект АОИ
+          </button>
+          <button id="saveAoiBtn" type="button" class="nav-sub-btn">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            Сохранить размеры для АОИ
+          </button>
+        </div>
+
+        <button type="button" class="nav-main-btn" data-nav-preview-btn="settings">
+          <span class="nav-title"><i data-lucide="settings" class="w-4 h-4"></i><span>Настройки</span></span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+        <div class="nav-subpanel" data-nav-preview-panel="settings" hidden>
+          <button id="settingsBtn" type="button" class="nav-sub-btn">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+            Конфигурация
+          </button>
+          <div id="settingsPanel" class="settings-panel p-4 mt-3" hidden>
+            <div class="field-label mb-3">Показывать подсказки</div>
+            <div class="toggle-wrap compact" id="tipsToggle">
+              <button type="button" class="toggle-btn" data-value="0">нет</button>
+              <button type="button" class="toggle-btn active" data-value="1">да</button>
             </div>
-            <div class="helper mt-3" id="updateStatusText">Проверка выполняется вручную или при запуске.</div>
+
+            <div class="mt-4 pt-4 hair-t">
+              <div class="field-label mb-3">Обновления программы</div>
+              <button id="checkUpdatesBtn" type="button" class="ghost-btn w-full">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                Проверить обновления
+              </button>
+
+              <div class="field-label mt-4 mb-3">Обновляться автоматически</div>
+              <div class="toggle-wrap compact" id="autoUpdateToggle">
+                <button type="button" class="toggle-btn" data-value="0">Нет</button>
+                <button type="button" class="toggle-btn active" data-value="1">Да</button>
+              </div>
+              <div class="helper mt-3" id="updateStatusText">Проверка выполняется вручную или при запуске.</div>
+            </div>
+          </div>
+          <button id="catalogTreeBtn" type="button" class="nav-sub-btn" style="margin-top:8px">
+            <i data-lucide="folder-tree" class="w-4 h-4"></i>
+            Дерево каталогов
+          </button>
+          <div id="catalogTreePanel" class="settings-panel p-4 mt-3" hidden>
+            <div class="space-y-4">
+              <div class="catalog-group">
+                <div class="eyebrow mb-3"><span>Расстановщик</span></div>
+                <div class="space-y-3">
+                  <div>
+                    <div class="field-label catalog-field-label">Локальная папка P&P</div>
+                    <input id="pnpLocalPathInput" class="field-input catalog-path-input" value="C:\settings\PickAndPlace\" />
+                  </div>
+                  <div>
+                    <div class="field-label catalog-field-label">Импорт CSV</div>
+                    <input id="pnpImportCsvPathInput" class="field-input catalog-path-input" placeholder="C:\path\import.csv" />
+                  </div>
+                  <div>
+                    <div class="field-label catalog-field-label">Экспорт P&P</div>
+                    <input id="pnpExportPathInput" class="field-input catalog-path-input" placeholder="C:\path\export\" />
+                  </div>
+                  <div>
+                    <div class="field-label catalog-field-label">Адрес расстановщика</div>
+                    <input id="placerPathInput" class="field-input catalog-path-input" value="C:\settings\PickAndPlace\" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="catalog-group">
+                <div class="eyebrow mb-3"><span>Трафаретный принтер</span></div>
+                <div class="space-y-3">
+                  <div>
+                    <div class="field-label catalog-field-label">Локальная папка принтера</div>
+                    <input id="localPathInput" class="field-input catalog-path-input" value="C:\settings\Project_Printer_ASM\" />
+                  </div>
+                  <div>
+                    <div class="field-label catalog-field-label">Адрес принтера</div>
+                    <input id="serverPathInput" class="field-input catalog-path-input" value="\\server\common\Novozhilov\" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="catalog-group">
+                <div class="eyebrow mb-3"><span>Оптическая инспекция</span></div>
+                <div class="space-y-3">
+                  <div>
+                    <div class="field-label catalog-field-label">Локальная папка АОИ</div>
+                    <input id="aoiLocalPathInput" class="field-input catalog-path-input" value="C:\settings\AOI\" />
+                  </div>
+                  <div>
+                    <div class="field-label catalog-field-label">Адрес АОИ</div>
+                    <input id="aoiPathInput" class="field-input catalog-path-input" value="\\server\common\Любимова К.И.\" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -779,7 +1109,18 @@
   <div class="hidden xl:block w-px shrink-0" style="background:var(--border)"></div>
 
   <main class="scroll-zone flex-1 min-w-0 px-5 lg:px-8 py-8">
-    <section>
+    <section id="pnpRightPanel" hidden>
+      <div class="eyebrow mb-4"><span>Pick And Place</span></div>
+
+      <div class="space-y-4">
+        <div class="section-card p-4 pnp-workbook-panel">
+          <h2 class="section-title">Таблица P&P</h2>
+          <div class="hint-list" id="pnpTablePlaceholder">Таблица появится здесь позже.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="printerRightPanel">
       <div class="eyebrow mb-4"><span>Генератор параметров</span></div>
 
       <div class="space-y-4">
@@ -1026,14 +1367,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.17.0
+// Версия: 9.19.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "2.7.2",
-    versionDate: "2026-08-09"
+    version: "3.1.4",
+    versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1101,9 +1442,40 @@ const asmBridge = window.asmApi || {
       comment: ""
     }
   }),
+  pnpImportCsv: async () => ({
+    exists: false,
+    filePath: "",
+    dict: null,
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 },
+    previewHtml: ""
+  }),
+  pnpLoadDict: async () => ({
+    exists: false,
+    filePath: "",
+    dict: null,
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 },
+    previewHtml: ""
+  }),
+  pnpExportFiles: async () => ({
+    targetFolder: "",
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 },
+    files: []
+  }),
+  pnpSaveState: async () => ({
+    filePath: "",
+    state: null,
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
+  }),
+  pnpLoadState: async () => ({
+    exists: false,
+    filePath: "",
+    state: null,
+    dict: null,
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
+  }),
   checkForUpdates: async () => ({
-    currentVersion: "2.7.2",
-    latestVersion: "2.7.2",
+    currentVersion: "3.1.4",
+    latestVersion: "3.1.4",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1129,16 +1501,59 @@ const state = {
   autoUpdate: false,
   settingsPanelVisible: false,
   catalogTreePanelVisible: false,
+  navPreviewActive: "",
+  rightZoneMode: "printer",
+  printerHeader: {
+    statusText: "offline",
+    statusSubText: "проверка при запуске",
+    tone: "danger"
+  },
   appMeta: {
-    version: "2.7.2",
-    versionDate: "2026-08-09"
+    version: "3.1.4",
+    versionDate: "2026-08-10"
   },
   projectMode: "create",
   pr1SourcePath: "",
   initialFieldValues: {},
   initialToggleValues: {},
   focusRestoreValues: {},
-  commentSuffix: ""
+  commentSuffix: "",
+  pnp: {
+    mode: "dict",
+    dict: {
+      path: "Dict\\pnp_dict_v300.js",
+      sourcePath: "",
+      data: null,
+      previewRows: [],
+      importInfo: null
+    },
+    csv: {
+      path: "",
+      sourcePath: "",
+      data: null,
+      previewRows: [],
+      importInfo: null
+    },
+    state: {
+      path: "",
+      data: null,
+      importInfo: null
+    },
+    export: {
+      folder: "",
+      files: []
+    },
+    importInfo: null,
+    activeSheet: "Info",
+    zoom: 1,
+    collections: {
+      noMatchResistors: [],
+      noMatchCapacitors: [],
+      noMatchOther: [],
+      deletedNotFitted: []
+    },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
+  }
 };
 
 const DEFAULT_PATHS = {
@@ -1594,18 +2009,31 @@ function applyTooltipTexts(){
     centerBoardMinus: "Заполняется автоматически. Не менять без необходимости.",
     centerBoard3: "Заполняется автоматически. Не менять без необходимости.",
     centerBoardCommon: "Заполняется автоматически. Не менять без необходимости.",
-    generateBtn: "Сохраняет новый или измененный проект принтера ASM",
+    generateBtn: "Сохраняет новый или измененный проект принтера ASM без синей заливки.",
     loadPr1Btn: "Открывает существующий проект принтера ASM и переводит форму в режим редактирования.",
     saveAoiBtn: "Сохраняет размеры платы в TXT файл по пути, прописанному в \"папка АОИ\".",
     createAoiProjectBtn: "Создает проект на основе txt файла Pick&Place",
     openPrinterFilesBtn: "Открывает окно проводника по пути \"адрес принтера\".",
     resetFormBtn: "Сбрасывает все заполненные поля.",
     catalogTreeBtn: "Открывает или скрывает дерево каталогов с адресами рабочих папок.",
-    settingsBtn: "Открывает или скрывает настройки приложения.",
+    settingsBtn: "Открывает или скрывает конфигурацию приложения.",
     tipsToggle: "Включает или выключает всплывающие подсказки.",
     checkUpdatesBtn: "Проверяет, доступна ли новая версия программы на GitHub Releases.",
     autoUpdateToggle: "Если включить, программа будет автоматически проверять обновления при запуске.",
     updateStatusText: "Показывает состояние последней проверки обновлений.",
+    pnpModeToggle: "Переключает рабочий режим P&P между корневым Dict и импортом CSV.",
+    pnpDictPathInput: "Путь к единственному корню словаря P&P.",
+    pnpCsvPathInput: "CSV-файл для импорта в корневой словарь P&P.",
+    pnpStatePathInput: "Файл состояния P&P, который можно сохранить и восстановить позже.",
+    pnpExportFolderInput: "Папка, куда будут выгружены файлы экспорта P&P.",
+    pnpCreateProjectBtn: "Открывает путь из поля «Импорт CSV» для запуска работы с P&P.",
+    pnpStatsBtn: "Заглушка для будущей статистики проекта P&P.",
+    pnpReserveBtn: "Резервная кнопка для будущих действий P&P.",
+    pnpLoadDictBtn: "Загружает корневой Dict/ без изменения потоков PR1 и AOI.",
+    pnpImportCsvBtn: "Импортирует CSV в текущий словарь P&P.",
+    pnpLoadStateBtn: "Восстанавливает сохраненное состояние P&P.",
+    pnpSaveStateBtn: "Сохраняет текущее состояние P&P в отдельный файл.",
+    pnpExportBtn: "Выгружает файлы P&P в выбранную папку экспорта.",
     similarProjectsList: "Показывает проекты, которые похожи на создаваемый по маске NSFTxxxxxx и находятся по пути \"адрес принтера\".",
     footerVersionInfo: "Программа создавалась мной бескорыстно и единолично для целей автоматизации процесса создания проекта принтера ASM DEC и проекта АОИ Omron. Право на код и использование программы принадлежит автору"
   };
@@ -1717,10 +2145,548 @@ function updateProjectModeUi(){
   }
 }
 
+function getPnpSectionPath(section){
+  return section && section.path ? section.path : "";
+}
+
+function getPnpActiveSection(){
+  return state.pnp.mode === "csv" ? state.pnp.csv : state.pnp.dict;
+}
+
+function getPnpHeaderPathTail(pathValue){
+  const rawValue = String(pathValue || "").trim();
+  if (!rawValue) return "—";
+
+  const parts = rawValue.split(/[/\\]+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : rawValue;
+}
+
+function updateHeaderCardsUi(){
+  const isPnp = state.rightZoneMode === "pnp";
+  const printerHeader = state.printerHeader || {
+    statusText: "offline",
+    statusSubText: "проверка при запуске",
+    tone: "danger"
+  };
+
+  if (isPnp) {
+    $("statPrimaryCardLabel").textContent = "Заглушка";
+    $("statPrinterStatus").textContent = "—";
+    $("statPrinterStatus").style.color = "var(--muted)";
+    $("statPrinterStatusSub").textContent = "будет настроено позже";
+
+    $("statProjectCardLabel").textContent = "Заглушка";
+    $("statProjectName").textContent = "—";
+    fitProjectText();
+
+    $("statCounterCardLabel").textContent = "Заглушка";
+    $("statChangedFields").textContent = "—";
+    $("statChangedFieldsTotal").textContent = "—";
+
+    $("statReadinessCardLabel").textContent = "Заглушка";
+    $("statLocalLabel").textContent = "—";
+    $("statPrinterLabel").textContent = "—";
+    $("statAoiLabel").textContent = "—";
+    $("statPlacerLabel").textContent = "—";
+    setSaveReadinessValue("statLocalReady", "—", "danger");
+    setSaveReadinessValue("statPrinterReady", "—", "danger");
+    setSaveReadinessValue("statAoiReady", "—", "danger");
+    setSaveReadinessValue("statPlacerReady", "—", "danger");
+    return;
+  }
+
+  $("statPrimaryCardLabel").textContent = "Статус принтера";
+  $("statPrinterStatus").textContent = printerHeader.statusText || "offline";
+  $("statPrinterStatus").style.color = printerHeader.tone === "success" ? "var(--success)" : "var(--danger)";
+  $("statPrinterStatusSub").textContent = printerHeader.statusSubText || "проверка при запуске";
+
+  $("statProjectCardLabel").textContent = "Проект";
+  $("statProjectName").textContent = $("boardNameInput").value.trim() || "—";
+  fitProjectText();
+  $("statCounterCardLabel").textContent = "Поля";
+  $("statChangedFields").textContent = String(state.changedFields.size);
+  $("statChangedFieldsTotal").textContent = "/28";
+  $("statReadinessCardLabel").textContent = "Готовность сохранения";
+  $("statLocalLabel").textContent = "локальная";
+  $("statPrinterLabel").textContent = "принтер";
+  $("statAoiLabel").textContent = "AOI";
+  $("statPlacerLabel").textContent = "расстановщик";
+}
+
+function updateRightZoneUi(){
+  const pnpPanel = $("pnpRightPanel");
+  const printerPanel = $("printerRightPanel");
+
+  if (pnpPanel) {
+    pnpPanel.hidden = state.rightZoneMode !== "pnp";
+  }
+
+  if (printerPanel) {
+    printerPanel.hidden = state.rightZoneMode !== "printer";
+  }
+
+  updateHeaderCardsUi();
+}
+
+function updateNavPreviewButtons(){
+  const buttons = document.querySelectorAll("[data-nav-preview-btn]");
+  const panels = document.querySelectorAll("[data-nav-preview-panel]");
+
+  buttons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.navPreviewBtn === state.navPreviewActive);
+  });
+
+  panels.forEach((panel) => {
+    panel.hidden = panel.dataset.navPreviewPanel !== state.navPreviewActive;
+  });
+}
+
+function setNavPreviewActive(key){
+  state.navPreviewActive = state.navPreviewActive === key ? "" : key;
+  updateNavPreviewButtons();
+
+  // П&P и принтер меняют правую рабочую область, а AOI/Настройки только раскрывают левое дерево.
+  if (key === "placer") {
+    setRightZoneMode("pnp");
+  } else if (key === "printer") {
+    setRightZoneMode("printer");
+  }
+}
+
+function setRightZoneMode(mode){
+  state.rightZoneMode = mode === "pnp" ? "pnp" : "printer";
+  updateRightZoneUi();
+}
+
+function showPnpPlaceholder(title, body){
+  showAppDialog(title, body);
+}
+
+async function openPnpImportCsvLocation(){
+  if (state.navPreviewActive !== "placer") {
+    setNavPreviewActive("placer");
+  } else {
+    setRightZoneMode("pnp");
+    updateNavPreviewButtons();
+  }
+  // Кнопка должна каждый раз запускать выбор CSV заново, а не молча повторять прошлый путь.
+  await importPnpCsvFile({ forceDialog: true });
+}
+
 function setProjectMode(mode, details = {}){
   state.projectMode = mode === "edit" ? "edit" : "create";
   state.pr1SourcePath = state.projectMode === "edit" ? String(details.pr1SourcePath || state.pr1SourcePath || "") : "";
   updateProjectModeUi();
+  updateRightZoneUi();
+}
+
+function setPnpMode(mode){
+  state.pnp.mode = mode === "csv" ? "csv" : "dict";
+  applyToggleSelection("pnpModeToggle", state.pnp.mode);
+}
+
+function getPnpEmptyStats(){
+  return {
+    totalRows: 0,
+    topRows: 0,
+    bottomRows: 0,
+    rotatedRows: 0,
+    renamedRows: 0,
+    commentedRows: 0
+  };
+}
+
+function getPnpEmptyCollections(){
+  return {
+    noMatchResistors: [],
+    noMatchCapacitors: [],
+    noMatchOther: [],
+    deletedNotFitted: []
+  };
+}
+
+function resetPnpSession(preservePaths = true){
+  // Сбрасываем только P&P-состояние: статистику, промежуточные списки и текущий режим.
+  const dictPath = preservePaths ? String(state.pnp.dict.path || "Dict\\pnp_dict_v300.js") : "Dict\\pnp_dict_v300.js";
+  const csvPath = preservePaths ? String(state.pnp.csv.path || "") : "";
+  const statePath = preservePaths ? String(state.pnp.state.path || "") : "";
+  const exportFolder = preservePaths ? String(state.pnp.export.folder || "") : "";
+
+  state.pnp.mode = "dict";
+  state.pnp.dict = {
+    path: dictPath,
+    sourcePath: "",
+    data: null,
+    previewRows: [],
+    importInfo: null
+  };
+  state.pnp.csv = {
+    path: csvPath,
+    sourcePath: "",
+    data: null,
+    previewRows: [],
+    importInfo: null
+  };
+  state.pnp.state = {
+    path: statePath,
+    data: null,
+    importInfo: null
+  };
+  state.pnp.export = {
+    folder: exportFolder,
+    files: []
+  };
+  state.pnp.importInfo = null;
+  state.pnp.activeSheet = "Info";
+  state.pnp.zoom = 1;
+  state.pnp.stats = getPnpEmptyStats();
+  state.pnp.collections = getPnpEmptyCollections();
+
+  const dictInput = $("pnpDictPathInput");
+  const csvInput = $("pnpCsvPathInput");
+  const stateInput = $("pnpStatePathInput");
+  const exportInput = $("pnpExportFolderInput");
+
+  if (dictInput) dictInput.value = dictPath;
+  if (csvInput) csvInput.value = csvPath;
+  if (stateInput) stateInput.value = statePath;
+  if (exportInput) exportInput.value = exportFolder;
+
+  updatePnpStats(state.pnp.stats);
+  updatePnpMetaText("pnpSourcePath", "");
+  updatePnpMetaText("pnpModeLabel", "Dict");
+  renderPnpVisibleTable();
+  renderPnpPreview();
+}
+
+function escapePnpHtml(value){
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function normalizePnpRows(dictLike){
+  const rows = Array.isArray(dictLike && dictLike.rows) ? dictLike.rows : [];
+
+  return rows.map((row, index) => ({
+    rowIndex: index + 1,
+    designator: String(row && row.designator ? row.designator : ""),
+    footprint: String(row && row.footprint ? row.footprint : ""),
+    x: String(row && row.x !== undefined && row.x !== null ? row.x : ""),
+    y: String(row && row.y !== undefined && row.y !== null ? row.y : ""),
+    rotation: String(row && row.rotation !== undefined && row.rotation !== null ? row.rotation : ""),
+    side: String(row && row.side ? row.side : "Top"),
+    comment: String(row && row.comment ? row.comment : "")
+  }));
+}
+
+function updatePnpStats(stats){
+  const currentStats = stats || getPnpEmptyStats();
+  state.pnp.stats = currentStats;
+  const activeSection = getPnpActiveSection();
+  if (activeSection) {
+    activeSection.stats = currentStats;
+  }
+
+  const totalCountNode = $("pnpTotalCount");
+  const topCountNode = $("pnpTopCount");
+  const bottomCountNode = $("pnpBottomCount");
+  const renamedCountNode = $("pnpRenamedCount");
+
+  if (totalCountNode) totalCountNode.textContent = String(currentStats.totalRows || 0);
+  if (topCountNode) topCountNode.textContent = String(currentStats.topRows || 0);
+  if (bottomCountNode) bottomCountNode.textContent = String(currentStats.bottomRows || 0);
+  if (renamedCountNode) renamedCountNode.textContent = String(currentStats.renamedRows || 0);
+}
+
+function updatePnpMetaText(label, value){
+  const node = $(label);
+  if (node) {
+    node.textContent = value || "—";
+  }
+}
+
+function renderPnpPreview(){
+  const shell = $("pnpPreviewShell");
+  const body = $("pnpPreviewBody");
+  const activeSection = getPnpActiveSection();
+  const rows = activeSection && Array.isArray(activeSection.previewRows) ? activeSection.previewRows : [];
+
+  if (!shell || !body) {
+    return;
+  }
+
+  const rowHeight = 34;
+  const visibleCount = Math.max(12, Math.ceil(shell.clientHeight / rowHeight) + 8);
+  const scrollTop = shell.scrollTop || 0;
+  const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 4);
+  const end = Math.min(rows.length, start + visibleCount);
+  const topSpacer = start * rowHeight;
+  const bottomSpacer = Math.max(0, (rows.length - end) * rowHeight);
+  const slice = rows.slice(start, end);
+
+  body.innerHTML = [
+    `<tr class="pnp-spacer"><td colspan="8" style="height:${topSpacer}px;padding:0;border:none"></td></tr>`,
+    slice.map((row) => (
+      `<tr>` +
+        `<td>${escapePnpHtml(row.rowIndex)}</td>` +
+        `<td>${escapePnpHtml(row.designator)}</td>` +
+        `<td>${escapePnpHtml(row.footprint)}</td>` +
+        `<td>${escapePnpHtml(row.x)}</td>` +
+        `<td>${escapePnpHtml(row.y)}</td>` +
+        `<td>${escapePnpHtml(row.rotation)}</td>` +
+        `<td>${escapePnpHtml(row.side)}</td>` +
+        `<td>${escapePnpHtml(row.comment)}</td>` +
+      `</tr>`
+    )).join(""),
+    `<tr class="pnp-spacer"><td colspan="8" style="height:${bottomSpacer}px;padding:0;border:none"></td></tr>`
+  ].join("");
+}
+
+function renderPnpVisibleTable(){
+  const placeholder = $("pnpTablePlaceholder");
+  const activeSection = getPnpActiveSection();
+  const rows = activeSection && Array.isArray(activeSection.previewRows) ? activeSection.previewRows : [];
+  const stats = state.pnp.stats || getPnpEmptyStats();
+  const importInfo = state.pnp.importInfo || (activeSection && activeSection.importInfo) || null;
+  const sheetNames = importInfo && Array.isArray(importInfo.sheetNames) && importInfo.sheetNames.length
+    ? importInfo.sheetNames
+    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "Resist", "Capacitor", "Other", "DataPredExit", "DataExit"];
+  const activeSheet = state.pnp.activeSheet || (importInfo && importInfo.activeSheet) || "Info";
+
+  if (!placeholder) {
+    return;
+  }
+
+  if (!rows.length) {
+    placeholder.innerHTML = [
+      `<div class="p-4 pnp-workbook-shell" style="min-height:0;gap:12px;">`,
+      `<div class="mb-1" style="color:var(--muted)">Листы книги</div>`,
+      `<div class="flex-1 section-card p-4" style="display:flex;align-items:center;justify-content:center;min-height:0;">`,
+      `<div class="hint-list">Таблица появится здесь позже.</div>`,
+      `</div>`,
+      `<div class="pnp-sheet-tabs" data-pnp-sheet-tabs>`,
+      sheetNames.map((sheetName) => `<button type="button" class="pnp-sheet-tab${sheetName === activeSheet ? ' active' : ''}" data-pnp-sheet-tab="${escapePnpHtml(sheetName)}">${escapePnpHtml(sheetName)}</button>`).join(''),
+      `</div>`,
+      `</div>`
+    ].join("");
+    return;
+  }
+
+  const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+  const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
+  const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
+  const previewRows = rawRows.map((row) => (
+    `<tr>` + row.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
+  )).join("");
+  const visibleSheet = state.pnp.activeSheet || "Info";
+  const showTable = visibleSheet === "ImportedCSVTable";
+  const zoom = Math.max(0.6, Math.min(1.6, Number(state.pnp.zoom) || 1));
+
+  placeholder.innerHTML = [
+    `<div class="p-4 pnp-workbook-shell" style="min-height:0;gap:12px;">`,
+    `<div class="mb-1" style="color:var(--muted)">Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}</div>`,
+    `<div class="section-card p-0" style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">`,
+    showTable
+      ? `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
+        `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
+        `<thead><tr>${rawHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
+        `<tbody>${previewRows}</tbody>` +
+        `</table>` +
+        `</div>`
+      : `<div class="p-4 flex-1" style="display:flex;align-items:center;justify-content:center;color:var(--muted);">Лист ${escapePnpHtml(visibleSheet)} будет сформирован после соответствующего шага макроса.</div>`,
+    `</div>`,
+      `<div class="pnp-sheet-tabs" data-pnp-sheet-tabs>`,
+    sheetNames.map((sheetName) => `<button type="button" class="pnp-sheet-tab${sheetName === activeSheet ? ' active' : ''}" data-pnp-sheet-tab="${escapePnpHtml(sheetName)}">${escapePnpHtml(sheetName)}</button>`).join(''),
+    `</div>`,
+    `</div>`
+  ].join("");
+}
+
+function setPnpActiveSheet(sheetName){
+  state.pnp.activeSheet = String(sheetName || "Info");
+  renderPnpVisibleTable();
+}
+
+function adjustPnpZoom(delta){
+  const nextZoom = Math.max(0.6, Math.min(1.6, (Number(state.pnp.zoom) || 1) + delta));
+  if (nextZoom !== state.pnp.zoom) {
+    state.pnp.zoom = nextZoom;
+    renderPnpVisibleTable();
+  }
+}
+
+function loadPnpPreview(dictLike, meta = {}){
+  const dict = dictLike && dictLike.dict ? dictLike.dict : dictLike;
+  const stats = dictLike && dictLike.stats ? dictLike.stats : getPnpEmptyStats();
+  const mode = meta.mode || state.pnp.mode;
+  const activeSection = mode === "csv" ? state.pnp.csv : state.pnp.dict;
+
+  if (activeSection) {
+    activeSection.data = dict || null;
+    activeSection.previewRows = normalizePnpRows(dict);
+    activeSection.sourcePath = String(meta.sourcePath || activeSection.sourcePath || "");
+    activeSection.path = String(meta.csvPath || meta.dictPath || activeSection.path || "");
+    activeSection.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : activeSection.importInfo || null;
+    activeSection.stats = stats;
+  }
+
+  state.pnp.state.data = dictLike && dictLike.state ? dictLike.state : state.pnp.state.data;
+  state.pnp.state.path = String(meta.statePath || state.pnp.state.path || "");
+  state.pnp.state.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.state.importInfo || null;
+  state.pnp.export.folder = String(meta.exportFolder || state.pnp.export.folder || "");
+  state.pnp.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.importInfo || null;
+  state.pnp.activeSheet = String(
+    meta.activeSheet
+    || (dictLike && dictLike.importInfo && dictLike.importInfo.activeSheet)
+    || state.pnp.activeSheet
+    || "Info"
+  );
+  state.pnp.stats = stats;
+  if (meta.dictPath) {
+    state.pnp.dict.path = meta.dictPath;
+    const dictInput = $("pnpDictPathInput");
+    if (dictInput) dictInput.value = meta.dictPath;
+  }
+  if (meta.csvPath) {
+    state.pnp.csv.path = meta.csvPath;
+    const csvInput = $("pnpCsvPathInput");
+    if (csvInput) csvInput.value = meta.csvPath;
+  }
+  if (meta.statePath) {
+    const stateInput = $("pnpStatePathInput");
+    if (stateInput) stateInput.value = meta.statePath;
+  }
+  if (meta.exportFolder) {
+    const exportInput = $("pnpExportFolderInput");
+    if (exportInput) exportInput.value = meta.exportFolder;
+  }
+  setPnpMode(meta.mode || state.pnp.mode);
+  updatePnpStats(stats);
+  updatePnpMetaText("pnpSourcePath", meta.sourcePath || activeSection.sourcePath || "");
+  updatePnpMetaText("pnpModeLabel", state.pnp.mode === "csv" ? "CSV" : "Dict");
+  updateHeaderCardsUi();
+  renderPnpVisibleTable();
+  renderPnpPreview();
+}
+
+function buildPnpStatePayload(){
+  const activeSection = getPnpActiveSection();
+  const localPathInput = $("pnpLocalPathInput");
+  const importPathInput = $("pnpImportCsvPathInput");
+  const exportPathInput = $("pnpExportPathInput");
+  return {
+    mode: state.pnp.mode,
+    dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js",
+    importCsvPath: (importPathInput ? importPathInput.value.trim() : "") || state.pnp.csv.path || "",
+    exportFolder: (exportPathInput ? exportPathInput.value.trim() : "") || state.pnp.export.folder || "",
+    statePath: state.pnp.state.path || ((localPathInput && localPathInput.value.trim())
+      ? localPathInput.value.trim().replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
+      : "C:\\settings\\PickAndPlace\\pnp_state_v300.js"),
+    dict: state.pnp.dict.data,
+    importInfo: state.pnp.importInfo,
+    pnp: {
+      mode: state.pnp.mode,
+      dict: { ...state.pnp.dict },
+      csv: { ...state.pnp.csv },
+      state: { ...state.pnp.state },
+      export: { ...state.pnp.export },
+      stats: { ...state.pnp.stats },
+      importInfo: state.pnp.importInfo,
+      activeSection: activeSection ? { ...activeSection } : null
+    }
+  };
+}
+
+async function loadPnpDictFromRoot(){
+  try {
+    const result = await asmBridge.pnpLoadDict({
+      filePath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js"
+    });
+
+    loadPnpPreview(result, {
+      mode: "dict",
+      dictPath: result.filePath || "Dict\\pnp_dict_v300.js",
+      sourcePath: result.filePath || "Dict\\pnp_dict_v300.js"
+    });
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось загрузить Dict.\n\n${error.message}`);
+  }
+}
+
+async function importPnpCsvFile(options = {}){
+  const csvPath = options.forceDialog
+    ? ""
+    : ($("pnpImportCsvPathInput").value.trim() || state.pnp.csv.path || "");
+
+  try {
+    const result = await asmBridge.pnpImportCsv({
+      filePath: csvPath
+    });
+
+    if (result && result.canceled) {
+      return;
+    }
+
+    loadPnpPreview(result, {
+      mode: "csv",
+      csvPath: result.filePath || csvPath,
+      sourcePath: result.filePath || csvPath
+    });
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось импортировать CSV.\n\n${error.message}`);
+  }
+}
+
+async function loadPnpStateFile(){
+  const statePath = state.pnp.state.path || (($("pnpLocalPathInput").value.trim())
+    ? $("pnpLocalPathInput").value.trim().replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
+    : "");
+
+  try {
+    const result = await asmBridge.pnpLoadState({
+      filePath: statePath
+    });
+
+    loadPnpPreview(result, {
+      mode: result.state && result.state.mode ? result.state.mode : "dict",
+      statePath: result.filePath || statePath,
+      dictPath: result.state && result.state.dictPath ? result.state.dictPath : "Dict\\pnp_dict_v300.js",
+      exportFolder: result.state && result.state.exportFolder ? result.state.exportFolder : ""
+    });
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось загрузить state.\n\n${error.message}`);
+  }
+}
+
+async function savePnpStateFile(){
+  try {
+    const result = await asmBridge.pnpSaveState(buildPnpStatePayload());
+    loadPnpPreview(result, {
+      mode: result.state && result.state.mode ? result.state.mode : state.pnp.mode,
+      statePath: result.filePath || state.pnp.state.path,
+      dictPath: result.state && result.state.dictPath ? result.state.dictPath : state.pnp.dict.path,
+      exportFolder: result.state && result.state.exportFolder ? result.state.exportFolder : state.pnp.export.folder
+    });
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось сохранить state.\n\n${error.message}`);
+  }
+}
+
+async function exportPnpFiles(){
+  try {
+    const result = await asmBridge.pnpExportFiles(buildPnpStatePayload());
+    loadPnpPreview(result, {
+      mode: state.pnp.mode,
+      exportFolder: result.targetFolder || $("pnpExportPathInput").value.trim() || state.pnp.export.folder,
+      dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js"
+    });
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось экспортировать файлы P&P.\n\n${error.message}`);
+  }
 }
 
 function saveCurrentPaths(){
@@ -1738,7 +2704,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "2.7.2",
+    version: "3.1.4",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -2115,6 +3081,11 @@ async function refreshPrinterStatus(showDialog){
 
     if (!result.exists) {
       setPrinterStatus("offline", "принтер недоступен", "danger");
+      state.printerHeader = {
+        statusText: "offline",
+        statusSubText: "принтер недоступен",
+        tone: "danger"
+      };
 
       if (showDialog) {
         showAppDialog(
@@ -2128,6 +3099,11 @@ async function refreshPrinterStatus(showDialog){
 
     const projectFiles = result.files.filter((fileName) => /\.pr1$/i.test(fileName) && !/^template\.pr1$/i.test(fileName));
     setPrinterStatus("online", `доступно: ${projectFiles.length} проектов`, "success");
+    state.printerHeader = {
+      statusText: "online",
+      statusSubText: `доступно: ${projectFiles.length} проектов`,
+      tone: "success"
+    };
 
     // После проверки статуса перечитываем данные принтера, чтобы список похожих проектов и счетчики не устаревали.
     await loadPrinterWorkspaceData(false);
@@ -2143,6 +3119,11 @@ async function refreshPrinterStatus(showDialog){
     }
   } catch (error) {
     setPrinterStatus("offline", "принтер недоступен", "danger");
+    state.printerHeader = {
+      statusText: "offline",
+      statusSubText: "принтер недоступен",
+      tone: "danger"
+    };
 
     if (showDialog) {
       showAppDialog("Статус принтера", `Принтер недоступен.\n\n${error.message}`);
@@ -2658,6 +3639,7 @@ async function init(){
   setToday();
   updateFooterMeta();
   updateProjectModeUi();
+  updateRightZoneUi();
 
   $("themeToggle").addEventListener("click", (event) => {
     event.preventDefault();
@@ -2800,7 +3782,6 @@ async function init(){
   setupToggle("boardStopModeToggle", "boardStopMode", updateCenterBoardXAuto);
   setupToggle("boardSideToggle", "boardSide");
   setupToggle("printDirectionToggle", "printDirection");
-
   updateProjectCard();
   updateSimilarProjects();
   updateRefFieldsByCount();
@@ -2808,6 +3789,46 @@ async function init(){
   updateStopBoardYAuto();
   updateAoiButtonState();
   updateChangedCounter();
+  setPnpMode("dict");
+  document.querySelectorAll("[data-nav-preview-btn]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setNavPreviewActive(button.dataset.navPreviewBtn);
+    });
+  });
+  const pnpTablePlaceholder = $("pnpTablePlaceholder");
+  if (pnpTablePlaceholder) {
+    pnpTablePlaceholder.addEventListener("click", (event) => {
+      const tabButton = event.target && event.target.closest ? event.target.closest("[data-pnp-sheet-tab]") : null;
+      if (!tabButton) {
+        return;
+      }
+      setPnpActiveSheet(tabButton.dataset.pnpSheetTab);
+    });
+    pnpTablePlaceholder.addEventListener("wheel", (event) => {
+      if (!event.ctrlKey) {
+        return;
+      }
+
+      event.preventDefault();
+      adjustPnpZoom(event.deltaY < 0 ? 0.1 : -0.1);
+    }, { passive: false });
+  }
+  $("pnpCreateProjectBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    openPnpImportCsvLocation();
+  });
+  $("pnpStatsBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    showPnpPlaceholder("Pick and Place", "Статистика по проекту P&P появится позже.");
+  });
+  $("pnpReserveBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    showPnpPlaceholder("Pick and Place", "Эта кнопка пока зарезервирована.");
+  });
+  setNavPreviewActive("printer");
+  loadPnpDictFromRoot().catch((error) => {
+    showAppDialog("Pick and Place", `Не удалось загрузить корневой Dict.\n\n${error.message}`);
+  });
   await loadWorkspaceData(false);
   await refreshPrinterStatus(false);
   refreshSaveReadiness(false);
