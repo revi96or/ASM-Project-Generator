@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.1
+ * Версия: 3.1.2
  * Автор: Новожилов Артем
  */
 
@@ -488,6 +488,329 @@ function escapeCsvCell(value) {
   return text;
 }
 
+function escapeXml(value) {
+  return normalizeText(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function columnIndexToLetters(index) {
+  let current = index + 1;
+  let letters = '';
+
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    current = Math.floor((current - 1) / 26);
+  }
+
+  return letters;
+}
+
+function buildInlineStringCellXml(ref, value) {
+  const text = normalizeText(value);
+
+  if (text === '') {
+    return '';
+  }
+
+  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
+}
+
+function buildWorksheetXml(rows) {
+  const rowXml = rows.map((rowValues, rowIndex) => {
+    const cellXml = rowValues
+      .map((value, cellIndex) => buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value))
+      .filter((cell) => cell !== '')
+      .join('');
+
+    return `<row r="${rowIndex + 1}">${cellXml}</row>`;
+  }).join('');
+
+  const maxColumns = rows.reduce((max, rowValues) => Math.max(max, rowValues.length), 0);
+  const lastColumn = maxColumns > 0 ? columnIndexToLetters(maxColumns - 1) : 'A';
+  const lastRow = rows.length > 0 ? rows.length : 1;
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <dimension ref="A1:${lastColumn}${lastRow}"/>
+  <sheetViews>
+    <sheetView workbookViewId="0"/>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="15"/>
+  <sheetData>${rowXml}</sheetData>
+</worksheet>`;
+}
+
+function buildInfoSheetRows(importInfo, sourcePath) {
+  const baseName = String(importInfo && importInfo.baseName ? importInfo.baseName : '');
+  const workbookName = String(importInfo && importInfo.workbookName ? importInfo.workbookName : `${baseName}.xlsx`);
+  const sheetNames = Array.isArray(importInfo && importInfo.sheetNames) ? importInfo.sheetNames : ['Лист1', 'Info'];
+  const rawHeaders = Array.isArray(importInfo && importInfo.headers) ? importInfo.headers : [];
+
+  return [
+    ['Описание', 'Состояние после импорта CSV', '', ''],
+    ['Версия', '3.1.2', '', ''],
+    ['Автор', 'Новожилов Артем', '', ''],
+    ['BaseName', baseName, '', ''],
+    ['A10', '', '', String(importInfo && importInfo.infoD5 ? importInfo.infoD5 : '')],
+    ['CSV путь', '', '', String(importInfo && importInfo.infoD6 ? importInfo.infoD6 : sourcePath || '')],
+    ['Workbook', workbookName, '', ''],
+    ['Лист1', sheetNames[0] || 'Лист1', '', ''],
+    ['Info', sheetNames[1] || 'Info', '', ''],
+    ['Заголовков', String(rawHeaders.length || 0), '', '']
+  ];
+}
+
+function buildPnpXlsxBuffer(importInfo, sourcePath) {
+  const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+  const dataHeaders = Array.isArray(tableInfo && tableInfo.rawHeaders) ? tableInfo.rawHeaders : [];
+  const dataRows = Array.isArray(tableInfo && tableInfo.rows) ? tableInfo.rows : [];
+  const listSheetRows = [
+    dataHeaders.map((value) => String(value))
+  ].concat(dataRows.map((row) => row.map((value) => String(value))));
+  const infoSheetRows = buildInfoSheetRows(importInfo || {}, sourcePath);
+  const sheetNames = ['Лист1', 'Info'];
+
+  return buildZipArchive([
+    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length) },
+    { path: '_rels/.rels', content: buildRelsXml() },
+    { path: 'docProps/core.xml', content: buildCorePropsXml(importInfo, sourcePath) },
+    { path: 'docProps/app.xml', content: buildAppPropsXml(sheetNames) },
+    { path: 'xl/workbook.xml', content: buildWorkbookXml(sheetNames) },
+    { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(sheetNames) },
+    { path: 'xl/styles.xml', content: buildStylesXml() },
+    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows) },
+    { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) }
+  ]);
+}
+
+function buildContentTypesXml(sheetCount) {
+  const worksheetOverrides = Array.from({ length: sheetCount }, (_, index) => (
+    `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  )).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  ${worksheetOverrides}
+</Types>`;
+}
+
+function buildRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+}
+
+function buildWorkbookXml(sheetNames) {
+  const sheetsXml = sheetNames.map((sheetName, index) => (
+    `<sheet name="${escapeXml(sheetName)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`
+  )).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>${sheetsXml}</sheets>
+</workbook>`;
+}
+
+function buildWorkbookRelsXml(sheetNames) {
+  const sheetRels = sheetNames.map((_, index) => (
+    `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`
+  )).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${sheetRels}
+  <Relationship Id="rId${sheetNames.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+}
+
+function buildStylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
+  <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+  <borders count="1"><border/></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
+</styleSheet>`;
+}
+
+function buildAppPropsXml(sheetNames) {
+  const headingPairs = sheetNames.map((sheetName, index) => (
+    `<vt:lpstr>${escapeXml(sheetName)}</vt:lpstr>`
+  )).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>ASM Project Generator</Application>
+  <DocSecurity>0</DocSecurity>
+  <ScaleCrop>false</ScaleCrop>
+  <HeadingPairs>
+    <vt:vector size="2" baseType="variant">
+      <vt:variant><vt:lpstr>Листы</vt:lpstr></vt:variant>
+      <vt:variant><vt:i4>${sheetNames.length}</vt:i4></vt:variant>
+    </vt:vector>
+  </HeadingPairs>
+  <TitlesOfParts>
+    <vt:vector size="${sheetNames.length}" baseType="lpstr">
+      ${headingPairs}
+    </vt:vector>
+  </TitlesOfParts>
+</Properties>`;
+}
+
+function buildCorePropsXml(importInfo, sourcePath) {
+  const title = String(importInfo && importInfo.baseName ? importInfo.baseName : 'Pick and Place');
+  const created = new Date().toISOString();
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>${escapeXml(title)}</dc:title>
+  <dc:creator>Новожилов Артем</dc:creator>
+  <cp:lastModifiedBy>Новожилов Артем</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified>
+  <dc:description>${escapeXml(sourcePath || '')}</dc:description>
+</cp:coreProperties>`;
+}
+
+function toDosDateTime(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  const dosTime = ((date.getHours() & 0x1f) << 11)
+    | ((date.getMinutes() & 0x3f) << 5)
+    | ((Math.floor(date.getSeconds() / 2)) & 0x1f);
+  const dosDate = (((year - 1980) & 0x7f) << 9)
+    | (((date.getMonth() + 1) & 0x0f) << 5)
+    | (date.getDate() & 0x1f);
+
+  return { dosTime, dosDate };
+}
+
+function createCrc32Table() {
+  const table = new Uint32Array(256);
+
+  for (let index = 0; index < 256; index += 1) {
+    let crc = index;
+
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc & 1) ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
+    }
+
+    table[index] = crc >>> 0;
+  }
+
+  return table;
+}
+
+const CRC32_TABLE = createCrc32Table();
+
+function crc32(buffer) {
+  let crc = 0xFFFFFFFF;
+
+  for (let index = 0; index < buffer.length; index += 1) {
+    crc = CRC32_TABLE[(crc ^ buffer[index]) & 0xFF] ^ (crc >>> 8);
+  }
+
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function buildZipArchive(entries) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const timestamp = toDosDateTime();
+
+  entries.forEach((entry) => {
+    const fileName = String(entry.path).replace(/\\/g, '/');
+    const fileNameBuffer = Buffer.from(fileName, 'utf8');
+    const contentBuffer = Buffer.isBuffer(entry.content)
+      ? entry.content
+      : Buffer.from(String(entry.content), 'utf8');
+    const crc = crc32(contentBuffer);
+    const localHeader = Buffer.alloc(30 + fileNameBuffer.length);
+    const centralHeader = Buffer.alloc(46 + fileNameBuffer.length);
+
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(timestamp.dosTime, 10);
+    localHeader.writeUInt16LE(timestamp.dosDate, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(contentBuffer.length, 18);
+    localHeader.writeUInt32LE(contentBuffer.length, 22);
+    localHeader.writeUInt16LE(fileNameBuffer.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+    fileNameBuffer.copy(localHeader, 30);
+
+    localParts.push(localHeader, contentBuffer);
+
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(timestamp.dosTime, 12);
+    centralHeader.writeUInt16LE(timestamp.dosDate, 14);
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(contentBuffer.length, 20);
+    centralHeader.writeUInt32LE(contentBuffer.length, 24);
+    centralHeader.writeUInt16LE(fileNameBuffer.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    fileNameBuffer.copy(centralHeader, 46);
+
+    centralParts.push(centralHeader);
+    offset += localHeader.length + contentBuffer.length;
+  });
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const localFiles = Buffer.concat(localParts);
+  const endRecord = Buffer.alloc(22);
+
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(0, 4);
+  endRecord.writeUInt16LE(0, 6);
+  endRecord.writeUInt16LE(entries.length, 8);
+  endRecord.writeUInt16LE(entries.length, 10);
+  endRecord.writeUInt32LE(centralDirectory.length, 12);
+  endRecord.writeUInt32LE(localFiles.length, 16);
+  endRecord.writeUInt16LE(0, 20);
+
+  return Buffer.concat([localFiles, centralDirectory, endRecord]);
+}
+
+async function savePnpXlsxFile(targetFolder, baseName, importInfo, sourcePath) {
+  const workbookName = `${String(baseName || 'pnp_export_v300').trim() || 'pnp_export_v300'}.xlsx`;
+  const targetPath = path.join(targetFolder, workbookName);
+  const workbookBuffer = buildPnpXlsxBuffer(importInfo || {}, sourcePath || '');
+
+  await fs.mkdir(targetFolder, { recursive: true });
+  await fs.writeFile(targetPath, workbookBuffer);
+
+  return {
+    path: targetPath,
+    fileName: workbookName
+  };
+}
+
 function buildCsv(dictLike) {
   const dict = normalizeDict(dictLike);
   const header = ['Designator', 'Footprint', 'X', 'Y', 'Rotation', 'Side', 'Comment'];
@@ -709,21 +1032,33 @@ async function exportFiles(dictLike, targetFolder, options = {}) {
   const exportDictPath = path.join(targetFolder, `${exportStem}.js`);
   const exportCsvPath = path.join(targetFolder, `${exportStem}.csv`);
   const exportHtmlPath = path.join(targetFolder, `${exportStem}.html`);
+  const exportXlsxFolder = String(options.exportXlsxFolder || '').trim();
+  const importInfo = options.importInfo || prepared.importInfo || null;
+  const xlsxBaseName = String((importInfo && importInfo.baseName) || options.exportXlsxStem || exportStem).trim() || exportStem;
+  let exportXlsxResult = null;
 
   await fs.mkdir(targetFolder, { recursive: true });
   await fs.writeFile(exportDictPath, buildModuleSource(prepared, 'Экспортированный словарь P&P'), 'utf8');
   await fs.writeFile(exportCsvPath, buildCsv(prepared), 'utf8');
   await fs.writeFile(exportHtmlPath, buildPreviewHtml(prepared), 'utf8');
 
+  if (exportXlsxFolder) {
+    exportXlsxResult = await savePnpXlsxFile(exportXlsxFolder, xlsxBaseName, importInfo, options.sourcePath || '');
+  }
+
   return {
     targetFolder,
+    exportXlsxFolder,
     stats: getStats(prepared),
     files: [
       { fileName: path.basename(exportDictPath), path: exportDictPath, kind: 'dict' },
       { fileName: path.basename(exportCsvPath), path: exportCsvPath, kind: 'csv' },
-      { fileName: path.basename(exportHtmlPath), path: exportHtmlPath, kind: 'html' }
+      { fileName: path.basename(exportHtmlPath), path: exportHtmlPath, kind: 'html' },
+      ...(exportXlsxResult ? [{ fileName: exportXlsxResult.fileName, path: exportXlsxResult.path, kind: 'xlsx' }] : [])
     ],
-    dict: prepared
+    dict: prepared,
+    importInfo,
+    xlsx: exportXlsxResult
   };
 }
 

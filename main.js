@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.6
+ * Версия: 3.1.7
  * Автор: Новожилов Артем
  */
 
@@ -999,7 +999,7 @@ function getPnpDefaultExportFolder() {
 function buildPnpState(dict, overrides = {}) {
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.6',
+    version: '3.1.7',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1078,6 +1078,8 @@ async function exportPnpFiles(payload) {
 
   const result = await pnpPipeline.exportFiles(stateDict, targetFolder, {
     exportStem,
+    exportXlsxFolder: payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '',
+    importInfo: payload && payload.importInfo ? payload.importInfo : null,
     sourcePath: payload && payload.sourcePath ? payload.sourcePath : '',
     sourceFile: payload && payload.sourceFile ? payload.sourceFile : ''
   });
