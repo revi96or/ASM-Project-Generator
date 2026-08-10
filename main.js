@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.7
+ * Версия: 3.1.8
  * Автор: Новожилов Артем
  */
 
@@ -996,17 +996,41 @@ function getPnpDefaultExportFolder() {
   return path.join(app.getPath('userData'), PNP_DEFAULT_EXPORT_FOLDER_NAME);
 }
 
+function getPnpStatePathValue(source, key, fallback = '') {
+  const sourcePaths = source && source.paths ? source.paths : {};
+  const flatValue = source && Object.prototype.hasOwnProperty.call(source, key) ? source[key] : '';
+  const nestedValue = sourcePaths && Object.prototype.hasOwnProperty.call(sourcePaths, key) ? sourcePaths[key] : '';
+  return String(flatValue || nestedValue || fallback || '');
+}
+
 function buildPnpState(dict, overrides = {}) {
+  const localPath = getPnpStatePathValue(overrides, 'localPath');
+  const importCsvPath = getPnpStatePathValue(overrides, 'importCsvPath');
+  const exportXlsxFolder = getPnpStatePathValue(overrides, 'exportXlsxFolder');
+  const exportFolder = getPnpStatePathValue(overrides, 'exportFolder', getPnpDefaultExportFolder());
+  const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictPath());
+  const statePath = getPnpStatePathValue(overrides, 'statePath');
+
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.7',
+    version: '3.1.8',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
-    importCsvPath: String(overrides.importCsvPath || ''),
-    exportXlsxFolder: String(overrides.exportXlsxFolder || ''),
-    exportFolder: String(overrides.exportFolder || getPnpDefaultExportFolder()),
-    dictPath: String(overrides.dictPath || getPnpRootDictPath()),
+    localPath,
+    importCsvPath,
+    exportXlsxFolder,
+    exportFolder,
+    dictPath,
+    statePath,
+    paths: {
+      localPath,
+      importCsvPath,
+      exportXlsxFolder,
+      exportFolder,
+      dictPath,
+      statePath
+    },
     dict
   };
 }
@@ -1102,10 +1126,12 @@ async function savePnpState(payload) {
   assertOperationNotCancelled();
   const nextState = buildPnpState(dict, {
     mode: state.mode || 'dict',
+    localPath: state.localPath || '',
     importCsvPath: state.importCsvPath || '',
     exportXlsxFolder: state.exportXlsxFolder || '',
     exportFolder: state.exportFolder || getPnpDefaultExportFolder(),
-    dictPath: state.dictPath || getPnpRootDictPath()
+    dictPath: state.dictPath || getPnpRootDictPath(),
+    statePath: filePath
   });
 
   await pnpPipeline.saveStateFile(filePath, nextState);
@@ -1135,10 +1161,12 @@ async function loadPnpState(payload) {
     assertOperationNotCancelled();
     const nextState = buildPnpState(loadedDict, {
       mode: loadedState.mode || 'dict',
+      localPath: loadedState.localPath || '',
       importCsvPath: loadedState.importCsvPath || '',
       exportXlsxFolder: loadedState.exportXlsxFolder || '',
       exportFolder: loadedState.exportFolder || getPnpDefaultExportFolder(),
-      dictPath: loadedState.dictPath || getPnpRootDictPath()
+      dictPath: loadedState.dictPath || getPnpRootDictPath(),
+      statePath: loadedState.statePath || filePath
     });
 
     return {

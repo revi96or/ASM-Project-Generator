@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.5
+Версия: 9.19.6
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.7",
+    version: "3.1.8",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.7",
-    latestVersion: "3.1.7",
+    currentVersion: "3.1.8",
+    latestVersion: "3.1.8",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.7",
+    version: "3.1.8",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -1535,6 +1535,7 @@ const state = {
       previewRows: [],
       importInfo: null
     },
+    localPath: "",
     csv: {
       path: "",
       sourcePath: "",
@@ -2558,11 +2559,25 @@ function adjustPnpZoom(delta){
   }
 }
 
+function setPnpPathInputValue(inputId, value) {
+  const input = $(inputId);
+  if (input) {
+    input.value = String(value || "");
+  }
+}
+
 function loadPnpPreview(dictLike, meta = {}){
   const dict = dictLike && dictLike.dict ? dictLike.dict : dictLike;
   const stats = dictLike && dictLike.stats ? dictLike.stats : getPnpEmptyStats();
   const mode = meta.mode || state.pnp.mode;
   const activeSection = mode === "csv" ? state.pnp.csv : state.pnp.dict;
+  const paths = meta.paths || {};
+  const localPath = String(meta.localPath || paths.localPath || state.pnp.localPath || "");
+  const importCsvPath = String(meta.importCsvPath || paths.importCsvPath || meta.csvPath || state.pnp.csv.path || "");
+  const exportXlsxFolder = String(meta.exportXlsxFolder || paths.exportXlsxFolder || state.pnp.exportXlsx.folder || "");
+  const exportFolder = String(meta.exportFolder || paths.exportFolder || state.pnp.export.folder || "");
+  const dictPath = String(meta.dictPath || paths.dictPath || state.pnp.dict.path || "");
+  const statePath = String(meta.statePath || paths.statePath || state.pnp.state.path || "");
 
   if (activeSection) {
     activeSection.data = dict || null;
@@ -2574,10 +2589,11 @@ function loadPnpPreview(dictLike, meta = {}){
   }
 
   state.pnp.state.data = dictLike && dictLike.state ? dictLike.state : state.pnp.state.data;
-  state.pnp.state.path = String(meta.statePath || state.pnp.state.path || "");
+  state.pnp.localPath = localPath;
+  state.pnp.state.path = statePath;
   state.pnp.state.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.state.importInfo || null;
-  state.pnp.exportXlsx.folder = String(meta.exportXlsxFolder || state.pnp.exportXlsx.folder || "");
-  state.pnp.export.folder = String(meta.exportFolder || state.pnp.export.folder || "");
+  state.pnp.exportXlsx.folder = exportXlsxFolder;
+  state.pnp.export.folder = exportFolder;
   state.pnp.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.importInfo || null;
   state.pnp.activeSheet = String(
     meta.activeSheet
@@ -2586,29 +2602,15 @@ function loadPnpPreview(dictLike, meta = {}){
     || "Info"
   );
   state.pnp.stats = stats;
-  if (meta.dictPath) {
-    state.pnp.dict.path = meta.dictPath;
-    const dictInput = $("pnpDictPathInput");
-    if (dictInput) dictInput.value = meta.dictPath;
-  }
-  if (meta.csvPath) {
-    state.pnp.csv.path = meta.csvPath;
-    const csvInput = $("pnpCsvPathInput");
-    if (csvInput) csvInput.value = meta.csvPath;
-  }
-  if (meta.exportXlsxFolder) {
-    state.pnp.exportXlsx.folder = meta.exportXlsxFolder;
-    const exportXlsxInput = $("pnpExportXlsxPathInput");
-    if (exportXlsxInput) exportXlsxInput.value = meta.exportXlsxFolder;
-  }
-  if (meta.statePath) {
-    const stateInput = $("pnpStatePathInput");
-    if (stateInput) stateInput.value = meta.statePath;
-  }
-  if (meta.exportFolder) {
-    const exportInput = $("pnpExportFolderInput");
-    if (exportInput) exportInput.value = meta.exportFolder;
-  }
+  state.pnp.dict.path = dictPath || state.pnp.dict.path;
+  state.pnp.csv.path = importCsvPath || state.pnp.csv.path;
+  setPnpPathInputValue("pnpLocalPathInput", localPath);
+  setPnpPathInputValue("pnpDictPathInput", state.pnp.dict.path);
+  setPnpPathInputValue("pnpCsvPathInput", state.pnp.csv.path);
+  setPnpPathInputValue("pnpImportCsvPathInput", state.pnp.csv.path);
+  setPnpPathInputValue("pnpExportXlsxPathInput", state.pnp.exportXlsx.folder);
+  setPnpPathInputValue("pnpExportFolderInput", state.pnp.export.folder);
+  setPnpPathInputValue("pnpStatePathInput", state.pnp.state.path);
   setPnpMode(meta.mode || state.pnp.mode);
   updatePnpStats(stats);
   updatePnpMetaText("pnpSourcePath", meta.sourcePath || activeSection.sourcePath || "");
@@ -2621,18 +2623,35 @@ function loadPnpPreview(dictLike, meta = {}){
 function buildPnpStatePayload(){
   const activeSection = getPnpActiveSection();
   const localPathInput = $("pnpLocalPathInput");
+  const dictPathInput = $("pnpDictPathInput");
   const importPathInput = $("pnpImportCsvPathInput");
   const exportXlsxPathInput = $("pnpExportXlsxPathInput");
   const exportPathInput = $("pnpExportPathInput");
+  const statePathInput = $("pnpStatePathInput");
+  const localPath = (localPathInput ? localPathInput.value.trim() : "") || state.pnp.localPath || "";
+  const dictPath = (dictPathInput ? dictPathInput.value.trim() : "") || state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
+  const importCsvPath = (importPathInput ? importPathInput.value.trim() : "") || state.pnp.csv.path || "";
+  const exportXlsxFolder = (exportXlsxPathInput ? exportXlsxPathInput.value.trim() : "") || state.pnp.exportXlsx.folder || "";
+  const exportFolder = (exportPathInput ? exportPathInput.value.trim() : "") || state.pnp.export.folder || "";
+  const statePath = (statePathInput ? statePathInput.value.trim() : "") || state.pnp.state.path || (localPath
+    ? localPath.replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
+    : "C:\\settings\\PickAndPlace\\pnp_state_v300.js");
   return {
     mode: state.pnp.mode,
-    dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js",
-    importCsvPath: (importPathInput ? importPathInput.value.trim() : "") || state.pnp.csv.path || "",
-    exportXlsxFolder: (exportXlsxPathInput ? exportXlsxPathInput.value.trim() : "") || state.pnp.exportXlsx.folder || "",
-    exportFolder: (exportPathInput ? exportPathInput.value.trim() : "") || state.pnp.export.folder || "",
-    statePath: state.pnp.state.path || ((localPathInput && localPathInput.value.trim())
-      ? localPathInput.value.trim().replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
-      : "C:\\settings\\PickAndPlace\\pnp_state_v300.js"),
+    dictPath: dictPath,
+    localPath: localPath,
+    importCsvPath: importCsvPath,
+    exportXlsxFolder: exportXlsxFolder,
+    exportFolder: exportFolder,
+    statePath: statePath,
+    paths: {
+      localPath: localPath,
+      importCsvPath: importCsvPath,
+      exportXlsxFolder: exportXlsxFolder,
+      exportFolder: exportFolder,
+      dictPath: dictPath,
+      statePath: statePath
+    },
     dict: state.pnp.dict.data,
     importInfo: state.pnp.importInfo,
     pnp: {
@@ -2642,6 +2661,15 @@ function buildPnpStatePayload(){
       exportXlsx: { ...state.pnp.exportXlsx },
       state: { ...state.pnp.state },
       export: { ...state.pnp.export },
+      localPath: localPath,
+      paths: {
+        localPath: localPath,
+        importCsvPath: importCsvPath,
+        exportXlsxFolder: exportXlsxFolder,
+        exportFolder: exportFolder,
+        dictPath: dictPath,
+        statePath: statePath
+      },
       stats: { ...state.pnp.stats },
       importInfo: state.pnp.importInfo,
       activeSection: activeSection ? { ...activeSection } : null
@@ -2657,6 +2685,7 @@ async function loadPnpDictFromRoot(){
 
     loadPnpPreview(result, {
       mode: "dict",
+      localPath: state.pnp.localPath,
       dictPath: result.filePath || "Dict\\pnp_dict_v300.js",
       sourcePath: result.filePath || "Dict\\pnp_dict_v300.js"
     });
@@ -2681,7 +2710,9 @@ async function importPnpCsvFile(options = {}){
 
     loadPnpPreview(result, {
       mode: "csv",
+      localPath: state.pnp.localPath,
       csvPath: result.filePath || csvPath,
+      importCsvPath: result.filePath || csvPath,
       sourcePath: result.filePath || csvPath
     });
   } catch (error) {
@@ -2701,10 +2732,13 @@ async function loadPnpStateFile(){
 
     loadPnpPreview(result, {
       mode: result.state && result.state.mode ? result.state.mode : "dict",
+      localPath: result.state && result.state.localPath ? result.state.localPath : state.pnp.localPath,
       statePath: result.filePath || statePath,
       dictPath: result.state && result.state.dictPath ? result.state.dictPath : "Dict\\pnp_dict_v300.js",
+      importCsvPath: result.state && result.state.importCsvPath ? result.state.importCsvPath : state.pnp.csv.path,
       exportFolder: result.state && result.state.exportFolder ? result.state.exportFolder : "",
-      exportXlsxFolder: result.state && result.state.exportXlsxFolder ? result.state.exportXlsxFolder : ""
+      exportXlsxFolder: result.state && result.state.exportXlsxFolder ? result.state.exportXlsxFolder : "",
+      paths: result.state && result.state.paths ? result.state.paths : null
     });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось загрузить state.\n\n${error.message}`);
@@ -2716,10 +2750,13 @@ async function savePnpStateFile(){
     const result = await asmBridge.pnpSaveState(buildPnpStatePayload());
     loadPnpPreview(result, {
       mode: result.state && result.state.mode ? result.state.mode : state.pnp.mode,
+      localPath: result.state && result.state.localPath ? result.state.localPath : state.pnp.localPath,
       statePath: result.filePath || state.pnp.state.path,
       dictPath: result.state && result.state.dictPath ? result.state.dictPath : state.pnp.dict.path,
+      importCsvPath: result.state && result.state.importCsvPath ? result.state.importCsvPath : state.pnp.csv.path,
       exportFolder: result.state && result.state.exportFolder ? result.state.exportFolder : state.pnp.export.folder,
-      exportXlsxFolder: result.state && result.state.exportXlsxFolder ? result.state.exportXlsxFolder : state.pnp.exportXlsx.folder
+      exportXlsxFolder: result.state && result.state.exportXlsxFolder ? result.state.exportXlsxFolder : state.pnp.exportXlsx.folder,
+      paths: result.state && result.state.paths ? result.state.paths : null
     });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось сохранить state.\n\n${error.message}`);
@@ -2731,8 +2768,10 @@ async function exportPnpFiles(){
     const result = await asmBridge.pnpExportFiles(buildPnpStatePayload());
     loadPnpPreview(result, {
       mode: state.pnp.mode,
+      localPath: state.pnp.localPath,
       exportFolder: result.targetFolder || $("pnpExportPathInput").value.trim() || state.pnp.export.folder,
       exportXlsxFolder: $("pnpExportXlsxPathInput").value.trim() || state.pnp.exportXlsx.folder,
+      importCsvPath: state.pnp.csv.path,
       dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js"
     });
   } catch (error) {
@@ -2755,7 +2794,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.7",
+    version: "3.1.8",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
