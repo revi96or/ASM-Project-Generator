@@ -6,6 +6,12 @@
 
 # CHANGELOG
 
+## 3.1.8
+
+- Коммит `2e33cf9`: P&P-state теперь сохраняет и восстанавливает все важные пути.
+- Добавлены/синхронизированы `localPath`, `importCsvPath`, `exportXlsxFolder`, `exportFolder`, `dictPath` и `statePath`.
+- Ручной ввод в полях путей теперь не теряется при save/load.
+
 ## 3.1.7
 
 - Коммит `baae8df`: P&P теперь создаёт `baseName.xlsx` без Excel.
