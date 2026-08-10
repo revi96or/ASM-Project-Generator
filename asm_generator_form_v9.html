@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.14
+Версия: 9.19.15
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.14",
+    version: "3.1.15",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.14",
-    latestVersion: "3.1.14",
+    currentVersion: "3.1.15",
+    latestVersion: "3.1.15",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.14",
+    version: "3.1.15",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -2210,40 +2210,28 @@ function updateHeaderCardsUi(){
   };
 
   if (isPnp) {
-    const activeSection = getPnpActiveSection();
-    const pnpSourceTail = getPnpHeaderPathTail(
-      activeSection.sourcePath
-      || activeSection.path
-      || (state.pnp.importInfo && state.pnp.importInfo.sourcePath)
-      || state.pnp.state.path
-      || state.pnp.dict.path
-    );
-    const pnpProjectName = (state.pnp.importInfo && state.pnp.importInfo.baseName)
-      ? String(state.pnp.importInfo.baseName)
-      : getPnpHeaderPathTail(state.pnp.csv.path || state.pnp.dict.path || activeSection.path);
+    $("statPrimaryCardLabel").textContent = "Заглушка";
+    $("statPrinterStatus").textContent = "—";
+    $("statPrinterStatus").style.color = "var(--muted)";
+    $("statPrinterStatusSub").textContent = "будет настроено позже";
 
-    $("statPrimaryCardLabel").textContent = "Статус P&P";
-    $("statPrinterStatus").textContent = state.pnp.mode === "csv" ? "CSV" : "Dict";
-    $("statPrinterStatus").style.color = "var(--accent)";
-    $("statPrinterStatusSub").textContent = pnpSourceTail ? `источник: ${pnpSourceTail}` : "корневой Dict P&P";
-
-    $("statProjectCardLabel").textContent = "Проект P&P";
-    $("statProjectName").textContent = pnpProjectName || "—";
+    $("statProjectCardLabel").textContent = "Заглушка";
+    $("statProjectName").textContent = "—";
     fitProjectText();
 
-    $("statCounterCardLabel").textContent = "P&P строки";
-    $("statChangedFields").textContent = String((state.pnp.stats && state.pnp.stats.totalRows) || 0);
-    $("statChangedFieldsTotal").textContent = "/" + String((state.pnp.stats && state.pnp.stats.totalRows) || 0);
+    $("statCounterCardLabel").textContent = "Заглушка";
+    $("statChangedFields").textContent = "—";
+    $("statChangedFieldsTotal").textContent = "—";
 
-    $("statReadinessCardLabel").textContent = "P&P пути";
-    $("statLocalLabel").textContent = "dict";
-    $("statPrinterLabel").textContent = "csv";
-    $("statAoiLabel").textContent = "xlsx";
-    $("statPlacerLabel").textContent = "state";
-    setSaveReadinessValue("statLocalReady", state.pnp.dict.path ? "ok" : "—", state.pnp.dict.path ? "success" : "danger");
-    setSaveReadinessValue("statPrinterReady", state.pnp.csv.path ? "ok" : "—", state.pnp.csv.path ? "success" : "danger");
-    setSaveReadinessValue("statAoiReady", state.pnp.exportXlsx.folder ? "ok" : "—", state.pnp.exportXlsx.folder ? "success" : "danger");
-    setSaveReadinessValue("statPlacerReady", state.pnp.state.path ? "ok" : "—", state.pnp.state.path ? "success" : "danger");
+    $("statReadinessCardLabel").textContent = "Заглушка";
+    $("statLocalLabel").textContent = "—";
+    $("statPrinterLabel").textContent = "—";
+    $("statAoiLabel").textContent = "—";
+    $("statPlacerLabel").textContent = "—";
+    setSaveReadinessValue("statLocalReady", "—", "danger");
+    setSaveReadinessValue("statPrinterReady", "—", "danger");
+    setSaveReadinessValue("statAoiReady", "—", "danger");
+    setSaveReadinessValue("statPlacerReady", "—", "danger");
     return;
   }
 
@@ -2834,7 +2822,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.14",
+    version: "3.1.15",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -3204,13 +3192,16 @@ async function loadPrinterWorkspaceData(showAlertOnError){
 
 async function refreshPrinterStatus(showDialog){
   const printerFolderPath = $("serverPathInput").value.trim();
+  const preservePnpHeader = state.rightZoneMode === "pnp";
 
   try {
     const result = await asmBridge.inspectFolder(printerFolderPath);
     const workspaceData = state.workspaceData;
 
     if (!result.exists) {
-      setPrinterStatus("offline", "принтер недоступен", "danger");
+      if (!preservePnpHeader) {
+        setPrinterStatus("offline", "принтер недоступен", "danger");
+      }
       state.printerHeader = {
         statusText: "offline",
         statusSubText: "принтер недоступен",
@@ -3228,7 +3219,9 @@ async function refreshPrinterStatus(showDialog){
     }
 
     const projectFiles = result.files.filter((fileName) => /\.pr1$/i.test(fileName) && !/^template\.pr1$/i.test(fileName));
-    setPrinterStatus("online", `доступно: ${projectFiles.length} проектов`, "success");
+    if (!preservePnpHeader) {
+      setPrinterStatus("online", `доступно: ${projectFiles.length} проектов`, "success");
+    }
     state.printerHeader = {
       statusText: "online",
       statusSubText: `доступно: ${projectFiles.length} проектов`,
@@ -3248,7 +3241,9 @@ async function refreshPrinterStatus(showDialog){
       );
     }
   } catch (error) {
-    setPrinterStatus("offline", "принтер недоступен", "danger");
+    if (!preservePnpHeader) {
+      setPrinterStatus("offline", "принтер недоступен", "danger");
+    }
     state.printerHeader = {
       statusText: "offline",
       statusSubText: "принтер недоступен",
