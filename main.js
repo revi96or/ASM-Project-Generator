@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.22
+ * Версия: 3.1.23
  * Автор: Новожилов Артем
  */
 
@@ -1035,13 +1035,15 @@ function buildPnpState(dict, overrides = {}) {
   const exportFolder = getPnpStatePathValue(overrides, 'exportFolder', getPnpDefaultExportFolder());
   const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictPath());
   const statePath = getPnpStatePathValue(overrides, 'statePath');
+  const infoD3 = getPnpStatePathValue(overrides, 'infoD3');
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.22',
+    version: '3.1.23',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
+    infoD3,
     localPath,
     importCsvPath,
     exportXlsxFolder,
@@ -1054,7 +1056,8 @@ function buildPnpState(dict, overrides = {}) {
       exportXlsxFolder,
       exportFolder,
       dictPath,
-      statePath
+      statePath,
+      infoD3
     },
     dict
   };
@@ -1104,6 +1107,11 @@ async function importPnpCsv(payload) {
   const dict = await pnpPipeline.importCsvFile(sourcePath);
   assertOperationNotCancelled();
   let xlsxResult = null;
+  const infoD3 = String(payload && payload.infoD3 ? payload.infoD3 : (dict && dict.importInfo && dict.importInfo.infoD3 ? dict.importInfo.infoD3 : '')).trim();
+
+  if (dict && dict.importInfo) {
+    dict.importInfo.infoD3 = infoD3;
+  }
 
   if (exportXlsxFolder) {
     xlsxResult = await pnpPipeline.savePnpXlsxFile(
@@ -1143,7 +1151,8 @@ async function exportPnpFiles(payload) {
     exportXlsxFolder: payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '',
     importInfo: payload && payload.importInfo ? payload.importInfo : null,
     sourcePath: payload && payload.sourcePath ? payload.sourcePath : '',
-    sourceFile: payload && payload.sourceFile ? payload.sourceFile : ''
+    sourceFile: payload && payload.sourceFile ? payload.sourceFile : '',
+    infoD3: payload && payload.infoD3 ? payload.infoD3 : ''
   });
   assertOperationNotCancelled();
   return result;
@@ -1164,6 +1173,7 @@ async function savePnpState(payload) {
   assertOperationNotCancelled();
   const nextState = buildPnpState(dict, {
     mode: state.mode || 'dict',
+    infoD3: state.infoD3 || (state.importInfo && state.importInfo.infoD3 ? state.importInfo.infoD3 : ''),
     localPath: state.localPath || '',
     importCsvPath: state.importCsvPath || '',
     exportXlsxFolder: state.exportXlsxFolder || '',
@@ -1199,6 +1209,7 @@ async function loadPnpState(payload) {
     assertOperationNotCancelled();
     const nextState = buildPnpState(loadedDict, {
       mode: loadedState.mode || 'dict',
+      infoD3: loadedState.infoD3 || (loadedState.importInfo && loadedState.importInfo.infoD3 ? loadedState.importInfo.infoD3 : ''),
       localPath: loadedState.localPath || '',
       importCsvPath: loadedState.importCsvPath || '',
       exportXlsxFolder: loadedState.exportXlsxFolder || '',

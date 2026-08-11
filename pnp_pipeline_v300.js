@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.10
+ * Версия: 3.1.11
  * Автор: Новожилов Артем
  */
 
@@ -645,13 +645,14 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
 }
 
 function buildInfoSheetRows(importInfo, sourcePath) {
+  const d3Value = String(importInfo && importInfo.infoD3 ? importInfo.infoD3 : '');
   const d5Value = String(importInfo && importInfo.infoD5 ? importInfo.infoD5 : '');
   const d6Value = String(importInfo && importInfo.infoD6 ? importInfo.infoD6 : sourcePath || '');
 
   return [
     [],
     [],
-    [],
+    ['', '', '', d3Value],
     [],
     ['', '', '', d5Value],
     ['', '', '', d6Value]
@@ -1139,6 +1140,7 @@ async function importCsvFile(filePath) {
       baseName,
       workbookName: `${baseName}.xlsx`,
       infoSheetName: 'Info',
+      infoD3: '',
       infoD5: getCsvCellAtLine(sourceText, 10, 0),
       infoD6: filePath,
       importedTableName: 'ImportedCSVTable',

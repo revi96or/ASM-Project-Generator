@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.22",
+    version: "3.1.23",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.22",
-    latestVersion: "3.1.22",
+    currentVersion: "3.1.23",
+    latestVersion: "3.1.23",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.22",
+    version: "3.1.23",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -1604,9 +1604,14 @@ function $(id){ return document.getElementById(id); }
 
 let appDialogResolver = null;
 
-function showAppDialog(title, body, actions){
+function showAppDialog(title, body, actions, options = {}){
   $("appDialogTitle").textContent = title;
-  $("appDialogBody").textContent = body;
+  const bodyNode = $("appDialogBody");
+  if (body && typeof body === "object" && typeof body.html === "string") {
+    bodyNode.innerHTML = body.html;
+  } else {
+    bodyNode.textContent = String(body === null || body === undefined ? "" : body);
+  }
   const actionsWrap = $("appDialogActions");
   actionsWrap.innerHTML = "";
 
@@ -1619,13 +1624,27 @@ function showAppDialog(title, body, actions){
     button.type = "button";
     button.className = action.variant === "ghost" ? "ghost-btn" : "solid-btn";
     button.textContent = action.label;
+    button.dataset.actionId = action.id;
     button.addEventListener("click", () => {
+      if (typeof action.onClick === "function") {
+        const result = action.onClick();
+        if (result === false) {
+          return;
+        }
+        if (typeof result === "string") {
+          resolveAppDialog(result);
+          return;
+        }
+      }
       resolveAppDialog(action.id);
     });
     actionsWrap.appendChild(button);
   });
 
   $("appDialogBackdrop").hidden = false;
+  if (typeof options.onRender === "function") {
+    options.onRender();
+  }
   return new Promise((resolve) => {
     appDialogResolver = resolve;
   });
@@ -2302,6 +2321,132 @@ function showPnpPlaceholder(title, body){
   showAppDialog(title, body);
 }
 
+function syncPnpExecutionValue(executionValue){
+  const nextValue = normalizePnpExecutionValue(executionValue);
+  const safeValue = nextValue === null ? "" : nextValue;
+
+  state.pnp.importInfo = {
+    ...(state.pnp.importInfo || {}),
+    infoD3: safeValue
+  };
+
+  if (state.pnp.state) {
+    state.pnp.state.importInfo = {
+      ...(state.pnp.state.importInfo || {}),
+      infoD3: safeValue
+    };
+  }
+
+  const activeSection = getPnpActiveSection();
+  if (activeSection) {
+    activeSection.importInfo = {
+      ...(activeSection.importInfo || {}),
+      infoD3: safeValue
+    };
+  }
+
+  return safeValue;
+}
+
+function normalizePnpExecutionValue(rawValue){
+  const text = String(rawValue === null || rawValue === undefined ? "" : rawValue).trim();
+
+  if (!/^\d{1,2}$/.test(text)) {
+    return null;
+  }
+
+  const numericValue = Number(text);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 10) {
+    return null;
+  }
+
+  return String(numericValue);
+}
+
+function showPnpExecutionDialog(defaultValue = ""){
+  return new Promise((resolve) => {
+    const inputId = "pnpExecutionInput";
+    const errorId = "pnpExecutionError";
+    let currentValue = normalizePnpExecutionValue(defaultValue) || "0";
+
+    const bodyHtml = [
+      `<div class="space-y-3">`,
+      `<div>Какое исполнение платы? [0-10]</div>`,
+      `<div>`,
+      `<input id="${inputId}" class="field-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapePnpHtml(currentValue)}" placeholder="0">`,
+      `<div class="mt-1 text-xs" style="color:var(--muted);">Введите число от 0 до 10. Полной плате соответствует 0.</div>`,
+      `<div id="${errorId}" class="mt-2 text-sm" style="display:none;color:var(--danger);"></div>`,
+      `</div>`,
+      `</div>`
+    ].join("");
+
+    const setError = (message) => {
+      const errorNode = $(errorId);
+      if (!errorNode) return;
+      if (message) {
+        errorNode.textContent = message;
+        errorNode.style.display = "block";
+      } else {
+        errorNode.textContent = "";
+        errorNode.style.display = "none";
+      }
+    };
+
+    showAppDialog("Pick and Place", { html: bodyHtml }, [
+      {
+        id: "accept",
+        label: "Принять",
+        variant: "solid",
+        onClick: () => {
+          const input = $(inputId);
+          const normalized = normalizePnpExecutionValue(input ? input.value : "");
+
+          if (normalized === null) {
+            setError("Введите число от 0 до 10.");
+            if (input) {
+              input.focus();
+              input.select();
+            }
+            return false;
+          }
+
+          currentValue = normalized;
+          return "accept";
+        }
+      },
+      {
+        id: "cancel",
+        label: "Отмена",
+        variant: "ghost",
+        onClick: () => {
+          currentValue = "";
+          return "cancel";
+        }
+      }
+    ], {
+      onRender: () => {
+        const input = $(inputId);
+        if (!input) return;
+        input.focus();
+        input.select();
+        input.addEventListener("input", () => setError(""));
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            const acceptButton = $("appDialogActions") ? $("appDialogActions").querySelector('[data-action-id="accept"]') : null;
+            if (acceptButton) {
+              acceptButton.click();
+            }
+          }
+        });
+      }
+    }).then((result) => {
+      resolve(result === "accept" ? currentValue : null);
+    });
+  });
+}
+
 async function openPnpImportCsvLocation(){
   if (state.navPreviewActive !== "placer") {
     setNavPreviewActive("placer");
@@ -2374,6 +2519,7 @@ function resetPnpSession(preservePaths = true){
   const exportXlsxFolder = preservePaths ? String(state.pnp.exportXlsx.folder || "") : "";
   const statePath = preservePaths ? String(state.pnp.state.path || "") : "";
   const exportFolder = preservePaths ? String(state.pnp.export.folder || "") : "";
+  const infoD3 = preservePaths ? String((state.pnp.importInfo && state.pnp.importInfo.infoD3) || (state.pnp.state.importInfo && state.pnp.state.importInfo.infoD3) || "") : "";
 
   state.pnp.mode = "dict";
   state.pnp.dict = {
@@ -2403,6 +2549,10 @@ function resetPnpSession(preservePaths = true){
     files: []
   };
   state.pnp.importInfo = null;
+  if (infoD3) {
+    state.pnp.importInfo = { infoD3: infoD3 };
+    state.pnp.state.importInfo = { infoD3: infoD3 };
+  }
   state.pnp.activeSheet = "Info";
   state.pnp.zoom = 1;
   state.pnp.stats = getPnpEmptyStats();
@@ -2546,6 +2696,7 @@ function renderPnpVisibleTable(){
 
   const visibleSheet = state.pnp.activeSheet || "Info";
   const zoom = Math.max(0.6, Math.min(1.6, Number(state.pnp.zoom) || 1));
+  const infoD3 = String((importInfo && importInfo.infoD3) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD3) || "");
   const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
   const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
 
@@ -2560,6 +2711,7 @@ function renderPnpVisibleTable(){
         `<tbody>` +
         [1, 2, 3, 4, 5, 6].map((rowNumber) => {
           const cells = ["", "", "", ""];
+          if (rowNumber === 3) cells[3] = infoD3;
           if (rowNumber === 5) cells[3] = infoD5;
           if (rowNumber === 6) cells[3] = infoD6;
           return `<tr><th>${rowNumber}</th>${cells.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("")}</tr>`;
@@ -2624,6 +2776,7 @@ function loadPnpPreview(dictLike, meta = {}){
   const exportFolder = String(meta.exportFolder || paths.exportFolder || state.pnp.export.folder || "");
   const dictPath = String(meta.dictPath || paths.dictPath || state.pnp.dict.path || "");
   const statePath = String(meta.statePath || paths.statePath || state.pnp.state.path || "");
+  const infoD3 = String(meta.infoD3 || (dictLike && dictLike.importInfo && dictLike.importInfo.infoD3) || (state.pnp.importInfo && state.pnp.importInfo.infoD3) || "");
 
   if (activeSection) {
     activeSection.data = dict || null;
@@ -2641,6 +2794,12 @@ function loadPnpPreview(dictLike, meta = {}){
   state.pnp.exportXlsx.folder = exportXlsxFolder;
   state.pnp.export.folder = exportFolder;
   state.pnp.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.importInfo || null;
+  if (state.pnp.importInfo && !state.pnp.importInfo.infoD3) {
+    state.pnp.importInfo.infoD3 = infoD3;
+  }
+  if (state.pnp.state.importInfo && !state.pnp.state.importInfo.infoD3) {
+    state.pnp.state.importInfo.infoD3 = infoD3;
+  }
   state.pnp.activeSheet = String(
     meta.activeSheet
     || (dictLike && dictLike.importInfo && dictLike.importInfo.activeSheet)
@@ -2682,6 +2841,7 @@ function buildPnpStatePayload(){
   const statePath = (statePathInput ? statePathInput.value.trim() : "") || state.pnp.state.path || (localPath
     ? localPath.replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
     : "C:\\settings\\PickAndPlace\\pnp_state_v300.js");
+  const infoD3 = String((state.pnp.importInfo && state.pnp.importInfo.infoD3) || (state.pnp.state.importInfo && state.pnp.state.importInfo.infoD3) || "");
   return {
     mode: state.pnp.mode,
     dictPath: dictPath,
@@ -2690,13 +2850,15 @@ function buildPnpStatePayload(){
     exportXlsxFolder: exportXlsxFolder,
     exportFolder: exportFolder,
     statePath: statePath,
+    infoD3: infoD3,
     paths: {
       localPath: localPath,
       importCsvPath: importCsvPath,
       exportXlsxFolder: exportXlsxFolder,
       exportFolder: exportFolder,
       dictPath: dictPath,
-      statePath: statePath
+      statePath: statePath,
+      infoD3: infoD3
     },
     dict: state.pnp.dict.data,
     importInfo: state.pnp.importInfo,
@@ -2708,13 +2870,15 @@ function buildPnpStatePayload(){
       state: { ...state.pnp.state },
       export: { ...state.pnp.export },
       localPath: localPath,
+      infoD3: infoD3,
       paths: {
         localPath: localPath,
         importCsvPath: importCsvPath,
         exportXlsxFolder: exportXlsxFolder,
         exportFolder: exportFolder,
         dictPath: dictPath,
-        statePath: statePath
+        statePath: statePath,
+        infoD3: infoD3
       },
       stats: { ...state.pnp.stats },
       importInfo: state.pnp.importInfo,
@@ -2763,6 +2927,34 @@ async function importPnpCsvFile(options = {}){
       sourcePath: result.filePath || csvPath,
       exportXlsxFolder: result.xlsx && result.xlsx.path ? state.pnp.exportXlsx.folder : (state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""))
     });
+
+    const executionValue = await showPnpExecutionDialog(state.pnp.importInfo && state.pnp.importInfo.infoD3 ? state.pnp.importInfo.infoD3 : "0");
+    if (executionValue === null) {
+      return;
+    }
+
+    const refreshResult = await asmBridge.pnpImportCsv({
+      filePath: result.filePath || csvPath,
+      exportXlsxFolder: state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""),
+      infoD3: executionValue
+    });
+
+    if (!refreshResult || refreshResult.canceled) {
+      syncPnpExecutionValue(executionValue);
+      renderPnpVisibleTable();
+      renderPnpPreview();
+      return;
+    }
+
+    loadPnpPreview(refreshResult, {
+      mode: "csv",
+      localPath: state.pnp.localPath,
+      csvPath: refreshResult.filePath || result.filePath || csvPath,
+      importCsvPath: refreshResult.filePath || result.filePath || csvPath,
+      sourcePath: refreshResult.filePath || result.filePath || csvPath,
+      exportXlsxFolder: refreshResult.xlsx && refreshResult.xlsx.path ? state.pnp.exportXlsx.folder : (state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : "")),
+      infoD3: executionValue
+    });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось импортировать CSV.\n\n${error.message}`);
   }
@@ -2786,6 +2978,7 @@ async function loadPnpStateFile(){
       importCsvPath: result.state && result.state.importCsvPath ? result.state.importCsvPath : state.pnp.csv.path,
       exportFolder: result.state && result.state.exportFolder ? result.state.exportFolder : "",
       exportXlsxFolder: result.state && result.state.exportXlsxFolder ? result.state.exportXlsxFolder : "",
+      infoD3: result.state && result.state.infoD3 ? result.state.infoD3 : "",
       paths: result.state && result.state.paths ? result.state.paths : null
     });
   } catch (error) {
@@ -2804,6 +2997,7 @@ async function savePnpStateFile(){
       importCsvPath: result.state && result.state.importCsvPath ? result.state.importCsvPath : state.pnp.csv.path,
       exportFolder: result.state && result.state.exportFolder ? result.state.exportFolder : state.pnp.export.folder,
       exportXlsxFolder: result.state && result.state.exportXlsxFolder ? result.state.exportXlsxFolder : state.pnp.exportXlsx.folder,
+      infoD3: result.state && result.state.infoD3 ? result.state.infoD3 : "",
       paths: result.state && result.state.paths ? result.state.paths : null
     });
   } catch (error) {
@@ -2820,7 +3014,8 @@ async function exportPnpFiles(){
       exportFolder: result.targetFolder || $("pnpExportPathInput").value.trim() || state.pnp.export.folder,
       exportXlsxFolder: $("pnpExportXlsxPathInput").value.trim() || state.pnp.exportXlsx.folder,
       importCsvPath: state.pnp.csv.path,
-      dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js"
+      dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js",
+      infoD3: state.pnp.importInfo && state.pnp.importInfo.infoD3 ? state.pnp.importInfo.infoD3 : ""
     });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось экспортировать файлы P&P.\n\n${error.message}`);
@@ -2842,7 +3037,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.22",
+    version: "3.1.23",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
