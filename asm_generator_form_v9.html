@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.20
+Версия: 9.19.22
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.20",
+    version: "3.1.21",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.20",
-    latestVersion: "3.1.20",
+    currentVersion: "3.1.21",
+    latestVersion: "3.1.21",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.20",
+    version: "3.1.21",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -2544,28 +2544,45 @@ function renderPnpVisibleTable(){
     return;
   }
 
-  const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
-  const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
-  const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
-  const previewRows = rawRows.map((row) => (
-    `<tr>` + row.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
-  )).join("");
   const visibleSheet = state.pnp.activeSheet || "Info";
-  const showTable = visibleSheet === "ImportedCSVTable";
   const zoom = Math.max(0.6, Math.min(1.6, Number(state.pnp.zoom) || 1));
+  const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
+  const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
 
   placeholder.innerHTML = [
     `<div class="p-4 pnp-workbook-shell" style="min-height:0;gap:12px;">`,
     `<div class="mb-1" style="color:var(--muted)">Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}</div>`,
     `<div class="section-card p-0" style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">`,
-    showTable
+    visibleSheet === "Info"
       ? `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
         `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
-        `<thead><tr>${rawHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
-        `<tbody>${previewRows}</tbody>` +
+        `<thead><tr><th style="width:48px;"></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead>` +
+        `<tbody>` +
+        [1, 2, 3, 4, 5, 6].map((rowNumber) => {
+          const cells = ["", "", "", ""];
+          if (rowNumber === 5) cells[3] = infoD5;
+          if (rowNumber === 6) cells[3] = infoD6;
+          return `<tr><th>${rowNumber}</th>${cells.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("")}</tr>`;
+        }).join("") +
+        `</tbody>` +
         `</table>` +
         `</div>`
-      : `<div class="p-4 flex-1" style="display:flex;align-items:center;justify-content:center;color:var(--muted);">Лист ${escapePnpHtml(visibleSheet)} будет сформирован после соответствующего шага макроса.</div>`,
+      : visibleSheet === "ImportedCSVTable"
+        ? (() => {
+            const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+            const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
+            const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
+            const previewRows = rawRows.map((row) => (
+              `<tr>` + row.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
+            )).join("");
+            return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
+              `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
+              `<thead><tr>${rawHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
+              `<tbody>${previewRows}</tbody>` +
+              `</table>` +
+              `</div>`;
+          })()
+        : `<div class="p-4 flex-1" style="display:flex;align-items:center;justify-content:center;color:var(--muted);">Лист ${escapePnpHtml(visibleSheet)} будет сформирован после соответствующего шага макроса.</div>`,
     `</div>`,
       `<div class="pnp-sheet-tabs" data-pnp-sheet-tabs>`,
     sheetNames.map((sheetName) => `<button type="button" class="pnp-sheet-tab${sheetName === activeSheet ? ' active' : ''}" data-pnp-sheet-tab="${escapePnpHtml(sheetName)}">${escapePnpHtml(sheetName)}</button>`).join(''),
@@ -2824,7 +2841,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.20",
+    version: "3.1.21",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
