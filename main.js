@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.23
+ * Версия: 3.1.24
  * Автор: Новожилов Артем
  */
 
@@ -1039,7 +1039,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.23',
+    version: '3.1.24',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1156,6 +1156,56 @@ async function exportPnpFiles(payload) {
   });
   assertOperationNotCancelled();
   return result;
+}
+
+async function fillPnpSetColumn(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
+
+  const importInfo = payload && payload.importInfo ? payload.importInfo : null;
+  if (!importInfo || !importInfo.rawTable) {
+    throw new Error('Сначала импортируйте CSV.');
+  }
+
+  const infoD3 = String(payload && payload.infoD3 ? payload.infoD3 : importInfo.infoD3 || '').trim();
+  const applyFill = Boolean(payload && payload.applyFill);
+  const nextState = applyFill
+   ? pnpPipeline.applySetColumnFill(importInfo, infoD3, '1')
+   : {
+       importInfo: {
+         ...importInfo,
+         infoD3: infoD3,
+         setColumnState: pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3)
+       },
+       setColumnState: pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3),
+       filledRowCount: 0
+     };
+  const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
+  const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
+  const sourcePath = String(payload && payload.sourcePath ? payload.sourcePath : importInfo.sourcePath || '').trim();
+  const baseName = String(payload && payload.baseName ? payload.baseName : importInfo.baseName || 'pnp_export_v300').trim() || 'pnp_export_v300';
+  let xlsxResult = null;
+  let targetFolder = exportXlsxFolder;
+
+  if (xlsxPath) {
+    targetFolder = path.dirname(path.resolve(xlsxPath));
+  }
+
+  if (targetFolder) {
+    xlsxResult = await pnpPipeline.savePnpXlsxFile(targetFolder, baseName, nextState.importInfo, sourcePath);
+  }
+
+  assertOperationNotCancelled();
+  return {
+    exists: true,
+    filePath: sourcePath,
+    importInfo: nextState.importInfo,
+    setColumnState: nextState.setColumnState,
+    filledRowCount: nextState.filledRowCount,
+    xlsx: xlsxResult,
+    dict: payload && payload.dict ? payload.dict : null,
+    stats: payload && payload.stats ? payload.stats : null
+  };
 }
 
 async function savePnpState(payload) {
@@ -1548,6 +1598,10 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:pnp-export-files', async (_event, payload) => {
     return exportPnpFiles(payload || {});
+  });
+
+  ipcMain.handle('asm:pnp-fill-set-column', async (_event, payload) => {
+    return fillPnpSetColumn(payload || {});
   });
 
   ipcMain.handle('asm:pnp-save-state', async (_event, payload) => {

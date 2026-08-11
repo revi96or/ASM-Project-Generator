@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.11
+ * Версия: 3.1.24
  * Автор: Новожилов Артем
  */
 
@@ -216,6 +216,16 @@ function normalizeImportedNumberValue(rawValue) {
   return toNumberText(rawValue);
 }
 
+function normalizeSetColumnValue(rawValue) {
+  const numericValue = Number(normalizeDecimalText(rawValue));
+
+  if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 10) {
+    return '';
+  }
+
+  return `SET${String(Math.trunc(numericValue)).padStart(2, '0')}`;
+}
+
 function normalizeImportedColumnKind(headerName) {
   const normalized = normalizeCsvHeaderForImport(headerName);
 
@@ -340,6 +350,83 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
       delimiter: parsed.delimiter,
       rowCount: parsed.rows.length
     }
+  };
+}
+
+function getSetColumnState(rawTable, setValue) {
+  const setColumnName = normalizeSetColumnValue(setValue);
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+  const columnIndex = rawHeaders.findIndex((header) => String(header || '').trim() === setColumnName);
+  const headersList = rawHeaders.join(' | ');
+  let hasValidValues = false;
+  let lastRow = 0;
+
+  rows.forEach((row, index) => {
+    if (Array.isArray(row) && String(row[0] || '').trim() !== '') {
+      lastRow = index + 1;
+    }
+    if (columnIndex >= 0 && Array.isArray(row)) {
+      const cellValue = normalizeText(row[columnIndex]).toUpperCase();
+      if (cellValue === '1' || cellValue === 'R') {
+        hasValidValues = true;
+      }
+    }
+  });
+
+  return {
+    setColumnName,
+    columnIndex,
+    lastRow,
+    hasValidValues,
+    headersList,
+    found: columnIndex >= 0
+  };
+}
+
+function applySetColumnFill(importInfo, setValue, fillValue = '1') {
+  const sourceImportInfo = importInfo || {};
+  const rawTable = sourceImportInfo.rawTable || {};
+  const rows = Array.isArray(rawTable.rows) ? rawTable.rows : [];
+  const nextState = getSetColumnState(rawTable, setValue);
+
+  if (!nextState.found) {
+    return {
+      importInfo: sourceImportInfo,
+      setColumnState: nextState,
+      filledRowCount: 0
+    };
+  }
+
+  const nextRows = rows.map((row, index) => {
+    const nextRow = Array.isArray(row) ? row.slice() : [];
+    const rowHasData = String(nextRow[0] || '').trim() !== '';
+
+    if (rowHasData) {
+      nextRow[nextState.columnIndex] = String(fillValue);
+    }
+
+    return nextRow;
+  });
+
+  const nextRawTable = {
+    ...rawTable,
+    rows: nextRows
+  };
+  const nextImportInfo = {
+    ...sourceImportInfo,
+    infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, ''),
+    rawTable: nextRawTable,
+    setColumnState: {
+      ...nextState,
+      filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length
+    }
+  };
+
+  return {
+    importInfo: nextImportInfo,
+    setColumnState: nextImportInfo.setColumnState,
+    filledRowCount: nextImportInfo.setColumnState.filledRowCount
   };
 }
 
@@ -1223,5 +1310,7 @@ module.exports = {
   saveStateFile,
   savePnpXlsxFile,
   importCsvFile,
-  exportFiles
+  exportFiles,
+  getSetColumnState,
+  applySetColumnFill
 };
