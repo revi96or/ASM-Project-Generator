@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.5
+ * Версия: 3.1.6
  * Автор: Новожилов Артем
  */
 
@@ -538,13 +538,15 @@ function buildWorksheetXml(rows, options = {}) {
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>
   <dimension ref="A1:${lastColumn}${lastRow}"/>
   <sheetViews>
-    <sheetView workbookViewId="0"/>
+    <sheetView workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView>
   </sheetViews>
-  <sheetFormatPr defaultRowHeight="15"/>
+  <sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>
   <sheetData>${rowXml}</sheetData>
-  ${hasTable ? `<autoFilter ref="${escapeXml(tableRange)}"/><tableParts count="1"><tablePart r:id="rId1"/></tableParts>` : ''}
+  <pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/>
+  ${hasTable ? `<tableParts count="1"><tablePart r:id="rId1"/></tableParts>` : ''}
 </worksheet>`;
 }
 
@@ -574,19 +576,19 @@ function buildTableXml(tableName, tableRange, headers) {
   const columns = Array.isArray(headers) && headers.length ? headers : ['Column1'];
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
- <table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="${escapeXml(safeTableName)}" displayName="${escapeXml(safeTableName)}" ref="${escapeXml(safeTableRange)}" totalsRowShown="false">
+ <table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="${escapeXml(safeTableName)}" displayName="${escapeXml(safeTableName)}" ref="${escapeXml(safeTableRange)}" headerRowCount="1" totalsRowShown="false">
    <autoFilter ref="${escapeXml(safeTableRange)}"/>
    <tableColumns count="${columns.length}">
      ${buildTableColumnsXml(columns)}
    </tableColumns>
-   <tableStyleInfo name="TableStyleMedium2" showFirstColumn="false" showLastColumn="false" showRowStripes="true" showColumnStripes="false"/>
+   <tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>
  </table>`;
 }
 
 function buildWorksheetRelsXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="/xl/tables/table1.xml"/>
 </Relationships>`;
 }
 
