@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.19
+Версия: 9.19.20
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.19",
+    version: "3.1.20",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.19",
-    latestVersion: "3.1.19",
+    currentVersion: "3.1.20",
+    latestVersion: "3.1.20",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.19",
+    version: "3.1.20",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -2824,7 +2824,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.19",
+    version: "3.1.20",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

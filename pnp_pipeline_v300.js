@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.6
+ * Версия: 3.1.8
  * Автор: Новожилов Артем
  */
 
@@ -31,6 +31,10 @@ function createEmptyDict(sourceMeta = {}) {
 
 function normalizeText(value) {
   return String(value === null || value === undefined ? '' : value).trim();
+}
+
+function normalizeDecimalText(value) {
+  return normalizeText(value).replace(',', '.');
 }
 
 function normalizeHeaderName(value) {
@@ -152,7 +156,7 @@ function parseDelimitedLine(line, delimiter) {
 }
 
 function toNumberText(rawValue) {
-  const normalized = normalizeText(rawValue).replace(',', '.');
+  const normalized = normalizeDecimalText(rawValue);
 
   if (!normalized) {
     return '';
@@ -168,7 +172,7 @@ function toNumberText(rawValue) {
 }
 
 function normalizeRotationValue(rawValue) {
-  const numericValue = Number(normalizeText(rawValue).replace(',', '.'));
+  const numericValue = Number(normalizeDecimalText(rawValue));
 
   if (!Number.isFinite(numericValue)) {
     return '0';
@@ -198,6 +202,35 @@ function normalizeSideValue(rawValue) {
 
 function normalizeStringValue(rawValue) {
   return normalizeText(rawValue);
+}
+
+function normalizeImportedTextValue(rawValue) {
+  return normalizeText(rawValue);
+}
+
+function normalizeImportedCoordinateValue(rawValue) {
+  return normalizeDecimalText(rawValue);
+}
+
+function normalizeImportedNumberValue(rawValue) {
+  return toNumberText(rawValue);
+}
+
+function normalizeImportedColumnKind(headerName) {
+  const normalized = normalizeCsvHeaderForImport(headerName);
+
+  if (
+    normalized === 'rotation'
+    || normalized === 'set0'
+    || normalized === 'set'
+    || normalized === 'count'
+    || normalized === 'quantity'
+    || normalized === 'qty'
+  ) {
+    return 'number';
+  }
+
+  return 'text';
 }
 
 function readCsvHeadersAndRows(sourceText) {
@@ -276,8 +309,8 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
       sourceDesignator: getCellValue(cells, columnMap.designator),
       designator: getCellValue(cells, columnMap.designator),
       footprint: getCellValue(cells, columnMap.footprint),
-      x: toNumberText(getCellValue(cells, columnMap.x)),
-      y: toNumberText(getCellValue(cells, columnMap.y)),
+      x: normalizeImportedCoordinateValue(getCellValue(cells, columnMap.x)),
+      y: normalizeImportedCoordinateValue(getCellValue(cells, columnMap.y)),
       rotation: normalizeRotationValue(getCellValue(cells, columnMap.rotation)),
       side: normalizeSideValue(getCellValue(cells, columnMap.side)),
       comment: normalizeStringValue(getCellValue(cells, columnMap.comment))
@@ -356,8 +389,8 @@ function parseCsv(sourceText, sourceMeta = {}) {
       sourceDesignator: getCellValue(cells, columnMap.designator),
       designator: getCellValue(cells, columnMap.designator),
       footprint: getCellValue(cells, columnMap.footprint),
-      x: toNumberText(getCellValue(cells, columnMap.x)),
-      y: toNumberText(getCellValue(cells, columnMap.y)),
+      x: normalizeImportedCoordinateValue(getCellValue(cells, columnMap.x)),
+      y: normalizeImportedCoordinateValue(getCellValue(cells, columnMap.y)),
       rotation: normalizeRotationValue(getCellValue(cells, columnMap.rotation)),
       side: normalizeSideValue(getCellValue(cells, columnMap.side)),
       comment: normalizeStringValue(getCellValue(cells, columnMap.comment))
@@ -389,8 +422,8 @@ function normalizeDict(dictLike, sourceMeta = {}) {
       sourceDesignator: normalizeStringValue(row && (row.sourceDesignator || row.designator)),
       designator: normalizeStringValue(row && (row.designator || row.sourceDesignator)) || `PNP${String(index + 1).padStart(3, '0')}`,
       footprint: normalizeStringValue(row && row.footprint),
-      x: toNumberText(row && row.x),
-      y: toNumberText(row && row.y),
+      x: normalizeImportedCoordinateValue(row && row.x),
+      y: normalizeImportedCoordinateValue(row && row.y),
       rotation: normalizeRotationValue(row && row.rotation),
       side: normalizeSideValue(row && row.side),
       comment: normalizeStringValue(row && row.comment)
@@ -520,12 +553,40 @@ function buildInlineStringCellXml(ref, value) {
   return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
 }
 
-function buildWorksheetXml(rows, options = {}) {
+function buildCellXml(ref, value, kind) {
+  const text = normalizeText(value);
+
+  if (text === '') {
+    return '';
+  }
+
+  if (kind === 'number') {
+    const numericText = normalizeDecimalText(text);
+    const numericValue = Number(numericText);
+
+    if (!Number.isFinite(numericValue)) {
+      return `<c r="${ref}" s="1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
+    }
+
+    return `<c r="${ref}" s="2"><v>${normalizeImportedNumberValue(numericValue)}</v></c>`;
+  }
+
+  return `<c r="${ref}" s="1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
+}
+
+function buildWorksheetXml(rows, columnKinds = [], options = {}) {
   const tableRange = String(options.tableRange || '').trim();
   const hasTable = Boolean(tableRange);
   const rowXml = rows.map((rowValues, rowIndex) => {
     const cellXml = rowValues
-      .map((value, cellIndex) => buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value))
+      .map((value, cellIndex) => {
+        if (rowIndex === 0) {
+          return buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value);
+        }
+
+        const kind = columnKinds[cellIndex] || 'text';
+        return buildCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value, kind);
+      })
       .filter((cell) => cell !== '')
       .join('');
 
@@ -596,6 +657,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
   const dataHeaders = Array.isArray(tableInfo && tableInfo.rawHeaders) ? tableInfo.rawHeaders : [];
   const dataRows = Array.isArray(tableInfo && tableInfo.rows) ? tableInfo.rows : [];
+  const columnKinds = dataHeaders.map((header) => normalizeImportedColumnKind(header));
   const listSheetRows = [
     dataHeaders.map((value) => String(value))
   ].concat(dataRows.map((row) => row.map((value) => String(value))));
@@ -611,7 +673,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/workbook.xml', content: buildWorkbookXml(sheetNames) },
     { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(sheetNames) },
     { path: 'xl/styles.xml', content: buildStylesXml() },
-    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, { tableRange }) },
+    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, columnKinds, { tableRange }) },
     { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml() },
     { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders) },
     { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) }
@@ -675,7 +737,14 @@ function buildStylesXml() {
   <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
   <borders count="1"><border/></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
+  <cellXfs count="3">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+    <xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+  </cellXfs>
+  <cellStyles count="1">
+    <cellStyle name="Normal" xfId="0" builtinId="0"/>
+  </cellStyles>
 </styleSheet>`;
 }
 
