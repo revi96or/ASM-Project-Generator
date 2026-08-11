@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.22
+Версия: 9.19.23
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1381,7 +1381,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.21",
+    version: "3.1.22",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1482,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.21",
-    latestVersion: "3.1.21",
+    currentVersion: "3.1.22",
+    latestVersion: "3.1.22",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1517,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.21",
+    version: "3.1.22",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -2571,13 +2571,14 @@ function renderPnpVisibleTable(){
         ? (() => {
             const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
             const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
+            const formattedHeaders = rawHeaders.map((header) => String(header || "").toUpperCase());
             const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
             const previewRows = rawRows.map((row) => (
               `<tr>` + row.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
             )).join("");
             return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
               `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
-              `<thead><tr>${rawHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
+              `<thead><tr>${formattedHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
               `<tbody>${previewRows}</tbody>` +
               `</table>` +
               `</div>`;
@@ -2841,7 +2842,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.21",
+    version: "3.1.22",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

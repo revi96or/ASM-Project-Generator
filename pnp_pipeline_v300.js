@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.8
+ * Версия: 3.1.10
  * Автор: Новожилов Артем
  */
 
@@ -231,6 +231,25 @@ function normalizeImportedColumnKind(headerName) {
   }
 
   return 'text';
+}
+
+function normalizeWorkbookHeaderText(value) {
+  return normalizeText(value).toUpperCase();
+}
+
+function measureWorkbookColumnWidths(rows) {
+  const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  const widths = Array.from({ length: columnCount }, () => 8);
+
+  rows.forEach((row) => {
+    row.forEach((value, index) => {
+      const length = normalizeText(value).length;
+      const nextWidth = Math.max(8, Math.min(60, length + 2));
+      widths[index] = Math.max(widths[index], nextWidth);
+    });
+  });
+
+  return widths;
 }
 
 function readCsvHeadersAndRows(sourceText) {
@@ -574,14 +593,27 @@ function buildCellXml(ref, value, kind) {
   return `<c r="${ref}" s="1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
 }
 
+function buildWorksheetColsXml(columnWidths) {
+  if (!Array.isArray(columnWidths) || !columnWidths.length) {
+    return '';
+  }
+
+  const cols = columnWidths.map((width, index) => (
+    `<col min="${index + 1}" max="${index + 1}" width="${Math.max(8, Number(width) || 8)}" customWidth="1"/>`
+  )).join('');
+
+  return `<cols>${cols}</cols>`;
+}
+
 function buildWorksheetXml(rows, columnKinds = [], options = {}) {
   const tableRange = String(options.tableRange || '').trim();
+  const columnWidths = Array.isArray(options.columnWidths) ? options.columnWidths : [];
   const hasTable = Boolean(tableRange);
   const rowXml = rows.map((rowValues, rowIndex) => {
     const cellXml = rowValues
       .map((value, cellIndex) => {
         if (rowIndex === 0) {
-          return buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value);
+          return buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, normalizeWorkbookHeaderText(value));
         }
 
         const kind = columnKinds[cellIndex] || 'text';
@@ -605,6 +637,7 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
     <sheetView workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView>
   </sheetViews>
   <sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>
+  ${buildWorksheetColsXml(columnWidths)}
   <sheetData>${rowXml}</sheetData>
   <pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/>
   ${hasTable ? `<tableParts count="1"><tablePart r:id="rId1"/></tableParts>` : ''}
@@ -634,7 +667,7 @@ function buildTableColumnsXml(headers) {
 function buildTableXml(tableName, tableRange, headers) {
   const safeTableName = String(tableName || 'ImportedCSVTable').trim() || 'ImportedCSVTable';
   const safeTableRange = String(tableRange || 'A1:A1').trim() || 'A1:A1';
-  const columns = Array.isArray(headers) && headers.length ? headers : ['Column1'];
+  const columns = Array.isArray(headers) && headers.length ? headers.map((header) => normalizeWorkbookHeaderText(header)) : ['COLUMN1'];
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
  <table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="${escapeXml(safeTableName)}" displayName="${escapeXml(safeTableName)}" ref="${escapeXml(safeTableRange)}" headerRowCount="1" totalsRowShown="false">
@@ -657,13 +690,15 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
   const dataHeaders = Array.isArray(tableInfo && tableInfo.rawHeaders) ? tableInfo.rawHeaders : [];
   const dataRows = Array.isArray(tableInfo && tableInfo.rows) ? tableInfo.rows : [];
+  const workbookHeaders = dataHeaders.map((header) => normalizeWorkbookHeaderText(header));
   const columnKinds = dataHeaders.map((header) => normalizeImportedColumnKind(header));
   const listSheetRows = [
-    dataHeaders.map((value) => String(value))
+    workbookHeaders
   ].concat(dataRows.map((row) => row.map((value) => String(value))));
   const infoSheetRows = buildInfoSheetRows(importInfo || {}, sourcePath);
   const sheetNames = ['Лист1', 'Info'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
+  const columnWidths = measureWorkbookColumnWidths(listSheetRows);
 
   return buildZipArchive([
     { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length) },
@@ -673,7 +708,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/workbook.xml', content: buildWorkbookXml(sheetNames) },
     { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(sheetNames) },
     { path: 'xl/styles.xml', content: buildStylesXml() },
-    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, columnKinds, { tableRange }) },
+    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, columnKinds, { tableRange, columnWidths }) },
     { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml() },
     { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders) },
     { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) }
@@ -738,9 +773,9 @@ function buildStylesXml() {
   <borders count="1"><border/></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
   <cellXfs count="3">
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-    <xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-    <xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
