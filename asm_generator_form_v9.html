@@ -596,6 +596,11 @@
     background:var(--surface-alt);
   }
 
+  .pnp-table td.pnp-fill-highlight{
+    background:rgb(255, 255, 200) !important;
+    color:#111827 !important;
+  }
+
   .pnp-mode-btn{
     min-width:120px;
   }
@@ -1381,7 +1386,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.1.24",
+    version: "3.1.28",
     versionDate: "2026-08-10"
   }),
   getUserSettings: async () => ({
@@ -1482,8 +1487,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.1.24",
-    latestVersion: "3.1.24",
+    currentVersion: "3.1.28",
+    latestVersion: "3.1.28",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1517,7 +1522,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.24",
+    version: "3.1.28",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -1614,6 +1619,8 @@ function showAppDialog(title, body, actions, options = {}){
   }
   const actionsWrap = $("appDialogActions");
   actionsWrap.innerHTML = "";
+  actionsWrap.style.transform = "";
+  actionsWrap.style.gap = options.actionsGap || "0";
 
   const dialogActions = Array.isArray(actions) && actions.length ? actions : [
     { id: "close", label: "Понятно", variant: "solid" }
@@ -2440,7 +2447,8 @@ function showPnpExecutionDialog(defaultValue = ""){
             }
           }
         });
-      }
+      },
+      actionsGap: "10px"
     }).then((result) => {
       resolve(result === "accept" ? currentValue : null);
     });
@@ -2515,7 +2523,8 @@ function showPnpSetColumnDialog(setState){
         if (yesButton) {
           yesButton.focus();
         }
-      }
+      },
+      actionsGap: "10px"
     }
   );
 }
@@ -2737,6 +2746,16 @@ function renderPnpPreview(){
   ].join("");
 }
 
+function getPnpSetHighlightColumnIndex(importInfo){
+  const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
+
+  if (!setState || !setState.fillApplied || !Number.isInteger(setState.columnIndex)) {
+    return -1;
+  }
+
+  return setState.columnIndex;
+}
+
 function renderPnpVisibleTable(){
   const placeholder = $("pnpTablePlaceholder");
   const activeSection = getPnpActiveSection();
@@ -2798,8 +2817,9 @@ function renderPnpVisibleTable(){
             const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
             const formattedHeaders = rawHeaders.map((header) => String(header || "").toUpperCase());
             const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
+            const highlightColumnIndex = getPnpSetHighlightColumnIndex(importInfo);
             const previewRows = rawRows.map((row) => (
-              `<tr>` + row.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
+              `<tr>` + row.map((cell, cellIndex) => `<td${cellIndex === highlightColumnIndex ? ' class="pnp-fill-highlight"' : ''}>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
             )).join("");
             return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
               `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
@@ -3127,7 +3147,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.24",
+    version: "3.1.28",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

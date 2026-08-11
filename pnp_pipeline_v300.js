@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.24
+ * Версия: 3.1.29
  * Автор: Новожилов Артем
  */
 
@@ -419,7 +419,8 @@ function applySetColumnFill(importInfo, setValue, fillValue = '1') {
     rawTable: nextRawTable,
     setColumnState: {
       ...nextState,
-      filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length
+      filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length,
+      fillApplied: true
     }
   };
 
@@ -659,7 +660,7 @@ function buildInlineStringCellXml(ref, value) {
   return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
 }
 
-function buildCellXml(ref, value, kind) {
+function buildCellXml(ref, value, kind, styleIndex = 1) {
   const text = normalizeText(value);
 
   if (text === '') {
@@ -671,13 +672,13 @@ function buildCellXml(ref, value, kind) {
     const numericValue = Number(numericText);
 
     if (!Number.isFinite(numericValue)) {
-      return `<c r="${ref}" s="1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
+      return `<c r="${ref}" s="${styleIndex}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
     }
 
-    return `<c r="${ref}" s="2"><v>${normalizeImportedNumberValue(numericValue)}</v></c>`;
+    return `<c r="${ref}" s="${styleIndex === 3 ? 3 : 2}"><v>${normalizeImportedNumberValue(numericValue)}</v></c>`;
   }
 
-  return `<c r="${ref}" s="1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
+  return `<c r="${ref}" s="${styleIndex}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
 }
 
 function buildWorksheetColsXml(columnWidths) {
@@ -695,6 +696,7 @@ function buildWorksheetColsXml(columnWidths) {
 function buildWorksheetXml(rows, columnKinds = [], options = {}) {
   const tableRange = String(options.tableRange || '').trim();
   const columnWidths = Array.isArray(options.columnWidths) ? options.columnWidths : [];
+  const highlightColumnIndex = Number.isInteger(options.highlightColumnIndex) ? options.highlightColumnIndex : -1;
   const hasTable = Boolean(tableRange);
   const rowXml = rows.map((rowValues, rowIndex) => {
     const cellXml = rowValues
@@ -704,7 +706,8 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
         }
 
         const kind = columnKinds[cellIndex] || 'text';
-        return buildCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value, kind);
+        const styleIndex = highlightColumnIndex >= 0 && cellIndex === highlightColumnIndex ? 3 : 1;
+        return buildCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value, kind, styleIndex);
       })
       .filter((cell) => cell !== '')
       .join('');
@@ -744,6 +747,24 @@ function buildInfoSheetRows(importInfo, sourcePath) {
     ['', '', '', d5Value],
     ['', '', '', d6Value]
   ];
+}
+
+function buildSetFillColumnRows(rawTable, setColumnName) {
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const columnIndex = rawHeaders.findIndex((header) => String(header || '').trim() === String(setColumnName || '').trim());
+
+  if (columnIndex < 0) {
+    return {
+      rows,
+      columnIndex
+    };
+  }
+
+  return {
+    rows,
+    columnIndex
+  };
 }
 
 function buildTableColumnsXml(headers) {
@@ -787,6 +808,10 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const sheetNames = ['Лист1', 'Info'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
+  const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
+  const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
+    ? setState.columnIndex
+    : -1;
 
   return buildZipArchive([
     { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length) },
@@ -796,7 +821,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/workbook.xml', content: buildWorkbookXml(sheetNames) },
     { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(sheetNames) },
     { path: 'xl/styles.xml', content: buildStylesXml() },
-    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, columnKinds, { tableRange, columnWidths }) },
+    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, columnKinds, { tableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml() },
     { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders) },
     { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) }
@@ -857,13 +882,18 @@ function buildStylesXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
-  <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+  <fills count="3">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFC8"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
   <borders count="1"><border/></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="3">
+  <cellXfs count="4">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
