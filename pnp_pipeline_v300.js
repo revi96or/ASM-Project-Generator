@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.2
+ * Версия: 3.1.3
  * Автор: Новожилов Артем
  */
 
@@ -546,22 +546,16 @@ function buildWorksheetXml(rows) {
 }
 
 function buildInfoSheetRows(importInfo, sourcePath) {
-  const baseName = String(importInfo && importInfo.baseName ? importInfo.baseName : '');
-  const workbookName = String(importInfo && importInfo.workbookName ? importInfo.workbookName : `${baseName}.xlsx`);
-  const sheetNames = Array.isArray(importInfo && importInfo.sheetNames) ? importInfo.sheetNames : ['Лист1', 'Info'];
-  const rawHeaders = Array.isArray(importInfo && importInfo.headers) ? importInfo.headers : [];
+  const d5Value = String(importInfo && importInfo.infoD5 ? importInfo.infoD5 : '');
+  const d6Value = String(importInfo && importInfo.infoD6 ? importInfo.infoD6 : sourcePath || '');
 
   return [
-    ['Описание', 'Состояние после импорта CSV', '', ''],
-    ['Версия', '3.1.2', '', ''],
-    ['Автор', 'Новожилов Артем', '', ''],
-    ['BaseName', baseName, '', ''],
-    ['A10', '', '', String(importInfo && importInfo.infoD5 ? importInfo.infoD5 : '')],
-    ['CSV путь', '', '', String(importInfo && importInfo.infoD6 ? importInfo.infoD6 : sourcePath || '')],
-    ['Workbook', workbookName, '', ''],
-    ['Лист1', sheetNames[0] || 'Лист1', '', ''],
-    ['Info', sheetNames[1] || 'Info', '', ''],
-    ['Заголовков', String(rawHeaders.length || 0), '', '']
+    [],
+    [],
+    [],
+    [],
+    ['', '', '', d5Value],
+    ['', '', '', d6Value]
   ];
 }
 
