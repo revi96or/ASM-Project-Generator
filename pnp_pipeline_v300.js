@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.3
+ * Версия: 3.1.5
  * Автор: Новожилов Артем
  */
 
@@ -520,7 +520,9 @@ function buildInlineStringCellXml(ref, value) {
   return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
 }
 
-function buildWorksheetXml(rows) {
+function buildWorksheetXml(rows, options = {}) {
+  const tableRange = String(options.tableRange || '').trim();
+  const hasTable = Boolean(tableRange);
   const rowXml = rows.map((rowValues, rowIndex) => {
     const cellXml = rowValues
       .map((value, cellIndex) => buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value))
@@ -542,6 +544,7 @@ function buildWorksheetXml(rows) {
   </sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
   <sheetData>${rowXml}</sheetData>
+  ${hasTable ? `<autoFilter ref="${escapeXml(tableRange)}"/><tableParts count="1"><tablePart r:id="rId1"/></tableParts>` : ''}
 </worksheet>`;
 }
 
@@ -559,6 +562,34 @@ function buildInfoSheetRows(importInfo, sourcePath) {
   ];
 }
 
+function buildTableColumnsXml(headers) {
+  return headers.map((header, index) => (
+    `<tableColumn id="${index + 1}" name="${escapeXml(String(header || `Column${index + 1}`))}"/>`
+  )).join('');
+}
+
+function buildTableXml(tableName, tableRange, headers) {
+  const safeTableName = String(tableName || 'ImportedCSVTable').trim() || 'ImportedCSVTable';
+  const safeTableRange = String(tableRange || 'A1:A1').trim() || 'A1:A1';
+  const columns = Array.isArray(headers) && headers.length ? headers : ['Column1'];
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+ <table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="${escapeXml(safeTableName)}" displayName="${escapeXml(safeTableName)}" ref="${escapeXml(safeTableRange)}" totalsRowShown="false">
+   <autoFilter ref="${escapeXml(safeTableRange)}"/>
+   <tableColumns count="${columns.length}">
+     ${buildTableColumnsXml(columns)}
+   </tableColumns>
+   <tableStyleInfo name="TableStyleMedium2" showFirstColumn="false" showLastColumn="false" showRowStripes="true" showColumnStripes="false"/>
+ </table>`;
+}
+
+function buildWorksheetRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>
+</Relationships>`;
+}
+
 function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
   const dataHeaders = Array.isArray(tableInfo && tableInfo.rawHeaders) ? tableInfo.rawHeaders : [];
@@ -568,6 +599,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   ].concat(dataRows.map((row) => row.map((value) => String(value))));
   const infoSheetRows = buildInfoSheetRows(importInfo || {}, sourcePath);
   const sheetNames = ['Лист1', 'Info'];
+  const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
 
   return buildZipArchive([
     { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length) },
@@ -577,7 +609,9 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/workbook.xml', content: buildWorkbookXml(sheetNames) },
     { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(sheetNames) },
     { path: 'xl/styles.xml', content: buildStylesXml() },
-    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows) },
+    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, { tableRange }) },
+    { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml() },
+    { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders) },
     { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) }
   ]);
 }
@@ -595,6 +629,7 @@ function buildContentTypesXml(sheetCount) {
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>
   ${worksheetOverrides}
 </Types>`;
 }
@@ -1006,12 +1041,14 @@ async function importCsvFile(filePath) {
       footprintColumn: 5,
       textNumberFormatColumns: [2, 3, 5, 6, 7],
       sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'Resist', 'Capacitor', 'Other', 'DataPredExit', 'DataExit'],
+      tableName: 'ImportedCSVTable',
       activeSheet: 'ImportedCSVTable',
       rowCount: parsed.rows.length,
       columnCount: parsed.headers.length,
       centerXColumnIndex: centerColumns.centerX,
       centerYColumnIndex: centerColumns.centerY,
-      headers: parsed.rawHeaders
+      headers: parsed.rawHeaders,
+      tableRange: `A1:${columnIndexToLetters(Math.max(parsed.rawHeaders.length, 1) - 1)}${Math.max(parsed.rows.length + 1, 1)}`
     }
   };
 }

@@ -1,6 +1,6 @@
 {
    "name": "asm_project_generator",
-   "version": "3.1.17",
+   "version": "3.1.18",
    "versionDate": "2026-08-10",
    "description": "ASM Project Generator Electron wrapper",
    "main": "main.js",
