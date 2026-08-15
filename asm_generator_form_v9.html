@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.33
+Версия: 9.19.34
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2896,13 +2896,17 @@ function renderPnpVisibleTable(){
             const tableInfo = visibleSheet === "DataSet" && importInfo && importInfo.dataSetTable
               ? importInfo.dataSetTable
               : importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+            const tableRows = visibleSheet === "DataSet" && tableInfo && Array.isArray(tableInfo.worksheetRows) && tableInfo.worksheetRows.length
+              ? tableInfo.worksheetRows
+              : tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
             const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
             const formattedHeaders = rawHeaders.map((header) => String(header || "").toUpperCase());
-            const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
             const highlightColumnIndex = getPnpSetHighlightColumnIndex(importInfo);
-            const previewRows = rawRows.map((row) => (
-              `<tr>` + row.map((cell, cellIndex) => `<td${cellIndex === highlightColumnIndex ? ' class="pnp-fill-highlight"' : ''}>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`
-            )).join("");
+            const previewRows = tableRows.map((row) => {
+              const rowValues = row && typeof row === "object" && Array.isArray(row.values) ? row.values : row;
+              const rowHidden = Boolean(row && typeof row === "object" && row.hidden);
+              return `<tr${rowHidden ? ' style="display:none;"' : ''}>` + rowValues.map((cell, cellIndex) => `<td${cellIndex === highlightColumnIndex ? ' class="pnp-fill-highlight"' : ''}>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`;
+            }).join("");
             return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
               `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
               `<thead><tr>${formattedHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +

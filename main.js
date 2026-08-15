@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.35
+ * Версия: 3.1.36
  * Автор: Новожилов Артем
  */
 
@@ -1191,7 +1191,8 @@ async function fillPnpSetColumn(payload) {
            setColumnState: setColumnState,
            dataSetTable: {
              rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : [],
-             rows: dataSetState.rows
+             rows: dataSetState.rows,
+             worksheetRows: dataSetState.worksheetRows
            },
            copyRowsState: dataSetState.copyRowsState,
            filterSetState: dataSetState.setColumnState,
