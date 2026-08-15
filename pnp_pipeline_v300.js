@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.32
+ * Версия: 3.1.33
  * Автор: Новожилов Артем
  */
 
@@ -421,10 +421,17 @@ function applySetColumnFill(importInfo, setValue, fillValue = '1') {
     ...rawTable,
     rows: nextRows
   };
+  const deletePcbState = getDeletePcbRowsState(nextRawTable);
   const nextImportInfo = {
     ...sourceImportInfo,
     infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, ''),
     rawTable: nextRawTable,
+    dataSetTable: {
+      ...nextRawTable,
+      rows: deletePcbState.rows
+    },
+    deletedPcbRowsCount: deletePcbState.deletedCount,
+    deletePcbState,
     setColumnState: {
       ...nextState,
       filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length,
@@ -795,6 +802,72 @@ function buildSetFillColumnRows(rawTable, setColumnName) {
   };
 }
 
+function getDeletePcbRowsState(rawTable) {
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const commentColumnIndex = rawHeaders.findIndex((header) => normalizeWorkbookHeaderText(header) === 'COMMENT');
+
+  if (commentColumnIndex < 0) {
+    throw new Error("Столбец 'COMMENT' не найден на листе DataSet!");
+  }
+
+  if (rows.length <= 0) {
+    return {
+      found: true,
+      commentColumnIndex,
+      lastRow: rows.length,
+      deletedCount: 0,
+      rows: []
+    };
+  }
+
+  // Идем как в VBA: удаляем только строки, где COMMENT начинается с "Плата печатная".
+  let lastDataIndex = -1;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = Array.isArray(rows[index]) ? rows[index] : [];
+    if (normalizeText(row[commentColumnIndex]) !== '') {
+      lastDataIndex = index;
+    }
+  }
+
+  if (lastDataIndex < 0) {
+    return {
+      found: true,
+      commentColumnIndex,
+      lastRow: rows.length,
+      deletedCount: 0,
+      rows: rows.map((row) => (Array.isArray(row) ? row.slice() : []))
+    };
+  }
+
+  const nextRows = [];
+  let deletedCount = 0;
+
+  for (let index = 0; index <= lastDataIndex; index += 1) {
+    const row = Array.isArray(rows[index]) ? rows[index].slice() : [];
+    const cellValue = normalizeText(row[commentColumnIndex]);
+
+    if (cellValue && cellValue.toUpperCase().startsWith('ПЛАТА ПЕЧАТНАЯ')) {
+      deletedCount += 1;
+      continue;
+    }
+
+    nextRows.push(row);
+  }
+
+  for (let index = lastDataIndex + 1; index < rows.length; index += 1) {
+    nextRows.push(Array.isArray(rows[index]) ? rows[index].slice() : []);
+  }
+
+  return {
+    found: true,
+    commentColumnIndex,
+    lastRow: lastDataIndex + 1,
+    deletedCount,
+    rows: nextRows
+  };
+}
+
 function buildTableColumnsXml(headers) {
   return headers.map((header, index) => (
     `<tableColumn id="${index + 1}" name="${escapeXml(String(header || `Column${index + 1}`))}"/>`
@@ -834,9 +907,15 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     workbookHeaders
   ].concat(dataRows.map((row) => row.map((value) => String(value))));
   const infoSheetRows = buildInfoSheetRows(importInfo || {}, sourcePath);
-  const dataSetSheetRows = listSheetRows.map((row) => row.slice());
+  const deletePcbState = importInfo && importInfo.dataSetTable
+    ? importInfo.deletePcbState || getDeletePcbRowsState(importInfo.dataSetTable)
+    : getDeletePcbRowsState(tableInfo || {});
+  const dataSetSheetRows = [
+    workbookHeaders
+  ].concat(deletePcbState.rows.map((row) => row.map((value) => String(value))));
   const sheetNames = ['Лист1', 'Info', 'DataSet'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
+  const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
@@ -855,9 +934,9 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table1.xml') },
     { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders, 1) },
     { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) },
-    { path: 'xl/worksheets/sheet3.xml', content: buildWorksheetXml(dataSetSheetRows, columnKinds, { tableRange, columnWidths, highlightColumnIndex: -1 }) },
+    { path: 'xl/worksheets/sheet3.xml', content: buildWorksheetXml(dataSetSheetRows, columnKinds, { tableRange: dataSetTableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet3.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table2.xml') },
-    { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', tableRange, dataHeaders, 2) }
+    { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', dataSetTableRange, dataHeaders, 2) }
   ]);
 }
 
@@ -1288,6 +1367,7 @@ async function importCsvFile(filePath) {
     sourcePath: filePath,
     sourceFile: path.basename(filePath)
   });
+  const deletePcbState = getDeletePcbRowsState(imported.importInfo.rawTable);
   const dict = prepareDict(imported, {
     sourcePath: filePath,
     sourceFile: path.basename(filePath),
@@ -1300,6 +1380,12 @@ async function importCsvFile(filePath) {
     ...dict,
     importInfo: {
       ...imported.importInfo,
+      dataSetTable: {
+        ...imported.importInfo.rawTable,
+        rows: deletePcbState.rows
+      },
+      deletedPcbRowsCount: deletePcbState.deletedCount,
+      deletePcbState,
       sourcePath: filePath,
       sourceFile: path.basename(filePath),
       baseName,

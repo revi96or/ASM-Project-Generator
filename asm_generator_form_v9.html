@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.26
+Версия: 9.19.27
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2860,7 +2860,10 @@ function renderPnpVisibleTable(){
         })()
       : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet"
         ? (() => {
-            const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+            // Для DataSet берем уже очищенную копию таблицы, а для исходной вкладки — rawTable.
+            const tableInfo = visibleSheet === "DataSet" && importInfo && importInfo.dataSetTable
+              ? importInfo.dataSetTable
+              : importInfo && importInfo.rawTable ? importInfo.rawTable : null;
             const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
             const formattedHeaders = rawHeaders.map((header) => String(header || "").toUpperCase());
             const rawRows = tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
