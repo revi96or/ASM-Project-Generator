@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.38
+ * Версия: 3.1.39
  * Автор: Новожилов Артем
  */
 
@@ -435,14 +435,20 @@ function applySetColumnFill(importInfo, setValue, fillValue = '1') {
      infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, '')
    }
   );
+  const dataSet2State = buildDataSet2TableState(dataSetState);
   const nextImportInfo = {
    ...sourceImportInfo,
    infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, ''),
    rawTable: nextRawTable,
    dataSetTable: {
-     rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : Array.isArray(nextRawTable.rawHeaders) ? nextRawTable.rawHeaders.slice() : [],
-     rows: dataSetState.rows,
-     worksheetRows: dataSetState.worksheetRows
+    rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : Array.isArray(nextRawTable.rawHeaders) ? nextRawTable.rawHeaders.slice() : [],
+    rows: dataSetState.rows,
+    worksheetRows: dataSetState.worksheetRows
+   },
+   dataSet2Table: {
+     rawHeaders: Array.isArray(dataSet2State.rawHeaders) ? dataSet2State.rawHeaders.slice() : Array.isArray(nextRawTable.rawHeaders) ? nextRawTable.rawHeaders.slice() : [],
+     rows: dataSet2State.rows,
+     worksheetRows: dataSet2State.worksheetRows
    },
    deletedPcbRowsCount: deletePcbState.deletedCount,
    deletePcbState,
@@ -1339,6 +1345,80 @@ function buildDataSetTableState(importInfo, options = {}) {
   };
 }
 
+function replaceRuToEnText(value) {
+  let nextValue = normalizeText(value);
+
+  // Сначала заменяем устойчивые сочетания, а затем одиночные буквы — как в VBA.
+  nextValue = nextValue.replace(/Гц/gi, 'Hz');
+  nextValue = nextValue.replace(/мк/gi, 'u');
+  nextValue = nextValue.replace(/Гн/gi, 'H');
+  nextValue = nextValue.replace(/М/gi, 'M');
+  nextValue = nextValue.replace(/к/gi, 'k');
+  nextValue = nextValue.replace(/К/gi, 'K');
+  nextValue = nextValue.replace(/В/gi, 'V');
+  nextValue = nextValue.replace(/х/gi, 'x');
+  nextValue = nextValue.replace(/Г/gi, 'G');
+  nextValue = nextValue.replace(/н/gi, 'n');
+
+  return nextValue;
+}
+
+function buildDataSet2TableState(dataSetState) {
+  const rawHeaders = Array.isArray(dataSetState && dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataSetState && dataSetState.rows) ? dataSetState.rows : [];
+  const worksheetRows = Array.isArray(dataSetState && dataSetState.worksheetRows) ? dataSetState.worksheetRows : [];
+  const commentIndex = findPnpRawHeaderIndex(rawHeaders, 'COMMENT');
+
+  if (commentIndex < 0) {
+    return {
+      rawHeaders,
+      rows: rows.map(clonePnpRawRow),
+      worksheetRows: worksheetRows.map((rowModel) => ({
+        values: Array.isArray(rowModel && rowModel.values) ? clonePnpRawRow(rowModel.values) : [],
+        hidden: Boolean(rowModel && rowModel.hidden)
+      })),
+      commentIndex,
+      commentReplacements: 0
+    };
+  }
+
+  const replaceRowValue = (row) => {
+    const nextRow = clonePnpRawRow(row);
+    if (nextRow.length > commentIndex) {
+      const commentCell = nextRow[commentIndex];
+      if (commentCell && typeof commentCell === 'object' && Object.prototype.hasOwnProperty.call(commentCell, 'value')) {
+        nextRow[commentIndex] = {
+          ...commentCell,
+          value: replaceRuToEnText(commentCell.value)
+        };
+      } else {
+        nextRow[commentIndex] = replaceRuToEnText(commentCell);
+      }
+    }
+    return nextRow;
+  };
+
+  const nextRows = rows.map(replaceRowValue);
+  const nextWorksheetRows = worksheetRows.map((rowModel) => {
+    const nextValues = replaceRowValue(Array.isArray(rowModel && rowModel.values) ? rowModel.values : []);
+    return {
+      values: nextValues,
+      hidden: Boolean(rowModel && rowModel.hidden)
+    };
+  });
+
+  return {
+    rawHeaders,
+    rows: nextRows,
+    worksheetRows: nextWorksheetRows,
+    commentIndex,
+    commentReplacements: nextRows.reduce((count, row, index) => {
+      const sourceRow = rows[index] || [];
+      return count + (clonePnpCellValue(sourceRow[commentIndex]) !== clonePnpCellValue(row[commentIndex]) ? 1 : 0);
+    }, 0)
+  };
+}
+
 function buildTableColumnsXml(headers) {
   return headers.map((header, index) => (
     `<tableColumn id="${index + 1}" name="${escapeXml(String(header || `Column${index + 1}`))}"/>`
@@ -1397,30 +1477,38 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
         rows: [],
         worksheetRows: []
       };
+  const dataSet2State = dataSetState ? buildDataSet2TableState(dataSetState) : null;
+  const dataSet2Table = dataSet2State
+    ? {
+        rawHeaders: Array.isArray(dataSet2State.rawHeaders) ? dataSet2State.rawHeaders : dataHeaders,
+        rows: Array.isArray(dataSet2State.rows) ? dataSet2State.rows : [],
+        worksheetRows: Array.isArray(dataSet2State.worksheetRows) ? dataSet2State.worksheetRows : []
+      }
+    : {
+        rawHeaders: dataHeaders,
+        rows: [],
+        worksheetRows: []
+      };
   const dataSetSheetRows = [
     workbookHeaders
   ].concat((Array.isArray(dataSetTable.worksheetRows) && dataSetTable.worksheetRows.length
     ? dataSetTable.worksheetRows.map((row) => row)
     : (Array.isArray(dataSetTable.rows) ? dataSetTable.rows : []).map((row) => row.map((value) => String(value)))));
+  const dataSet2SheetRows = [
+    workbookHeaders
+  ].concat((Array.isArray(dataSet2Table.worksheetRows) && dataSet2Table.worksheetRows.length
+    ? dataSet2Table.worksheetRows.map((row) => row)
+    : (Array.isArray(dataSet2Table.rows) ? dataSet2Table.rows : []).map((row) => row.map((value) => String(value)))));
   // DataSet2 — это копия DataSet после шага CopySheetDataSetToDataSet2.
   const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
+  const dataSet2TableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSet2SheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
     ? setState.columnIndex
     : -1;
-  const copiedDataSetSheetRows = dataSetSheetRows.map((row) => (
-    Array.isArray(row)
-      ? row.map((cell) => {
-          if (cell && typeof cell === 'object') {
-            return { ...cell };
-          }
-          return cell;
-        })
-      : row
-  ));
 
   return buildZipArchive([
     { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 3) },
@@ -1437,9 +1525,9 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/worksheets/sheet3.xml', content: buildWorksheetXml(dataSetSheetRows, columnKinds, { tableRange: dataSetTableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet3.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table2.xml') },
     { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', dataSetTableRange, dataHeaders, 2) },
-    { path: 'xl/worksheets/sheet4.xml', content: buildWorksheetXml(copiedDataSetSheetRows, columnKinds, { tableRange: dataSetTableRange, columnWidths, highlightColumnIndex }) },
+    { path: 'xl/worksheets/sheet4.xml', content: buildWorksheetXml(dataSet2SheetRows, columnKinds, { tableRange: dataSet2TableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet4.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table3.xml') },
-    { path: 'xl/tables/table3.xml', content: buildTableXml('DataSet2Table', dataSetTableRange, dataHeaders, 3) }
+    { path: 'xl/tables/table3.xml', content: buildTableXml('DataSet2Table', dataSet2TableRange, dataHeaders, 3) }
   ]);
 }
 
@@ -1970,6 +2058,7 @@ module.exports = {
   buildPreviewHtml,
   buildModuleSource,
   buildDataSetTableState,
+  buildDataSet2TableState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,

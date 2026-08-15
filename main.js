@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.36
+ * Версия: 3.1.37
  * Автор: Новожилов Артем
  */
 
@@ -1184,6 +1184,7 @@ async function fillPnpSetColumn(payload) {
          }, {
            infoD3: infoD3
          });
+         const dataSet2State = pnpPipeline.buildDataSet2TableState(dataSetState);
 
          return {
            ...importInfo,
@@ -1193,6 +1194,11 @@ async function fillPnpSetColumn(payload) {
              rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : [],
              rows: dataSetState.rows,
              worksheetRows: dataSetState.worksheetRows
+           },
+           dataSet2Table: {
+             rawHeaders: Array.isArray(dataSet2State.rawHeaders) ? dataSet2State.rawHeaders.slice() : [],
+             rows: dataSet2State.rows,
+             worksheetRows: dataSet2State.worksheetRows
            },
            copyRowsState: dataSetState.copyRowsState,
            filterSetState: dataSetState.setColumnState,
