@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.39
+ * Версия: 3.1.40
  * Автор: Новожилов Артем
  */
 
@@ -1363,42 +1363,114 @@ function replaceRuToEnText(value) {
   return nextValue;
 }
 
+function cleanPnpTolText(value) {
+  const text = normalizeText(value);
+  const match = text.match(/[-+]?\d+(?:[.,]\d+)?/);
+
+  if (!match) {
+    return '';
+  }
+
+  return match[0].replace(',', '.').replace(/[+\-]/g, '');
+}
+
+function clonePnpWorksheetRow(rowModel) {
+  return {
+    values: Array.isArray(rowModel && rowModel.values)
+      ? rowModel.values.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell))
+      : [],
+    hidden: Boolean(rowModel && rowModel.hidden)
+  };
+}
+
 function buildDataSet2TableState(dataSetState) {
   const rawHeaders = Array.isArray(dataSetState && dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : [];
   const rows = Array.isArray(dataSetState && dataSetState.rows) ? dataSetState.rows : [];
   const worksheetRows = Array.isArray(dataSetState && dataSetState.worksheetRows) ? dataSetState.worksheetRows : [];
   const commentIndex = findPnpRawHeaderIndex(rawHeaders, 'COMMENT');
+  const footprintIndex = findPnpRawHeaderIndex(rawHeaders, 'FOOTPRINT');
+  const tolIndex = findPnpRawHeaderIndex(rawHeaders, 'TOL');
+  const centerXIndex = findPnpRawHeaderIndex(rawHeaders, 'CENTER-X(MM)');
+  const centerYIndex = findPnpRawHeaderIndex(rawHeaders, 'CENTER-Y(MM)');
+  const cyrillicPattern = /[А-Яа-яЁё]/;
 
-  if (commentIndex < 0) {
-    return {
-      rawHeaders,
-      rows: rows.map(clonePnpRawRow),
-      worksheetRows: worksheetRows.map((rowModel) => ({
-        values: Array.isArray(rowModel && rowModel.values) ? clonePnpRawRow(rowModel.values) : [],
-        hidden: Boolean(rowModel && rowModel.hidden)
-      })),
-      commentIndex,
-      commentReplacements: 0
-    };
-  }
-
-  const replaceRowValue = (row) => {
+  const replaceRowValue = (row, isHeaderRow = false) => {
     const nextRow = clonePnpRawRow(row);
-    if (nextRow.length > commentIndex) {
+    let rowChanged = false;
+    let highlightComment = false;
+
+    for (let cellIndex = 0; cellIndex < nextRow.length; cellIndex += 1) {
+      const originalCell = nextRow[cellIndex];
+      const isObjectCell = originalCell && typeof originalCell === 'object' && Object.prototype.hasOwnProperty.call(originalCell, 'value');
+      const sourceValue = isObjectCell ? originalCell.value : originalCell;
+      let nextValue = normalizeText(sourceValue);
+
+      if (!isHeaderRow) {
+        if (cellIndex === tolIndex) {
+          const cleanedTol = cleanPnpTolText(nextValue);
+          if (cleanedTol !== nextValue) {
+            rowChanged = true;
+          }
+          nextValue = cleanedTol;
+        }
+
+        if (cellIndex === commentIndex) {
+          const replacedComment = replaceRuToEnText(nextValue).replace(/,/g, '.');
+          if (replacedComment !== nextValue) {
+            rowChanged = true;
+          }
+          highlightComment = cyrillicPattern.test(replacedComment);
+          nextValue = replacedComment;
+        }
+
+        if (cellIndex === footprintIndex) {
+          const footprintValue = nextValue.replace(/,/g, '.');
+          if (footprintValue !== nextValue) {
+            rowChanged = true;
+          }
+          nextValue = footprintValue;
+        }
+
+        if (cellIndex !== centerXIndex && cellIndex !== centerYIndex) {
+          const compactValue = nextValue.replace(/ /g, '');
+          if (compactValue !== nextValue) {
+            rowChanged = true;
+          }
+          nextValue = compactValue;
+        }
+      }
+
+      if (isObjectCell) {
+        nextRow[cellIndex] = {
+          ...originalCell,
+          value: nextValue
+        };
+      } else {
+        nextRow[cellIndex] = nextValue;
+      }
+    }
+
+    if (!isHeaderRow && highlightComment && commentIndex >= 0 && nextRow[commentIndex] !== undefined) {
       const commentCell = nextRow[commentIndex];
       if (commentCell && typeof commentCell === 'object' && Object.prototype.hasOwnProperty.call(commentCell, 'value')) {
         nextRow[commentIndex] = {
           ...commentCell,
-          value: replaceRuToEnText(commentCell.value)
+          styleIndex: 7,
+          className: 'pnp-comment-highlight'
         };
       } else {
-        nextRow[commentIndex] = replaceRuToEnText(commentCell);
+        nextRow[commentIndex] = {
+          value: nextRow[commentIndex],
+          styleIndex: 7,
+          className: 'pnp-comment-highlight'
+        };
       }
     }
+
     return nextRow;
   };
 
-  const nextRows = rows.map(replaceRowValue);
+  const nextRows = rows.map((row) => replaceRowValue(row));
   const nextWorksheetRows = worksheetRows.map((rowModel) => {
     const nextValues = replaceRowValue(Array.isArray(rowModel && rowModel.values) ? rowModel.values : []);
     return {
@@ -1412,10 +1484,44 @@ function buildDataSet2TableState(dataSetState) {
     rows: nextRows,
     worksheetRows: nextWorksheetRows,
     commentIndex,
-    commentReplacements: nextRows.reduce((count, row, index) => {
+    footprintIndex,
+    tolIndex,
+    centerXIndex,
+    centerYIndex,
+    commentReplacements: commentIndex >= 0
+      ? nextRows.reduce((count, row, index) => {
+          const sourceRow = rows[index] || [];
+          return count + (clonePnpCellValue(sourceRow[commentIndex]) !== clonePnpCellValue(row[commentIndex]) ? 1 : 0);
+        }, 0)
+      : 0,
+    tolNormalizedCount: tolIndex >= 0
+      ? nextRows.reduce((count, row, index) => {
+          const sourceRow = rows[index] || [];
+          return count + (clonePnpCellValue(sourceRow[tolIndex]) !== clonePnpCellValue(row[tolIndex]) ? 1 : 0);
+        }, 0)
+      : 0,
+    footprintCommaReplacements: footprintIndex >= 0
+      ? nextRows.reduce((count, row, index) => {
+          const sourceRow = rows[index] || [];
+          return count + (clonePnpCellValue(sourceRow[footprintIndex]) !== clonePnpCellValue(row[footprintIndex]) ? 1 : 0);
+        }, 0)
+      : 0,
+    spaceCleanedCount: nextRows.reduce((count, row, index) => {
       const sourceRow = rows[index] || [];
-      return count + (clonePnpCellValue(sourceRow[commentIndex]) !== clonePnpCellValue(row[commentIndex]) ? 1 : 0);
+      return count + (JSON.stringify(sourceRow) !== JSON.stringify(row) ? 1 : 0);
     }, 0)
+  };
+}
+
+function buildDataResistTableState(dataSet2State) {
+  const rawHeaders = Array.isArray(dataSet2State && dataSet2State.rawHeaders) ? dataSet2State.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataSet2State && dataSet2State.rows) ? dataSet2State.rows : [];
+  const worksheetRows = Array.isArray(dataSet2State && dataSet2State.worksheetRows) ? dataSet2State.worksheetRows : [];
+
+  return {
+    rawHeaders,
+    rows: rows.map((row) => clonePnpRawRow(row)),
+    worksheetRows: worksheetRows.map(clonePnpWorksheetRow)
   };
 }
 
@@ -1489,6 +1595,18 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
         rows: [],
         worksheetRows: []
       };
+  const dataResistState = dataSet2State ? buildDataResistTableState(dataSet2State) : null;
+  const dataResistTable = dataResistState
+    ? {
+        rawHeaders: Array.isArray(dataResistState.rawHeaders) ? dataResistState.rawHeaders : dataHeaders,
+        rows: Array.isArray(dataResistState.rows) ? dataResistState.rows : [],
+        worksheetRows: Array.isArray(dataResistState.worksheetRows) ? dataResistState.worksheetRows : []
+      }
+    : {
+        rawHeaders: dataHeaders,
+        rows: [],
+        worksheetRows: []
+      };
   const dataSetSheetRows = [
     workbookHeaders
   ].concat((Array.isArray(dataSetTable.worksheetRows) && dataSetTable.worksheetRows.length
@@ -1499,11 +1617,17 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   ].concat((Array.isArray(dataSet2Table.worksheetRows) && dataSet2Table.worksheetRows.length
     ? dataSet2Table.worksheetRows.map((row) => row)
     : (Array.isArray(dataSet2Table.rows) ? dataSet2Table.rows : []).map((row) => row.map((value) => String(value)))));
-  // DataSet2 — это копия DataSet после шага CopySheetDataSetToDataSet2.
-  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2'];
+  const dataResistSheetRows = [
+    workbookHeaders
+  ].concat((Array.isArray(dataResistTable.worksheetRows) && dataResistTable.worksheetRows.length
+    ? dataResistTable.worksheetRows.map((row) => row)
+    : (Array.isArray(dataResistTable.rows) ? dataResistTable.rows : []).map((row) => row.map((value) => String(value)))));
+  // DataResist — копия DataSet2 после очистки TOL, пробелов и запятых.
+  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
   const dataSet2TableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSet2SheetRows.length, 1)}`;
+  const dataResistTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataResistSheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
@@ -1511,7 +1635,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     : -1;
 
   return buildZipArchive([
-    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 3) },
+    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 4) },
     { path: '_rels/.rels', content: buildRelsXml() },
     { path: 'docProps/core.xml', content: buildCorePropsXml(importInfo, sourcePath) },
     { path: 'docProps/app.xml', content: buildAppPropsXml(sheetNames) },
@@ -1527,7 +1651,10 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', dataSetTableRange, dataHeaders, 2) },
     { path: 'xl/worksheets/sheet4.xml', content: buildWorksheetXml(dataSet2SheetRows, columnKinds, { tableRange: dataSet2TableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet4.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table3.xml') },
-    { path: 'xl/tables/table3.xml', content: buildTableXml('DataSet2Table', dataSet2TableRange, dataHeaders, 3) }
+    { path: 'xl/tables/table3.xml', content: buildTableXml('DataSet2Table', dataSet2TableRange, dataHeaders, 3) },
+    { path: 'xl/worksheets/sheet5.xml', content: buildWorksheetXml(dataResistSheetRows, columnKinds, { tableRange: dataResistTableRange, columnWidths, highlightColumnIndex }) },
+    { path: 'xl/worksheets/_rels/sheet5.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table4.xml') },
+    { path: 'xl/tables/table4.xml', content: buildTableXml('DataResistTable', dataResistTableRange, dataHeaders, 4) }
   ]);
 }
 
@@ -1868,7 +1995,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.1.34',
+    ' * Версия: 3.1.40',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -1959,6 +2086,14 @@ async function importCsvFile(filePath) {
     sourceFile: path.basename(filePath)
   });
   const deletePcbState = getDeletePcbRowsState(imported.importInfo.rawTable);
+  const dataSet2State = buildDataSet2TableState({
+    rawHeaders: Array.isArray(imported.importInfo.rawTable.rawHeaders) ? imported.importInfo.rawTable.rawHeaders.slice() : [],
+    rows: deletePcbState.rows,
+    worksheetRows: deletePcbState.rows.map((row) => ({
+      values: clonePnpRawRow(row),
+      hidden: false
+    }))
+  });
   const dict = prepareDict(imported, {
     sourcePath: filePath,
     sourceFile: path.basename(filePath),
@@ -1975,6 +2110,8 @@ async function importCsvFile(filePath) {
         ...imported.importInfo.rawTable,
         rows: deletePcbState.rows
       },
+      dataSet2Table: dataSet2State,
+      dataResistTable: buildDataResistTableState(dataSet2State),
       deletedPcbRowsCount: deletePcbState.deletedCount,
       deletePcbState,
       sourcePath: filePath,
@@ -1990,9 +2127,9 @@ async function importCsvFile(filePath) {
       commentColumn: 3,
       footprintColumn: 5,
       textNumberFormatColumns: [2, 3, 5, 6, 7],
-      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'Resist', 'Capacitor', 'Other', 'DataPredExit', 'DataExit'],
+      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'Resist', 'Capacitor', 'Other', 'DataPredExit', 'DataExit'],
       tableName: 'ImportedCSVTable',
-      activeSheet: 'ImportedCSVTable',
+      activeSheet: 'DataSet2',
       rowCount: parsed.rows.length,
       columnCount: parsed.headers.length,
       centerXColumnIndex: centerColumns.centerX,
@@ -2059,6 +2196,7 @@ module.exports = {
   buildModuleSource,
   buildDataSetTableState,
   buildDataSet2TableState,
+  buildDataResistTableState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,

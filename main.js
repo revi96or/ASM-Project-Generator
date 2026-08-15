@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.37
+ * Версия: 3.1.38
  * Автор: Новожилов Артем
  */
 
@@ -1041,7 +1041,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.35',
+    version: '3.1.36',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1185,6 +1185,7 @@ async function fillPnpSetColumn(payload) {
            infoD3: infoD3
          });
          const dataSet2State = pnpPipeline.buildDataSet2TableState(dataSetState);
+         const dataResistState = pnpPipeline.buildDataResistTableState(dataSet2State);
 
          return {
            ...importInfo,
@@ -1200,6 +1201,12 @@ async function fillPnpSetColumn(payload) {
              rows: dataSet2State.rows,
              worksheetRows: dataSet2State.worksheetRows
            },
+           dataResistTable: {
+             rawHeaders: Array.isArray(dataResistState.rawHeaders) ? dataResistState.rawHeaders.slice() : [],
+             rows: dataResistState.rows,
+             worksheetRows: dataResistState.worksheetRows
+           },
+           activeSheet: 'DataSet2',
            copyRowsState: dataSetState.copyRowsState,
            filterSetState: dataSetState.setColumnState,
            filteredSetState: dataSetState.filteredSetState,

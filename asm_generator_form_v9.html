@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.36
+Версия: 9.19.37
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -598,6 +598,11 @@
 
   .pnp-table td.pnp-fill-highlight{
     background:rgb(255, 255, 200) !important;
+    color:#111827 !important;
+  }
+
+  .pnp-table td.pnp-comment-highlight{
+    background:rgb(255, 193, 7) !important;
     color:#111827 !important;
   }
 
@@ -2837,7 +2842,7 @@ function renderPnpVisibleTable(){
   const importInfo = state.pnp.importInfo || (activeSection && activeSection.importInfo) || null;
   const sheetNames = importInfo && Array.isArray(importInfo.sheetNames) && importInfo.sheetNames.length
     ? importInfo.sheetNames
-    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "Resist", "Capacitor", "Other", "DataPredExit", "DataExit"];
+    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "Resist", "Capacitor", "Other", "DataPredExit", "DataExit"];
   const activeSheet = state.pnp.activeSheet || (importInfo && importInfo.activeSheet) || "Info";
 
   if (!placeholder) {
@@ -2864,10 +2869,10 @@ function renderPnpVisibleTable(){
   const infoD3 = String((importInfo && importInfo.infoD3) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD3) || "");
   const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
   const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
-  const dataSetSummary = visibleSheet === "DataSet" || visibleSheet === "DataSet2"
+  const dataSetSummary = visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist"
     ? getPnpDataSetSummaryCounts(importInfo || (activeSection && activeSection.importInfo ? activeSection.importInfo : null))
     : null;
-  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2") && dataSetSummary
+  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist") && dataSetSummary
     ? [
         `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`,
         `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)} · Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
@@ -2890,15 +2895,17 @@ function renderPnpVisibleTable(){
             `</table>` +
             `</div>`;
         })()
-      : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet" || visibleSheet === "DataSet2"
+      : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist"
         ? (() => {
-            // Для DataSet2 берем свою копию таблицы, а для DataSet — базовую очищенную копию.
-            const tableInfo = visibleSheet === "DataSet2" && importInfo && importInfo.dataSet2Table
+            // Для DataResist и DataSet2 берем собственные копии таблиц, а для DataSet — базовую очищенную копию.
+            const tableInfo = visibleSheet === "DataResist" && importInfo && importInfo.dataResistTable
+              ? importInfo.dataResistTable
+              : visibleSheet === "DataSet2" && importInfo && importInfo.dataSet2Table
               ? importInfo.dataSet2Table
               : (visibleSheet === "DataSet" && importInfo && importInfo.dataSetTable
                 ? importInfo.dataSetTable
                 : importInfo && importInfo.rawTable ? importInfo.rawTable : null);
-            const tableRows = (visibleSheet === "DataSet" || visibleSheet === "DataSet2") && tableInfo && Array.isArray(tableInfo.worksheetRows) && tableInfo.worksheetRows.length
+            const tableRows = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist") && tableInfo && Array.isArray(tableInfo.worksheetRows) && tableInfo.worksheetRows.length
               ? tableInfo.worksheetRows
               : tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
             const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];
