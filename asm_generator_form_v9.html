@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.31
+Версия: 9.19.32
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2868,7 +2868,10 @@ function renderPnpVisibleTable(){
     ? getPnpDataSetSummaryCounts(importInfo || (activeSection && activeSection.importInfo ? activeSection.importInfo : null))
     : null;
   const summaryLine = visibleSheet === "DataSet" && dataSetSummary
-    ? `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)} · Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
+    ? [
+        `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`,
+        `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)} · Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
+      ].join('<br>')
     : `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`;
 
   placeholder.innerHTML = [
