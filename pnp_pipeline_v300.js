@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.36
+ * Версия: 3.1.37
  * Автор: Новожилов Артем
  */
 
@@ -441,13 +441,15 @@ function applySetColumnFill(importInfo, setValue, fillValue = '1') {
    rawTable: nextRawTable,
    dataSetTable: {
      rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : Array.isArray(nextRawTable.rawHeaders) ? nextRawTable.rawHeaders.slice() : [],
-     rows: dataSetState.rows
+     rows: dataSetState.rows,
+     worksheetRows: dataSetState.worksheetRows
    },
    deletedPcbRowsCount: deletePcbState.deletedCount,
    deletePcbState,
    copyRowsState: dataSetState.copyRowsState,
    filterSetState: dataSetState.setColumnState,
    deleteNotFittedState: dataSetState.deleteNotFittedState,
+   rReplacementState: dataSetState.rReplacementState,
    setColumnState: {
      ...nextState,
      filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length,
@@ -893,6 +895,18 @@ function clonePnpRawRow(row) {
   return Array.isArray(row) ? row.slice() : [];
 }
 
+function clonePnpCellValue(cell) {
+  if (cell && typeof cell === 'object' && Object.prototype.hasOwnProperty.call(cell, 'value')) {
+    return cell.value;
+  }
+
+  return cell;
+}
+
+function normalizePnpRowKey(row) {
+  return JSON.stringify(Array.isArray(row) ? row.map(clonePnpCellValue) : []);
+}
+
 function findPnpRawHeaderIndex(rawHeaders, headerName) {
   const normalizedHeaderName = normalizeWorkbookHeaderText(headerName);
   return Array.isArray(rawHeaders)
@@ -1087,6 +1101,169 @@ function getDeleteNotFittedRowsState(rawTable, setColumnIndex) {
   };
 }
 
+function getRColumnIndex(header, baseName) {
+  const normalizedHeader = normalizeWorkbookHeaderText(header);
+  const normalizedBase = normalizeWorkbookHeaderText(baseName);
+
+  if (!normalizedHeader || normalizedHeader.indexOf(normalizedBase) !== 0) {
+    return 0;
+  }
+
+  const suffix = normalizedHeader.slice(normalizedBase.length).replace(/_/g, '');
+  if (suffix === '' || suffix === '0' || suffix === '00') {
+    return 0;
+  }
+  if (suffix === '01') {
+    return 1;
+  }
+
+  const numeric = Number(suffix);
+  return Number.isFinite(numeric) ? Math.trunc(numeric) : 0;
+}
+
+function getRMatchingIndex(arrIdx, setIdx) {
+  if (!Array.isArray(arrIdx) || !arrIdx.length) {
+    return 0;
+  }
+
+  for (let index = 0; index < arrIdx.length; index += 1) {
+    if (arrIdx[index] === setIdx) {
+      return index + 1;
+    }
+  }
+
+  return 0;
+}
+
+function selectRReplacementValue(row, arrCols, arrIdx, setIdx) {
+  const primaryIndex = getRMatchingIndex(arrIdx, setIdx);
+  if (primaryIndex > 0) {
+    return normalizeText(row[arrCols[primaryIndex - 1]]);
+  }
+
+  const fallbackIndex = getRMatchingIndex(arrIdx, 0);
+  if (fallbackIndex > 0) {
+    return normalizeText(row[arrCols[fallbackIndex - 1]]);
+  }
+
+  return '';
+}
+
+function getRReplacementState(rawTable, setColumnIndex, setIdx) {
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+  const commentIndex = findPnpRawHeaderIndex(rawHeaders, 'COMMENT');
+  const designatorIndex = findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR');
+  const tolIndex = findPnpRawHeaderIndex(rawHeaders, 'TOL');
+  const rCommentCols = [];
+  const rCommentIdx = [];
+  const rDesignatorCols = [];
+  const rDesignatorIdx = [];
+  const rTolCols = [];
+  const rTolIdx = [];
+
+  if (!Number.isInteger(setColumnIndex) || setColumnIndex < 0) {
+    return {
+      rows: rows.map(clonePnpRawRow),
+      replacedRows: 0,
+      commentReplacements: 0,
+      designatorReplacements: 0,
+      tolReplacements: 0,
+      setColumnIndex,
+      setIdx
+    };
+  }
+
+  rawHeaders.forEach((header, index) => {
+    const upperHeader = normalizeWorkbookHeaderText(header);
+    if (upperHeader.indexOf('R_COMMENT') === 0) {
+      rCommentCols.push(index);
+      rCommentIdx.push(getRColumnIndex(header, 'R_COMMENT'));
+    }
+    if (upperHeader.indexOf('R_DESIGNATOR') === 0) {
+      rDesignatorCols.push(index);
+      rDesignatorIdx.push(getRColumnIndex(header, 'R_DESIGNATOR'));
+    }
+    if (upperHeader.indexOf('R_TOL') === 0) {
+      rTolCols.push(index);
+      rTolIdx.push(getRColumnIndex(header, 'R_TOL'));
+    }
+  });
+
+  const nextRows = [];
+  let replacedRows = 0;
+  let commentReplacements = 0;
+  let designatorReplacements = 0;
+  let tolReplacements = 0;
+
+  rows.forEach((row) => {
+    const nextRow = clonePnpRawRow(row);
+    const rowSetValue = normalizeText(nextRow[setColumnIndex]).toUpperCase();
+
+    if (rowSetValue !== 'R') {
+      nextRows.push(nextRow);
+      return;
+    }
+
+    let rowChanged = false;
+
+    if (commentIndex >= 0 && rCommentCols.length) {
+      const nextComment = selectRReplacementValue(nextRow, rCommentCols, rCommentIdx, setIdx);
+      if (nextComment !== '') {
+        nextRow[commentIndex] = {
+          value: nextComment,
+          styleIndex: 8,
+          className: 'pnp-fill-highlight'
+        };
+        commentReplacements += 1;
+        rowChanged = true;
+      }
+    }
+
+    if (designatorIndex >= 0 && rDesignatorCols.length) {
+      const nextDesignator = selectRReplacementValue(nextRow, rDesignatorCols, rDesignatorIdx, setIdx);
+      if (nextDesignator !== '') {
+        nextRow[designatorIndex] = {
+          value: nextDesignator,
+          styleIndex: 8,
+          className: 'pnp-fill-highlight'
+        };
+        designatorReplacements += 1;
+        rowChanged = true;
+      }
+    }
+
+    if (tolIndex >= 0 && rTolCols.length) {
+      const nextTol = selectRReplacementValue(nextRow, rTolCols, rTolIdx, setIdx);
+      if (nextTol !== '') {
+        nextRow[tolIndex] = {
+          value: nextTol,
+          styleIndex: 8,
+          className: 'pnp-fill-highlight'
+        };
+        tolReplacements += 1;
+        rowChanged = true;
+      }
+    }
+
+    if (rowChanged) {
+      replacedRows += 1;
+    }
+
+    nextRows.push(nextRow);
+  });
+
+  return {
+    rows: nextRows,
+    replacedRows,
+    commentReplacements,
+    designatorReplacements,
+    tolReplacements,
+    setColumnIndex,
+    setIdx
+  };
+}
+
 function buildDataSetTableState(importInfo, options = {}) {
   const sourceTable = importInfo && importInfo.rawTable ? importInfo.rawTable : { rawHeaders: [], rows: [] };
   const rawHeaders = Array.isArray(sourceTable.rawHeaders) ? sourceTable.rawHeaders.slice() : [];
@@ -1118,44 +1295,46 @@ function buildDataSetTableState(importInfo, options = {}) {
         designatorIndex: findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR'),
         setColumnIndex: setColumnState.columnIndex
       };
-  const visibleRowKeys = new Set(deleteNotFittedState.rows.map((row) => JSON.stringify(row)));
-  const worksheetRows = copyRowsState.rows.map((row) => {
-    const rowData = clonePnpRawRow(row);
-    return {
-      values: rowData,
-      hidden: !visibleRowKeys.has(JSON.stringify(rowData))
-    };
-  }).sort((left, right) => {
-    if (left.hidden !== right.hidden) {
-      return left.hidden ? 1 : -1;
+  const setIdx = Number.isFinite(Number(infoD3)) ? Math.trunc(Number(infoD3)) : 0;
+  const rReplacementState = setColumnState.found
+    ? getRReplacementState({
+        rawHeaders: copiedTable.rawHeaders,
+        rows: deleteNotFittedState.rows
+      }, setColumnState.columnIndex, setIdx)
+    : {
+        rows: deleteNotFittedState.rows.map(clonePnpRawRow),
+        replacedRows: 0,
+        commentReplacements: 0,
+        designatorReplacements: 0,
+        tolReplacements: 0,
+        setColumnIndex: setColumnState.columnIndex,
+        setIdx
+      };
+  const finalRows = Array.isArray(rReplacementState.rows) ? rReplacementState.rows : deleteNotFittedState.rows;
+  const visibleRowKeys = new Set(finalRows.map((row) => normalizePnpRowKey(row)));
+  const worksheetRows = finalRows.map((row) => ({
+    values: clonePnpRawRow(row),
+    hidden: false
+  }));
+  copyRowsState.rows.forEach((row) => {
+    const rowKey = normalizePnpRowKey(row);
+    if (!visibleRowKeys.has(rowKey)) {
+      worksheetRows.push({
+        values: clonePnpRawRow(row),
+        hidden: true
+      });
     }
-
-    if (!setColumnState.found) {
-      return 0;
-    }
-
-    const leftSet = normalizeText(left.values[setColumnState.columnIndex]).toUpperCase();
-    const rightSet = normalizeText(right.values[setColumnState.columnIndex]).toUpperCase();
-    const priority = (value) => (value === '1' ? 0 : value === 'R' ? 1 : 2);
-    const priorityDelta = priority(leftSet) - priority(rightSet);
-
-    if (priorityDelta !== 0) {
-      return priorityDelta;
-    }
-
-    const leftDesignator = normalizeText(left.values[findPnpRawHeaderIndex(copiedTable.rawHeaders, 'DESIGNATOR')]).toUpperCase();
-    const rightDesignator = normalizeText(right.values[findPnpRawHeaderIndex(copiedTable.rawHeaders, 'DESIGNATOR')]).toUpperCase();
-    return leftDesignator.localeCompare(rightDesignator, 'ru');
   });
 
   return {
     rawHeaders,
-    rows: deleteNotFittedState.rows,
+    rows: finalRows,
     worksheetRows,
     copyRowsState,
     setColumnState,
     filteredSetState,
     deleteNotFittedState,
+    rReplacementState,
     baseState
   };
 }

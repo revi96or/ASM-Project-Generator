@@ -2905,7 +2905,20 @@ function renderPnpVisibleTable(){
             const previewRows = tableRows.map((row) => {
               const rowValues = row && typeof row === "object" && Array.isArray(row.values) ? row.values : row;
               const rowHidden = Boolean(row && typeof row === "object" && row.hidden);
-              return `<tr${rowHidden ? ' style="display:none;"' : ''}>` + rowValues.map((cell, cellIndex) => `<td${cellIndex === highlightColumnIndex ? ' class="pnp-fill-highlight"' : ''}>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`;
+              return `<tr${rowHidden ? ' style="display:none;"' : ''}>` + rowValues.map((cell, cellIndex) => {
+                const cellIsObject = cell && typeof cell === "object" && Object.prototype.hasOwnProperty.call(cell, "value");
+                const cellValue = cellIsObject ? cell.value : cell;
+                const classNames = [];
+                if (cellIsObject && cell.className) {
+                  classNames.push(cell.className);
+                }
+                if (cellIndex === highlightColumnIndex) {
+                  classNames.push("pnp-fill-highlight");
+                }
+                const style = cellIsObject && cell.style ? ` style="${escapePnpHtml(cell.style)}"` : "";
+                const classAttr = classNames.length ? ` class="${escapePnpHtml(classNames.join(' '))}"` : "";
+                return `<td${classAttr}${style}>${escapePnpHtml(cellValue)}</td>`;
+              }).join("") + `</tr>`;
             }).join("");
             return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
               `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +

@@ -1197,7 +1197,8 @@ async function fillPnpSetColumn(payload) {
            copyRowsState: dataSetState.copyRowsState,
            filterSetState: dataSetState.setColumnState,
            filteredSetState: dataSetState.filteredSetState,
-           deleteNotFittedState: dataSetState.deleteNotFittedState
+           deleteNotFittedState: dataSetState.deleteNotFittedState,
+           rReplacementState: dataSetState.rReplacementState
          };
        })(),
        setColumnState: pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3),
