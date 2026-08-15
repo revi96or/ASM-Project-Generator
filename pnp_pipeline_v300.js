@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.29
+ * Версия: 3.1.30
  * Автор: Новожилов Артем
  */
 
@@ -12,6 +12,14 @@ const DEFAULT_DICT_FILE = 'pnp_dict_v300.js';
 const DEFAULT_STATE_FILE = 'pnp_state_v300.js';
 const DEFAULT_EXPORT_STEM = 'pnp_export_v300';
 const DEFAULT_IMPORT_START_DIR = 'C:\\settings\\Pick Place\\Test\\';
+const INFO_LEGEND_ROWS = [
+  { row: 10, fillStyleIndex: 4, text: 'Данные, которые заменились из словаря.' },
+  { row: 11, fillStyleIndex: 5, text: 'Данные, которые совпали в словаре, но не по всем ячейкам. Требуется проверить, смотри еще красный цвет.' },
+  { row: 12, fillStyleIndex: 6, text: 'Данные, которые не совпадают с данными в словаре.' },
+  { row: 13, fillStyleIndex: 7, text: 'В столбце COMMENT есть русские буквы.' },
+  { row: 14, fillStyleIndex: 8, text: 'Были замены COMMENT на R_COMMENT, DESIGNATOR на R_DESIGNATOR или TOL на R_TOL если в SET попали R.' },
+  { row: 15, fillStyleIndex: 9, text: 'Значений в SET не было и по решению пользователя они заполнились 1.' }
+];
 
 function createEmptyDict(sourceMeta = {}) {
   return {
@@ -660,10 +668,14 @@ function buildInlineStringCellXml(ref, value) {
   return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
 }
 
-function buildCellXml(ref, value, kind, styleIndex = 1) {
+function buildCellXml(ref, value, kind, styleIndex = 1, options = {}) {
   const text = normalizeText(value);
 
   if (text === '') {
+    if (options && options.preserveEmpty) {
+      return `<c r="${ref}" s="${styleIndex}" t="inlineStr"><is><t xml:space="preserve"></t></is></c>`;
+    }
+
     return '';
   }
 
@@ -701,13 +713,25 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
   const rowXml = rows.map((rowValues, rowIndex) => {
     const cellXml = rowValues
       .map((value, cellIndex) => {
+        const cellData = value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')
+          ? value
+          : { value };
+
         if (rowIndex === 0) {
-          return buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, normalizeWorkbookHeaderText(value));
+          return buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, normalizeWorkbookHeaderText(cellData.value));
         }
 
-        const kind = columnKinds[cellIndex] || 'text';
-        const styleIndex = highlightColumnIndex >= 0 && cellIndex === highlightColumnIndex ? 3 : 1;
-        return buildCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, value, kind, styleIndex);
+        const kind = cellData.kind || columnKinds[cellIndex] || 'text';
+        const styleIndex = Number.isInteger(cellData.styleIndex)
+          ? cellData.styleIndex
+          : (highlightColumnIndex >= 0 && cellIndex === highlightColumnIndex ? 3 : 1);
+        return buildCellXml(
+          `${columnIndexToLetters(cellIndex)}${rowIndex + 1}`,
+          cellData.value,
+          kind,
+          styleIndex,
+          { preserveEmpty: Boolean(cellData.preserveEmpty) }
+        );
       })
       .filter((cell) => cell !== '')
       .join('');
@@ -738,15 +762,19 @@ function buildInfoSheetRows(importInfo, sourcePath) {
   const d3Value = String(importInfo && importInfo.infoD3 ? importInfo.infoD3 : '');
   const d5Value = String(importInfo && importInfo.infoD5 ? importInfo.infoD5 : '');
   const d6Value = String(importInfo && importInfo.infoD6 ? importInfo.infoD6 : sourcePath || '');
+  const rows = Array.from({ length: 15 }, () => ['', '', '', '']);
 
-  return [
-    [],
-    [],
-    ['', '', '', d3Value],
-    [],
-    ['', '', '', d5Value],
-    ['', '', '', d6Value]
-  ];
+  rows[2][3] = d3Value;
+  rows[4][3] = d5Value;
+  rows[5][3] = d6Value;
+
+  INFO_LEGEND_ROWS.forEach((entry) => {
+    const rowIndex = entry.row - 1;
+    rows[rowIndex][0] = { value: '', styleIndex: entry.fillStyleIndex, preserveEmpty: true };
+    rows[rowIndex][1] = entry.text;
+  });
+
+  return rows;
 }
 
 function buildSetFillColumnRows(rawTable, setColumnName) {
@@ -882,18 +910,30 @@ function buildStylesXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
-  <fills count="3">
+  <fills count="9">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFC8"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFC6EFCE"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFF1111"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFC000"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFC8"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="1"><border/></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="4">
+  <cellXfs count="10">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="6" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="7" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="8" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
@@ -1103,7 +1143,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.1.0 Preview</title>
+<title>Pick and Place 3.1.30 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -1114,7 +1154,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.1.0</h1>
+    <h1>Pick and Place 3.1.30</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">

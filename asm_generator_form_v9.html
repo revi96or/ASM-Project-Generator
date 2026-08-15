@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.23
+Версия: 9.19.24
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -599,6 +599,11 @@
   .pnp-table td.pnp-fill-highlight{
     background:rgb(255, 255, 200) !important;
     color:#111827 !important;
+  }
+
+  .pnp-info-swatch{
+    width:36px;
+    min-width:36px;
   }
 
   .pnp-mode-btn{
@@ -2668,6 +2673,51 @@ function escapePnpHtml(value){
     .replace(/'/g, "&#39;");
 }
 
+function buildPnpInfoSheetRows(infoD3, infoD5, infoD6){
+  const rows = Array.from({ length: 15 }, () => (["", "", "", ""]));
+  const legendRows = [
+    { row: 10, color: "rgb(255, 199, 206)", text: "Данные, которые заменились из словаря." },
+    { row: 11, color: "rgb(198, 239, 206)", text: "Данные, которые совпали в словаре, но не по всем ячейкам. Требуется проверить, смотри еще красный цвет." },
+    { row: 12, color: "rgb(255, 17, 17)", text: "Данные, которые не совпадают с данными в словаре." },
+    { row: 13, color: "rgb(255, 192, 0)", text: "В столбце COMMENT есть русские буквы." },
+    { row: 14, color: "rgb(255, 255, 0)", text: "Были замены COMMENT на R_COMMENT, DESIGNATOR на R_DESIGNATOR или TOL на R_TOL если в SET попали R." },
+    { row: 15, color: "rgb(255, 255, 200)", text: "Значений в SET не было и по решению пользователя они заполнились 1." }
+  ];
+
+  rows[2][3] = infoD3;
+  rows[4][3] = infoD5;
+  rows[5][3] = infoD6;
+
+  legendRows.forEach((entry) => {
+    const rowIndex = entry.row - 1;
+    rows[rowIndex][0] = {
+      value: "",
+      style: `background:${entry.color};width:36px;min-width:36px;`,
+      preserveEmpty: true
+    };
+    rows[rowIndex][1] = {
+      value: entry.text,
+      style: "white-space:normal;"
+    };
+  });
+
+  return rows;
+}
+
+function renderPnpCellHtml(cell){
+  if (cell && typeof cell === "object" && Object.prototype.hasOwnProperty.call(cell, "value")) {
+    const style = String(cell.style || "");
+    const className = String(cell.className || "");
+    const attributes = [];
+    if (className) attributes.push(` class="${escapePnpHtml(className)}"`);
+    if (style) attributes.push(` style="${escapePnpHtml(style)}"`);
+    const content = cell.preserveEmpty ? "&nbsp;" : escapePnpHtml(cell.value);
+    return `<td${attributes.join("")}>${content}</td>`;
+  }
+
+  return `<td>${escapePnpHtml(cell)}</td>`;
+}
+
 function normalizePnpRows(dictLike){
   const rows = Array.isArray(dictLike && dictLike.rows) ? dictLike.rows : [];
 
@@ -2797,20 +2847,17 @@ function renderPnpVisibleTable(){
     `<div class="mb-1" style="color:var(--muted)">Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}</div>`,
     `<div class="section-card p-0" style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">`,
     visibleSheet === "Info"
-      ? `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
-        `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
-        `<thead><tr><th style="width:48px;"></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead>` +
-        `<tbody>` +
-        [1, 2, 3, 4, 5, 6].map((rowNumber) => {
-          const cells = ["", "", "", ""];
-          if (rowNumber === 3) cells[3] = infoD3;
-          if (rowNumber === 5) cells[3] = infoD5;
-          if (rowNumber === 6) cells[3] = infoD6;
-          return `<tr><th>${rowNumber}</th>${cells.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("")}</tr>`;
-        }).join("") +
-        `</tbody>` +
-        `</table>` +
-        `</div>`
+      ? (() => {
+          const infoRows = buildPnpInfoSheetRows(infoD3, infoD5, infoD6);
+          return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
+            `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
+            `<thead><tr><th style="width:48px;"></th><th style="width:52px;">A</th><th>B</th><th>C</th><th>D</th></tr></thead>` +
+            `<tbody>` +
+            infoRows.map((cells, rowIndex) => `<tr><th>${rowIndex + 1}</th>${cells.map((cell) => renderPnpCellHtml(cell)).join("")}</tr>`).join("") +
+            `</tbody>` +
+            `</table>` +
+            `</div>`;
+        })()
       : visibleSheet === "ImportedCSVTable"
         ? (() => {
             const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
