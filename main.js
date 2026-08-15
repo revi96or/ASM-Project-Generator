@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.33
+ * Версия: 3.1.35
  * Автор: Новожилов Артем
  */
 
@@ -1036,13 +1036,16 @@ function buildPnpState(dict, overrides = {}) {
   const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictPath());
   const statePath = getPnpStatePathValue(overrides, 'statePath');
   const infoD3 = getPnpStatePathValue(overrides, 'infoD3');
+  const importInfo = overrides && overrides.importInfo ? overrides.importInfo : null;
+  const activeSheet = String(overrides && overrides.activeSheet ? overrides.activeSheet : 'Info');
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.28',
+    version: '3.1.35',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
+    activeSheet,
     infoD3,
     localPath,
     importCsvPath,
@@ -1050,6 +1053,7 @@ function buildPnpState(dict, overrides = {}) {
     exportFolder,
     dictPath,
     statePath,
+    importInfo,
     paths: {
       localPath,
       importCsvPath,
@@ -1172,11 +1176,29 @@ async function fillPnpSetColumn(payload) {
   const nextState = applyFill
    ? pnpPipeline.applySetColumnFill(importInfo, infoD3, '1')
    : {
-       importInfo: {
-         ...importInfo,
-         infoD3: infoD3,
-         setColumnState: pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3)
-       },
+       importInfo: (() => {
+         const setColumnState = pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3);
+         const dataSetState = pnpPipeline.buildDataSetTableState({
+           ...importInfo,
+           infoD3: infoD3
+         }, {
+           infoD3: infoD3
+         });
+
+         return {
+           ...importInfo,
+           infoD3: infoD3,
+           setColumnState: setColumnState,
+           dataSetTable: {
+             rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : [],
+             rows: dataSetState.rows
+           },
+           copyRowsState: dataSetState.copyRowsState,
+           filterSetState: dataSetState.setColumnState,
+           filteredSetState: dataSetState.filteredSetState,
+           deleteNotFittedState: dataSetState.deleteNotFittedState
+         };
+       })(),
        setColumnState: pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3),
        filledRowCount: 0
      };
@@ -1223,13 +1245,15 @@ async function savePnpState(payload) {
   assertOperationNotCancelled();
   const nextState = buildPnpState(dict, {
     mode: state.mode || 'dict',
+    activeSheet: state.activeSheet || (state.pnp && state.pnp.activeSheet ? state.pnp.activeSheet : 'Info'),
     infoD3: state.infoD3 || (state.importInfo && state.importInfo.infoD3 ? state.importInfo.infoD3 : ''),
     localPath: state.localPath || '',
     importCsvPath: state.importCsvPath || '',
     exportXlsxFolder: state.exportXlsxFolder || '',
     exportFolder: state.exportFolder || getPnpDefaultExportFolder(),
     dictPath: state.dictPath || getPnpRootDictPath(),
-    statePath: filePath
+    statePath: filePath,
+    importInfo: state.importInfo || (state.pnp && state.pnp.importInfo ? state.pnp.importInfo : null)
   });
 
   await pnpPipeline.saveStateFile(filePath, nextState);
@@ -1259,13 +1283,15 @@ async function loadPnpState(payload) {
     assertOperationNotCancelled();
     const nextState = buildPnpState(loadedDict, {
       mode: loadedState.mode || 'dict',
+      activeSheet: loadedState.activeSheet || (loadedState.pnp && loadedState.pnp.activeSheet ? loadedState.pnp.activeSheet : 'Info'),
       infoD3: loadedState.infoD3 || (loadedState.importInfo && loadedState.importInfo.infoD3 ? loadedState.importInfo.infoD3 : ''),
       localPath: loadedState.localPath || '',
       importCsvPath: loadedState.importCsvPath || '',
       exportXlsxFolder: loadedState.exportXlsxFolder || '',
       exportFolder: loadedState.exportFolder || getPnpDefaultExportFolder(),
       dictPath: loadedState.dictPath || getPnpRootDictPath(),
-      statePath: loadedState.statePath || filePath
+      statePath: loadedState.statePath || filePath,
+      importInfo: loadedState.importInfo || (loadedState.pnp && loadedState.pnp.importInfo ? loadedState.pnp.importInfo : null)
     });
 
     return {

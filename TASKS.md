@@ -114,4 +114,40 @@
 - [x] При ошибке показывает сообщение с номером и описанием ошибки и тоже восстанавливает настройки Excel.
 
 Закрыли перенос седьмого макроса 15.08.2026 15:54
-Коммит: не создавался
+Коммит создан: `0252230` — **Implement DeletePCBRows in P&P**.
+
+8. [x] Работаем над перенесением логики макроса `CopyRowsWithREFtoDataSet9` и функций `FilterSetColumnByD3_2` и связанный макрос `DeleteNotFittedRows`.
+
+- [x] `CopyRowsWithREFtoDataSet9`: берет `Лист1` как источник и `DataSet` как приемник.
+- [x] `CopyRowsWithREFtoDataSet9`: проверяет наличие умной таблицы на `DataSet`.
+- [x] `CopyRowsWithREFtoDataSet9`: ищет столбец `DESIGNATOR` на `Лист1`.
+- [x] `CopyRowsWithREFtoDataSet9`: собирает все строки с `REF*` из `Лист1` в список исходных REF.
+- [x] `CopyRowsWithREFtoDataSet9`: завершает работу, если на `Лист1` вообще нет `REF`.
+- [x] `CopyRowsWithREFtoDataSet9`: ищет столбец `DESIGNATOR` на `DataSet`.
+- [x] `CopyRowsWithREFtoDataSet9`: ищет столбец `VARIATION` на `DataSet`.
+- [x] `CopyRowsWithREFtoDataSet9`: находит все столбцы `SET*` на `DataSet`.
+- [x] `CopyRowsWithREFtoDataSet9`: проходит существующие строки `DataSet`, запоминает уже имеющиеся `REF` и ставит им `1` во все `SET*`.
+- [x] `CopyRowsWithREFtoDataSet9`: для уже найденных `REF` также ставит `VARIATION = Fitted`.
+- [x] `CopyRowsWithREFtoDataSet9`: определяет какие `REF` с `Лист1` еще отсутствуют в `DataSet`.
+- [x] `CopyRowsWithREFtoDataSet9`: если новых `REF` нет, завершает шаг без добавления строк.
+- [x] `CopyRowsWithREFtoDataSet9`: добавляет новые `REF` в `DataSet` через таблицу или дописывание строки.
+- [x] `CopyRowsWithREFtoDataSet9`: для новых строк ставит `1` во все `SET*`.
+- [x] `CopyRowsWithREFtoDataSet9`: для новых строк ставит `VARIATION = Fitted`.
+- [x] `CopyRowsWithREFtoDataSet9`: обновляет счетчик добавленных `REF` и статистику `SET`.
+- [x] `FilterSetColumnByD3_2`: берет значение `Info!D3` и строит имя столбца `SET00`…`SET10`.
+- [x] `FilterSetColumnByD3_2`: ищет этот столбец в первой строке листа `DataSet2/Лист3`.
+- [x] `FilterSetColumnByD3_2`: если столбец не найден, возвращает `0`.
+- [x] `FilterSetColumnByD3_2`: определяет последнюю заполненную строку по найденному столбцу `SET`.
+- [x] `FilterSetColumnByD3_2`: снимает старые фильтры.
+- [x] `FilterSetColumnByD3_2`: включает автофильтр и оставляет только значения `1` и `R` в нужном `SET`.
+- [x] `FilterSetColumnByD3_2`: возвращает номер найденного столбца `SET`.
+- [x] `DeleteNotFittedRows`: принимает номер столбца `SET` и сразу выходит, если он равен `0`.
+- [x] `DeleteNotFittedRows`: берет лист `DataSet2/Лист3` как рабочий.
+- [x] `DeleteNotFittedRows`: находит столбцы `VARIATION` и `DESIGNATOR`.
+- [x] `DeleteNotFittedRows`: инициализирует коллекцию удаленных компонентов для статистики.
+- [x] `DeleteNotFittedRows`: отключает обновление экрана на время удаления.
+- [x] `DeleteNotFittedRows`: идет снизу вверх только по видимым строкам.
+- [x] `DeleteNotFittedRows`: удаляет строки, где `SET=1` и `VARIATION=Not Fitted`.
+- [x] `DeleteNotFittedRows`: сохраняет `DESIGNATOR` удаленных строк в коллекцию.
+- [x] `DeleteNotFittedRows`: увеличивает глобальный счетчик удаленных строк.
+- [x] `DeleteNotFittedRows`: включает обновление экрана обратно и завершает работу.

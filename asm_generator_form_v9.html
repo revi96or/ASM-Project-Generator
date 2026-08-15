@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.27
+Версия: 9.19.31
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2806,6 +2806,29 @@ function getPnpSetHighlightColumnIndex(importInfo){
   return setState.columnIndex;
 }
 
+function getPnpDataSetSummaryCounts(importInfo){
+  const rawTable = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+  const dataSetTable = importInfo && importInfo.dataSetTable ? importInfo.dataSetTable : null;
+  const copyRowsState = importInfo && importInfo.copyRowsState ? importInfo.copyRowsState : null;
+  const deleteNotFittedState = importInfo && importInfo.deleteNotFittedState ? importInfo.deleteNotFittedState : null;
+  const rawRows = rawTable && Array.isArray(rawTable.rows) ? rawTable.rows : [];
+  const refCount = copyRowsState && Number.isFinite(Number(copyRowsState.sourceRefCount))
+    ? Number(copyRowsState.sourceRefCount)
+    : rawRows.reduce((count, row) => {
+        const designator = String(row && row[0] !== undefined && row[0] !== null ? row[0] : '').trim().toUpperCase();
+        return count + (designator.indexOf('REF') === 0 ? 1 : 0);
+      }, 0);
+  // Это один счётчик: сколько строк удалили по условию Not Fitted + SET=1.
+  const deletedNotFittedCount = deleteNotFittedState && Number.isFinite(Number(deleteNotFittedState.deletedCount))
+    ? Number(deleteNotFittedState.deletedCount)
+    : 0;
+
+  return {
+    refCount,
+    deletedNotFittedCount
+  };
+}
+
 function renderPnpVisibleTable(){
   const placeholder = $("pnpTablePlaceholder");
   const activeSection = getPnpActiveSection();
@@ -2841,10 +2864,16 @@ function renderPnpVisibleTable(){
   const infoD3 = String((importInfo && importInfo.infoD3) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD3) || "");
   const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
   const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
+  const dataSetSummary = visibleSheet === "DataSet"
+    ? getPnpDataSetSummaryCounts(importInfo || (activeSection && activeSection.importInfo ? activeSection.importInfo : null))
+    : null;
+  const summaryLine = visibleSheet === "DataSet" && dataSetSummary
+    ? `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)} · Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
+    : `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`;
 
   placeholder.innerHTML = [
     `<div class="p-4 pnp-workbook-shell" style="min-height:0;gap:12px;">`,
-    `<div class="mb-1" style="color:var(--muted)">Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}</div>`,
+    `<div class="mb-1" style="color:var(--muted)">${summaryLine}</div>`,
     `<div class="section-card p-0" style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">`,
     visibleSheet === "Info"
       ? (() => {

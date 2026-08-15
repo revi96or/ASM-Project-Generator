@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.33
+ * Версия: 3.1.35
  * Автор: Новожилов Артем
  */
 
@@ -422,21 +422,37 @@ function applySetColumnFill(importInfo, setValue, fillValue = '1') {
     rows: nextRows
   };
   const deletePcbState = getDeletePcbRowsState(nextRawTable);
+  const dataSetState = buildDataSetTableState(
+   {
+     ...sourceImportInfo,
+     rawTable: nextRawTable,
+     dataSetTable: sourceImportInfo.dataSetTable || {
+       rawHeaders: Array.isArray(nextRawTable.rawHeaders) ? nextRawTable.rawHeaders.slice() : [],
+       rows: deletePcbState.rows
+     }
+   },
+   {
+     infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, '')
+   }
+  );
   const nextImportInfo = {
-    ...sourceImportInfo,
-    infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, ''),
-    rawTable: nextRawTable,
-    dataSetTable: {
-      ...nextRawTable,
-      rows: deletePcbState.rows
-    },
-    deletedPcbRowsCount: deletePcbState.deletedCount,
-    deletePcbState,
-    setColumnState: {
-      ...nextState,
-      filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length,
-      fillApplied: true
-    }
+   ...sourceImportInfo,
+   infoD3: normalizeSetColumnValue(setValue).replace(/^SET/, ''),
+   rawTable: nextRawTable,
+   dataSetTable: {
+     rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders.slice() : Array.isArray(nextRawTable.rawHeaders) ? nextRawTable.rawHeaders.slice() : [],
+     rows: dataSetState.rows
+   },
+   deletedPcbRowsCount: deletePcbState.deletedCount,
+   deletePcbState,
+   copyRowsState: dataSetState.copyRowsState,
+   filterSetState: dataSetState.setColumnState,
+   deleteNotFittedState: dataSetState.deleteNotFittedState,
+   setColumnState: {
+     ...nextState,
+     filledRowCount: nextRows.filter((row) => String(row[0] || '').trim() !== '').length,
+     fillApplied: true
+   }
   };
 
   return {
@@ -718,8 +734,12 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
   const highlightColumnIndex = Number.isInteger(options.highlightColumnIndex) ? options.highlightColumnIndex : -1;
   const hasTable = Boolean(tableRange);
   const rowXml = rows.map((rowValues, rowIndex) => {
+    const rowModel = rowValues && typeof rowValues === 'object' && Array.isArray(rowValues.values)
+      ? rowValues
+      : { values: rowValues, hidden: false };
+    const values = Array.isArray(rowModel.values) ? rowModel.values : [];
     const cellXml = rowValues
-      .map((value, cellIndex) => {
+      ? values.map((value, cellIndex) => {
         const cellData = value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')
           ? value
           : { value };
@@ -741,9 +761,10 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
         );
       })
       .filter((cell) => cell !== '')
-      .join('');
+      .join('')
+      : '';
 
-    return `<row r="${rowIndex + 1}">${cellXml}</row>`;
+    return `<row r="${rowIndex + 1}"${rowModel.hidden ? ' hidden="1"' : ''}>${cellXml}</row>`;
   }).join('');
 
   const maxColumns = rows.reduce((max, rowValues) => Math.max(max, rowValues.length), 0);
@@ -868,6 +889,277 @@ function getDeletePcbRowsState(rawTable) {
   };
 }
 
+function clonePnpRawRow(row) {
+  return Array.isArray(row) ? row.slice() : [];
+}
+
+function findPnpRawHeaderIndex(rawHeaders, headerName) {
+  const normalizedHeaderName = normalizeWorkbookHeaderText(headerName);
+  return Array.isArray(rawHeaders)
+    ? rawHeaders.findIndex((header) => normalizeWorkbookHeaderText(header) === normalizedHeaderName)
+    : -1;
+}
+
+function collectPnpSetColumnIndices(rawHeaders) {
+  return Array.isArray(rawHeaders)
+    ? rawHeaders.reduce((indices, header, index) => {
+        if (normalizeWorkbookHeaderText(header).indexOf('SET') >= 0) {
+          indices.push(index);
+        }
+        return indices;
+      }, [])
+    : [];
+}
+
+function isPnpRefDesignator(value) {
+  return normalizeText(value).toUpperCase().startsWith('REF');
+}
+
+function getCopyRowsWithRefState(sourceTable, destTable) {
+  const sourceHeaders = Array.isArray(sourceTable && sourceTable.rawHeaders) ? sourceTable.rawHeaders : [];
+  const sourceRows = Array.isArray(sourceTable && sourceTable.rows) ? sourceTable.rows : [];
+  const destHeaders = Array.isArray(destTable && destTable.rawHeaders) ? destTable.rawHeaders : sourceHeaders;
+  const destRows = Array.isArray(destTable && destTable.rows) ? destTable.rows.map(clonePnpRawRow) : [];
+  const sourceDesignatorIndex = findPnpRawHeaderIndex(sourceHeaders, 'DESIGNATOR');
+  const destDesignatorIndex = findPnpRawHeaderIndex(destHeaders, 'DESIGNATOR');
+  const destVariationIndex = findPnpRawHeaderIndex(destHeaders, 'VARIATION');
+  const destSetColumnIndices = collectPnpSetColumnIndices(destHeaders);
+
+  if (sourceDesignatorIndex < 0) {
+    throw new Error('Столбец DESIGNATOR не найден на Лист1 на этапе копирования REF');
+  }
+
+  if (destDesignatorIndex < 0) {
+    throw new Error('Столбец DESIGNATOR не найден на DataSet');
+  }
+
+  if (destVariationIndex < 0) {
+    throw new Error('Столбец VARIATION не найден на DataSet');
+  }
+
+  if (!destSetColumnIndices.length) {
+    throw new Error('Столбцы SET не найдены на DataSet');
+  }
+
+  const sourceRefMap = new Map();
+  const destRefSet = new Set();
+
+  sourceRows.forEach((row, rowIndex) => {
+    const rowData = Array.isArray(row) ? row : [];
+    const designator = normalizeText(rowData[sourceDesignatorIndex]).toUpperCase();
+    if (isPnpRefDesignator(designator) && !sourceRefMap.has(designator)) {
+      sourceRefMap.set(designator, {
+        rowIndex,
+        row: clonePnpRawRow(rowData)
+      });
+    }
+  });
+
+  let existingRefCount = 0;
+  let addedCount = 0;
+
+  destRows.forEach((row) => {
+    const rowDesignator = normalizeText(row[destDesignatorIndex]).toUpperCase();
+    if (!isPnpRefDesignator(rowDesignator)) {
+      return;
+    }
+
+    existingRefCount += 1;
+    destRefSet.add(rowDesignator);
+
+    destSetColumnIndices.forEach((setIndex) => {
+      row[setIndex] = '1';
+    });
+    row[destVariationIndex] = 'Fitted';
+  });
+
+  sourceRefMap.forEach((entry, designator) => {
+    if (destRefSet.has(designator)) {
+      return;
+    }
+
+    const nextRow = clonePnpRawRow(entry.row);
+    destSetColumnIndices.forEach((setIndex) => {
+      nextRow[setIndex] = '1';
+    });
+    nextRow[destVariationIndex] = 'Fitted';
+    destRows.push(nextRow);
+    addedCount += 1;
+  });
+
+  return {
+    rows: destRows,
+    addedCount,
+    existingRefCount,
+    sourceRefCount: sourceRefMap.size,
+    setColumnIndices: destSetColumnIndices,
+    variationIndex: destVariationIndex,
+    designatorIndex: destDesignatorIndex
+  };
+}
+
+function getFilteredSetRowsState(rawTable, setColumnIndex) {
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+
+  if (!Number.isInteger(setColumnIndex) || setColumnIndex < 0) {
+    return {
+      rows: rows.map(clonePnpRawRow),
+      filteredCount: 0,
+      setColumnIndex
+    };
+  }
+
+  // В VBA здесь устанавливается автофильтр, а в UI мы показываем только видимые строки.
+  const filteredRows = rows
+    .map((row, index) => ({
+      row: clonePnpRawRow(row),
+      index,
+      setValue: normalizeText(row[setColumnIndex]).toUpperCase()
+    }))
+    .filter((entry) => entry.setValue === '1' || entry.setValue === 'R')
+    .sort((left, right) => {
+      const priority = (value) => (value === '1' ? 0 : 1);
+      const leftPriority = priority(left.setValue);
+      const rightPriority = priority(right.setValue);
+
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+
+      const leftDesignator = normalizeText(left.row[findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR')]).toUpperCase();
+      const rightDesignator = normalizeText(right.row[findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR')]).toUpperCase();
+      return leftDesignator.localeCompare(rightDesignator, 'ru');
+    })
+    .map((entry) => entry.row);
+
+  return {
+    rows: filteredRows,
+    filteredCount: filteredRows.length,
+    setColumnIndex
+  };
+}
+
+function getDeleteNotFittedRowsState(rawTable, setColumnIndex) {
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+  const variationIndex = findPnpRawHeaderIndex(rawHeaders, 'VARIATION');
+  const designatorIndex = findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR');
+
+  if (!Number.isInteger(setColumnIndex) || setColumnIndex < 0) {
+    throw new Error('Ошибка: столбец SET не определен.  Удаление строк невозможно.');
+  }
+
+  if (variationIndex < 0) {
+    throw new Error('Столбец VARIATION не найден на Лист3. Удаление строк невозможно.');
+  }
+
+  if (designatorIndex < 0) {
+    throw new Error('Столбец DESIGNATOR не найден на Лист3. Удаление строк невозможно.');
+  }
+
+  const nextRows = [];
+  const deletedDesignators = [];
+
+  rows.forEach((row) => {
+    const rowData = clonePnpRawRow(row);
+    const setValue = normalizeText(rowData[setColumnIndex]);
+    const variationValue = normalizeText(rowData[variationIndex]).toUpperCase();
+
+    if (setValue === '1' && variationValue === 'NOT FITTED') {
+      const designatorValue = normalizeText(rowData[designatorIndex]);
+      if (designatorValue) {
+        deletedDesignators.push(designatorValue);
+      }
+      return;
+    }
+
+    nextRows.push(rowData);
+  });
+
+  return {
+    rows: nextRows,
+    deletedCount: deletedDesignators.length,
+    deletedDesignators,
+    variationIndex,
+    designatorIndex,
+    setColumnIndex
+  };
+}
+
+function buildDataSetTableState(importInfo, options = {}) {
+  const sourceTable = importInfo && importInfo.rawTable ? importInfo.rawTable : { rawHeaders: [], rows: [] };
+  const rawHeaders = Array.isArray(sourceTable.rawHeaders) ? sourceTable.rawHeaders.slice() : [];
+  const baseState = getDeletePcbRowsState(sourceTable);
+  const copyRowsState = getCopyRowsWithRefState(sourceTable, baseState);
+  const copiedTable = {
+    rawHeaders: Array.isArray(baseState.rawHeaders) ? baseState.rawHeaders.slice() : rawHeaders,
+    rows: copyRowsState.rows
+  };
+  const infoD3 = String(options.infoD3 || (importInfo && importInfo.infoD3 ? importInfo.infoD3 : ''));
+  const setColumnState = getSetColumnState(copiedTable, infoD3);
+  const filteredSetState = setColumnState.found
+    ? getFilteredSetRowsState(copiedTable, setColumnState.columnIndex)
+    : {
+        rows: copiedTable.rows.map(clonePnpRawRow),
+        filteredCount: copiedTable.rows.length,
+        setColumnIndex: setColumnState.columnIndex
+      };
+  const deleteNotFittedState = setColumnState.found
+    ? getDeleteNotFittedRowsState({
+        rawHeaders: copiedTable.rawHeaders,
+        rows: filteredSetState.rows
+      }, setColumnState.columnIndex)
+    : {
+        rows: copiedTable.rows.map(clonePnpRawRow),
+        deletedCount: 0,
+        deletedDesignators: [],
+        variationIndex: findPnpRawHeaderIndex(rawHeaders, 'VARIATION'),
+        designatorIndex: findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR'),
+        setColumnIndex: setColumnState.columnIndex
+      };
+  const visibleRowKeys = new Set(deleteNotFittedState.rows.map((row) => JSON.stringify(row)));
+  const worksheetRows = copyRowsState.rows.map((row) => {
+    const rowData = clonePnpRawRow(row);
+    return {
+      values: rowData,
+      hidden: !visibleRowKeys.has(JSON.stringify(rowData))
+    };
+  }).sort((left, right) => {
+    if (left.hidden !== right.hidden) {
+      return left.hidden ? 1 : -1;
+    }
+
+    if (!setColumnState.found) {
+      return 0;
+    }
+
+    const leftSet = normalizeText(left.values[setColumnState.columnIndex]).toUpperCase();
+    const rightSet = normalizeText(right.values[setColumnState.columnIndex]).toUpperCase();
+    const priority = (value) => (value === '1' ? 0 : value === 'R' ? 1 : 2);
+    const priorityDelta = priority(leftSet) - priority(rightSet);
+
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    const leftDesignator = normalizeText(left.values[findPnpRawHeaderIndex(copiedTable.rawHeaders, 'DESIGNATOR')]).toUpperCase();
+    const rightDesignator = normalizeText(right.values[findPnpRawHeaderIndex(copiedTable.rawHeaders, 'DESIGNATOR')]).toUpperCase();
+    return leftDesignator.localeCompare(rightDesignator, 'ru');
+  });
+
+  return {
+    rawHeaders,
+    rows: deleteNotFittedState.rows,
+    worksheetRows,
+    copyRowsState,
+    setColumnState,
+    filteredSetState,
+    deleteNotFittedState,
+    baseState
+  };
+}
+
 function buildTableColumnsXml(headers) {
   return headers.map((header, index) => (
     `<tableColumn id="${index + 1}" name="${escapeXml(String(header || `Column${index + 1}`))}"/>`
@@ -907,12 +1199,30 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     workbookHeaders
   ].concat(dataRows.map((row) => row.map((value) => String(value))));
   const infoSheetRows = buildInfoSheetRows(importInfo || {}, sourcePath);
-  const deletePcbState = importInfo && importInfo.dataSetTable
-    ? importInfo.deletePcbState || getDeletePcbRowsState(importInfo.dataSetTable)
-    : getDeletePcbRowsState(tableInfo || {});
+  const dataSetState = tableInfo
+    ? buildDataSetTableState({
+        ...importInfo,
+        rawTable: tableInfo
+      }, {
+        infoD3: importInfo && importInfo.infoD3 ? importInfo.infoD3 : ''
+      })
+    : null;
+  const dataSetTable = dataSetState
+    ? {
+        rawHeaders: Array.isArray(dataSetState.rawHeaders) ? dataSetState.rawHeaders : dataHeaders,
+        rows: Array.isArray(dataSetState.rows) ? dataSetState.rows : [],
+        worksheetRows: Array.isArray(dataSetState.worksheetRows) ? dataSetState.worksheetRows : []
+      }
+    : {
+        rawHeaders: dataHeaders,
+        rows: [],
+        worksheetRows: []
+      };
   const dataSetSheetRows = [
     workbookHeaders
-  ].concat(deletePcbState.rows.map((row) => row.map((value) => String(value))));
+  ].concat((Array.isArray(dataSetTable.worksheetRows) && dataSetTable.worksheetRows.length
+    ? dataSetTable.worksheetRows.map((row) => row)
+    : (Array.isArray(dataSetTable.rows) ? dataSetTable.rows : []).map((row) => row.map((value) => String(value)))));
   const sheetNames = ['Лист1', 'Info', 'DataSet'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
@@ -1277,7 +1587,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.1.0',
+    ' * Версия: 3.1.34',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -1466,6 +1776,7 @@ module.exports = {
   buildCsv,
   buildPreviewHtml,
   buildModuleSource,
+  buildDataSetTableState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,
