@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.34
+Версия: 9.19.35
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2864,10 +2864,10 @@ function renderPnpVisibleTable(){
   const infoD3 = String((importInfo && importInfo.infoD3) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD3) || "");
   const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
   const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
-  const dataSetSummary = visibleSheet === "DataSet"
+  const dataSetSummary = visibleSheet === "DataSet" || visibleSheet === "DataSet2"
     ? getPnpDataSetSummaryCounts(importInfo || (activeSection && activeSection.importInfo ? activeSection.importInfo : null))
     : null;
-  const summaryLine = visibleSheet === "DataSet" && dataSetSummary
+  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2") && dataSetSummary
     ? [
         `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`,
         `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)} · Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
@@ -2890,13 +2890,13 @@ function renderPnpVisibleTable(){
             `</table>` +
             `</div>`;
         })()
-      : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet"
+      : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet" || visibleSheet === "DataSet2"
         ? (() => {
-            // Для DataSet берем уже очищенную копию таблицы, а для исходной вкладки — rawTable.
-            const tableInfo = visibleSheet === "DataSet" && importInfo && importInfo.dataSetTable
+            // Для DataSet и DataSet2 берем уже очищенную копию таблицы, а для исходной вкладки — rawTable.
+            const tableInfo = (visibleSheet === "DataSet" || visibleSheet === "DataSet2") && importInfo && importInfo.dataSetTable
               ? importInfo.dataSetTable
               : importInfo && importInfo.rawTable ? importInfo.rawTable : null;
-            const tableRows = visibleSheet === "DataSet" && tableInfo && Array.isArray(tableInfo.worksheetRows) && tableInfo.worksheetRows.length
+            const tableRows = (visibleSheet === "DataSet" || visibleSheet === "DataSet2") && tableInfo && Array.isArray(tableInfo.worksheetRows) && tableInfo.worksheetRows.length
               ? tableInfo.worksheetRows
               : tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
             const rawHeaders = tableInfo && Array.isArray(tableInfo.rawHeaders) ? tableInfo.rawHeaders : ["Variation", "Designator", "Comment", "Layer", "Footprint", "Center-X(mm)", "Center-Y(mm)", "Rotation", "PREF", "PROCESS_NSFT", "TOL", "SET0"];

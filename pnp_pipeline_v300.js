@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.37
+ * Версия: 3.1.38
  * Автор: Новожилов Артем
  */
 
@@ -1402,7 +1402,8 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   ].concat((Array.isArray(dataSetTable.worksheetRows) && dataSetTable.worksheetRows.length
     ? dataSetTable.worksheetRows.map((row) => row)
     : (Array.isArray(dataSetTable.rows) ? dataSetTable.rows : []).map((row) => row.map((value) => String(value)))));
-  const sheetNames = ['Лист1', 'Info', 'DataSet'];
+  // DataSet2 — это копия DataSet после шага CopySheetDataSetToDataSet2.
+  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
@@ -1410,9 +1411,19 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
     ? setState.columnIndex
     : -1;
+  const copiedDataSetSheetRows = dataSetSheetRows.map((row) => (
+    Array.isArray(row)
+      ? row.map((cell) => {
+          if (cell && typeof cell === 'object') {
+            return { ...cell };
+          }
+          return cell;
+        })
+      : row
+  ));
 
   return buildZipArchive([
-    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 2) },
+    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 3) },
     { path: '_rels/.rels', content: buildRelsXml() },
     { path: 'docProps/core.xml', content: buildCorePropsXml(importInfo, sourcePath) },
     { path: 'docProps/app.xml', content: buildAppPropsXml(sheetNames) },
@@ -1425,7 +1436,10 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) },
     { path: 'xl/worksheets/sheet3.xml', content: buildWorksheetXml(dataSetSheetRows, columnKinds, { tableRange: dataSetTableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet3.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table2.xml') },
-    { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', dataSetTableRange, dataHeaders, 2) }
+    { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', dataSetTableRange, dataHeaders, 2) },
+    { path: 'xl/worksheets/sheet4.xml', content: buildWorksheetXml(copiedDataSetSheetRows, columnKinds, { tableRange: dataSetTableRange, columnWidths, highlightColumnIndex }) },
+    { path: 'xl/worksheets/_rels/sheet4.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table3.xml') },
+    { path: 'xl/tables/table3.xml', content: buildTableXml('DataSet2Table', dataSetTableRange, dataHeaders, 3) }
   ]);
 }
 
