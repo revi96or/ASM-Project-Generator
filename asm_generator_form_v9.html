@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.37
+Версия: 9.19.40
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -606,6 +606,21 @@
     color:#111827 !important;
   }
 
+  .pnp-table td.pnp-resist-full{
+    background:rgb(255, 199, 206) !important;
+    color:#111827 !important;
+  }
+
+  .pnp-table td.pnp-resist-match{
+    background:rgb(198, 239, 206) !important;
+    color:#111827 !important;
+  }
+
+  .pnp-table td.pnp-resist-miss{
+    background:rgb(255, 17, 17) !important;
+    color:#FFFFFF !important;
+  }
+
   .pnp-info-swatch{
     width:36px;
     min-width:36px;
@@ -1076,6 +1091,10 @@
                     <input id="pnpLocalPathInput" class="field-input catalog-path-input" value="C:\settings\PickAndPlace\" />
                   </div>
                   <div>
+                    <div class="field-label catalog-field-label">Словарь</div>
+                    <input id="pnpDictXlsxPathInput" class="field-input catalog-path-input" value="C:\excel_to_ASMGenerator\Dict.xlsx" />
+                  </div>
+                  <div>
                     <div class="field-label catalog-field-label">Импорт CSV</div>
                     <input id="pnpImportCsvPathInput" class="field-input catalog-path-input" placeholder="C:\path\import.csv" />
                   </div>
@@ -1532,7 +1551,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-    version: "3.1.28",
+   version: "3.1.39",
     versionDate: "2026-08-10"
   },
   projectMode: "create",
@@ -1550,6 +1569,7 @@ const state = {
       previewRows: [],
       importInfo: null
     },
+    dictXlsxPath: "C:\\excel_to_ASMGenerator\\Dict.xlsx",
     localPath: "",
     csv: {
       path: "",
@@ -1718,6 +1738,8 @@ function persistUserSettings(){
     },
     pnpPaths: {
       localPath: state.pnp.localPath || ($("pnpLocalPathInput") ? $("pnpLocalPathInput").value.trim() : ""),
+      // Отдельный путь для Dict.xlsx нужен для новых задач P&P и не заменяет legacy JS-словарь.
+      dictXlsxPath: state.pnp.dictXlsxPath || ($("pnpDictXlsxPathInput") ? $("pnpDictXlsxPathInput").value.trim() : "C:\\excel_to_ASMGenerator\\Dict.xlsx"),
       dictPath: state.pnp.dict.path || ($("pnpDictPathInput") ? $("pnpDictPathInput").value.trim() : "Dict\\pnp_dict_v300.js"),
       importCsvPath: state.pnp.csv.path || ($("pnpImportCsvPathInput") ? $("pnpImportCsvPathInput").value.trim() : ""),
       exportXlsxFolder: state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""),
@@ -1861,6 +1883,7 @@ async function applyStoredUserSettings(){
   const paths = storedSettings && storedSettings.paths ? storedSettings.paths : DEFAULT_PATHS;
   const pnpPaths = storedSettings && storedSettings.pnpPaths ? storedSettings.pnpPaths : {
     localPath: "",
+    dictXlsxPath: "C:\\excel_to_ASMGenerator\\Dict.xlsx",
     dictPath: "Dict\\pnp_dict_v300.js",
     importCsvPath: "",
     exportXlsxFolder: "",
@@ -1873,12 +1896,14 @@ async function applyStoredUserSettings(){
   $("aoiPathInput").value = paths.aoi || DEFAULT_PATHS.aoi;
   $("placerPathInput").value = paths.placer || DEFAULT_PATHS.placer;
   state.pnp.localPath = pnpPaths.localPath || state.pnp.localPath || "";
+  state.pnp.dictXlsxPath = pnpPaths.dictXlsxPath || state.pnp.dictXlsxPath || "C:\\excel_to_ASMGenerator\\Dict.xlsx";
   state.pnp.dict.path = pnpPaths.dictPath || state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
   state.pnp.csv.path = pnpPaths.importCsvPath || state.pnp.csv.path || "";
   state.pnp.exportXlsx.folder = pnpPaths.exportXlsxFolder || state.pnp.exportXlsx.folder || "";
   state.pnp.export.folder = pnpPaths.exportFolder || state.pnp.export.folder || "";
   state.pnp.state.path = pnpPaths.statePath || state.pnp.state.path || "";
   setPnpPathInputValue("pnpLocalPathInput", state.pnp.localPath);
+  setPnpPathInputValue("pnpDictXlsxPathInput", state.pnp.dictXlsxPath);
   setPnpPathInputValue("pnpDictPathInput", state.pnp.dict.path);
   setPnpPathInputValue("pnpImportCsvPathInput", state.pnp.csv.path);
   setPnpPathInputValue("pnpExportXlsxPathInput", state.pnp.exportXlsx.folder);
@@ -2975,6 +3000,7 @@ function loadPnpPreview(dictLike, meta = {}){
   const importCsvPath = String(meta.importCsvPath || paths.importCsvPath || meta.csvPath || state.pnp.csv.path || "");
   const exportXlsxFolder = String(meta.exportXlsxFolder || paths.exportXlsxFolder || state.pnp.exportXlsx.folder || "");
   const exportFolder = String(meta.exportFolder || paths.exportFolder || state.pnp.export.folder || "");
+  const dictXlsxPath = String(meta.dictXlsxPath || paths.dictXlsxPath || state.pnp.dictXlsxPath || "C:\\excel_to_ASMGenerator\\Dict.xlsx");
   const dictPath = String(meta.dictPath || paths.dictPath || state.pnp.dict.path || "");
   const statePath = String(meta.statePath || paths.statePath || state.pnp.state.path || "");
   const infoD3 = String(meta.infoD3 || (dictLike && dictLike.importInfo && dictLike.importInfo.infoD3) || (state.pnp.importInfo && state.pnp.importInfo.infoD3) || "");
@@ -2983,13 +3009,14 @@ function loadPnpPreview(dictLike, meta = {}){
     activeSection.data = dict || null;
     activeSection.previewRows = normalizePnpRows(dict);
     activeSection.sourcePath = String(meta.sourcePath || activeSection.sourcePath || "");
-    activeSection.path = String(meta.csvPath || meta.dictPath || activeSection.path || "");
+    activeSection.path = String(meta.csvPath || meta.dictPath || meta.dictXlsxPath || activeSection.path || "");
     activeSection.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : activeSection.importInfo || null;
     activeSection.stats = stats;
   }
 
   state.pnp.state.data = dictLike && dictLike.state ? dictLike.state : state.pnp.state.data;
   state.pnp.localPath = localPath;
+  state.pnp.dictXlsxPath = dictXlsxPath;
   state.pnp.state.path = statePath;
   state.pnp.state.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.state.importInfo || null;
   state.pnp.exportXlsx.folder = exportXlsxFolder;
@@ -3011,6 +3038,7 @@ function loadPnpPreview(dictLike, meta = {}){
   state.pnp.dict.path = dictPath || state.pnp.dict.path;
   state.pnp.csv.path = importCsvPath || state.pnp.csv.path;
   setPnpPathInputValue("pnpLocalPathInput", localPath);
+  setPnpPathInputValue("pnpDictXlsxPathInput", state.pnp.dictXlsxPath);
   setPnpPathInputValue("pnpDictPathInput", state.pnp.dict.path);
   setPnpPathInputValue("pnpCsvPathInput", state.pnp.csv.path);
   setPnpPathInputValue("pnpImportCsvPathInput", state.pnp.csv.path);
@@ -3029,12 +3057,14 @@ function loadPnpPreview(dictLike, meta = {}){
 function buildPnpStatePayload(){
   const activeSection = getPnpActiveSection();
   const localPathInput = $("pnpLocalPathInput");
+  const dictXlsxPathInput = $("pnpDictXlsxPathInput");
   const dictPathInput = $("pnpDictPathInput");
   const importPathInput = $("pnpImportCsvPathInput");
   const exportXlsxPathInput = $("pnpExportXlsxPathInput");
   const exportPathInput = $("pnpExportPathInput");
   const statePathInput = $("pnpStatePathInput");
   const localPath = (localPathInput ? localPathInput.value.trim() : "") || state.pnp.localPath || "";
+  const dictXlsxPath = (dictXlsxPathInput ? dictXlsxPathInput.value.trim() : "") || state.pnp.dictXlsxPath || "C:\\excel_to_ASMGenerator\\Dict.xlsx";
   const dictPath = (dictPathInput ? dictPathInput.value.trim() : "") || state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
   const importCsvPath = (importPathInput ? importPathInput.value.trim() : "") || state.pnp.csv.path || "";
   const exportXlsxFolder = (exportXlsxPathInput ? exportXlsxPathInput.value.trim() : "") || state.pnp.exportXlsx.folder || "";
@@ -3046,6 +3076,7 @@ function buildPnpStatePayload(){
   return {
     mode: state.pnp.mode,
     dictPath: dictPath,
+    dictXlsxPath: dictXlsxPath,
     localPath: localPath,
     importCsvPath: importCsvPath,
     exportXlsxFolder: exportXlsxFolder,
@@ -3054,6 +3085,7 @@ function buildPnpStatePayload(){
     infoD3: infoD3,
     paths: {
       localPath: localPath,
+      dictXlsxPath: state.pnp.dictXlsxPath,
       importCsvPath: importCsvPath,
       exportXlsxFolder: exportXlsxFolder,
       exportFolder: exportFolder,
@@ -3074,6 +3106,7 @@ function buildPnpStatePayload(){
       infoD3: infoD3,
       paths: {
         localPath: localPath,
+        dictXlsxPath: dictXlsxPath,
         importCsvPath: importCsvPath,
         exportXlsxFolder: exportXlsxFolder,
         exportFolder: exportFolder,
@@ -3255,7 +3288,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.1.28",
+    version: "3.1.39",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -4154,6 +4187,7 @@ function setupPathInput(inputId, pathLabel){
 
 function syncPnpPathStateFromInputs(){
   const localPathInput = $("pnpLocalPathInput");
+  const dictXlsxPathInput = $("pnpDictXlsxPathInput");
   const dictPathInput = $("pnpDictPathInput");
   const importPathInput = $("pnpImportCsvPathInput");
   const exportXlsxPathInput = $("pnpExportXlsxPathInput");
@@ -4161,6 +4195,7 @@ function syncPnpPathStateFromInputs(){
   const statePathInput = $("pnpStatePathInput");
 
   state.pnp.localPath = localPathInput ? localPathInput.value.trim() : state.pnp.localPath || "";
+  state.pnp.dictXlsxPath = dictXlsxPathInput ? dictXlsxPathInput.value.trim() : state.pnp.dictXlsxPath || "C:\\excel_to_ASMGenerator\\Dict.xlsx";
   state.pnp.dict.path = dictPathInput ? dictPathInput.value.trim() : state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
   state.pnp.csv.path = importPathInput ? importPathInput.value.trim() : state.pnp.csv.path || "";
   state.pnp.exportXlsx.folder = exportXlsxPathInput ? exportXlsxPathInput.value.trim() : state.pnp.exportXlsx.folder || "";
@@ -4169,6 +4204,7 @@ function syncPnpPathStateFromInputs(){
 
   return {
     localPath: state.pnp.localPath,
+    dictXlsxPath: state.pnp.dictXlsxPath,
     dictPath: state.pnp.dict.path,
     importCsvPath: state.pnp.csv.path,
     exportXlsxFolder: state.pnp.exportXlsx.folder,
@@ -4274,6 +4310,7 @@ async function init(){
   setupPathInput("serverPathInput", "Адрес принтера");
   setupPathInput("aoiPathInput", "Папка АОИ");
   setupPathInput("placerPathInput", "Адрес расстановщика");
+  setupPnpPathInput("pnpDictXlsxPathInput", "Путь к Dict.xlsx для P&P");
   setupPnpPathInput("pnpDictPathInput", "Путь к единственному корню словаря P&P");
   setupPnpPathInput("pnpImportCsvPathInput", "Путь к CSV импорта P&P");
   setupPnpPathInput("pnpExportXlsxPathInput", "Путь к XLSX экспорта P&P");

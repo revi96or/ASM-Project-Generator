@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.1.38
+ * Версия: 3.1.39
  * Автор: Новожилов Артем
  */
 
@@ -20,6 +20,7 @@ const APP_META = {
   version: packageJson.version,
   versionDate: packageJson.versionDate || '2026-08-10'
 };
+const PNP_DEFAULT_DICT_XLSX_PATH = path.join('C:\\excel_to_ASMGenerator', 'Dict.xlsx');
 const PNP_DEFAULT_DICT_FILE = path.join('Dict', 'pnp_dict_v300.js');
 const PNP_DEFAULT_STATE_FILE_NAME = 'pnp_state_v300.js';
 const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
@@ -97,6 +98,7 @@ const DEFAULT_USER_SETTINGS = {
   paths: { ...DEFAULT_PATHS },
   pnpPaths: {
     localPath: '',
+    dictXlsxPath: 'C:\\excel_to_ASMGenerator\\Dict.xlsx',
     dictPath: 'Dict\\pnp_dict_v300.js',
     importCsvPath: '',
     exportXlsxFolder: '',
@@ -156,6 +158,7 @@ function normalizeUserSettings(rawSettings) {
     },
     pnpPaths: {
       localPath: String(incomingPnpPaths.localPath || ''),
+      dictXlsxPath: String(incomingPnpPaths.dictXlsxPath || PNP_DEFAULT_DICT_XLSX_PATH),
       dictPath: String(incomingPnpPaths.dictPath || getPnpRootDictPath()),
       importCsvPath: String(incomingPnpPaths.importCsvPath || ''),
       exportXlsxFolder: String(incomingPnpPaths.exportXlsxFolder || ''),
@@ -1033,6 +1036,7 @@ function buildPnpState(dict, overrides = {}) {
   const importCsvPath = getPnpStatePathValue(overrides, 'importCsvPath');
   const exportXlsxFolder = getPnpStatePathValue(overrides, 'exportXlsxFolder');
   const exportFolder = getPnpStatePathValue(overrides, 'exportFolder', getPnpDefaultExportFolder());
+  const dictXlsxPath = getPnpStatePathValue(overrides, 'dictXlsxPath', PNP_DEFAULT_DICT_XLSX_PATH);
   const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictPath());
   const statePath = getPnpStatePathValue(overrides, 'statePath');
   const infoD3 = getPnpStatePathValue(overrides, 'infoD3');
@@ -1041,7 +1045,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.1.36',
+    version: '3.1.39',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1051,6 +1055,7 @@ function buildPnpState(dict, overrides = {}) {
     importCsvPath,
     exportXlsxFolder,
     exportFolder,
+    dictXlsxPath,
     dictPath,
     statePath,
     importInfo,
@@ -1059,6 +1064,7 @@ function buildPnpState(dict, overrides = {}) {
       importCsvPath,
       exportXlsxFolder,
       exportFolder,
+      dictXlsxPath,
       dictPath,
       statePath,
       infoD3
@@ -1112,9 +1118,11 @@ async function importPnpCsv(payload) {
   assertOperationNotCancelled();
   let xlsxResult = null;
   const infoD3 = String(payload && payload.infoD3 ? payload.infoD3 : (dict && dict.importInfo && dict.importInfo.infoD3 ? dict.importInfo.infoD3 : '')).trim();
+  const dictXlsxPath = String(payload && payload.dictXlsxPath ? payload.dictXlsxPath : PNP_DEFAULT_DICT_XLSX_PATH).trim();
 
   if (dict && dict.importInfo) {
     dict.importInfo.infoD3 = infoD3;
+    dict.importInfo.dictXlsxPath = dictXlsxPath;
   }
 
   if (exportXlsxFolder) {
@@ -1173,6 +1181,7 @@ async function fillPnpSetColumn(payload) {
 
   const infoD3 = String(payload && payload.infoD3 ? payload.infoD3 : importInfo.infoD3 || '').trim();
   const applyFill = Boolean(payload && payload.applyFill);
+  const dictXlsxPath = String(payload && payload.dictXlsxPath ? payload.dictXlsxPath : PNP_DEFAULT_DICT_XLSX_PATH).trim();
   const nextState = applyFill
    ? pnpPipeline.applySetColumnFill(importInfo, infoD3, '1')
    : {
@@ -1217,6 +1226,22 @@ async function fillPnpSetColumn(payload) {
        setColumnState: pnpPipeline.getSetColumnState(importInfo.rawTable, infoD3),
        filledRowCount: 0
      };
+  if (nextState && nextState.importInfo && nextState.importInfo.dataSet2Table) {
+    nextState.importInfo.dictXlsxPath = dictXlsxPath;
+    const resistorDict = await pnpPipeline.loadResistDictXlsxFile(dictXlsxPath);
+    assertOperationNotCancelled();
+    const resistorState = pnpPipeline.buildResistorMatchState(nextState.importInfo.dataSet2Table, resistorDict);
+
+    nextState.importInfo.dataResistTable = {
+     rawHeaders: Array.isArray(resistorState.rawHeaders) ? resistorState.rawHeaders.slice() : [],
+     rows: resistorState.rows,
+     worksheetRows: resistorState.worksheetRows
+    };
+    nextState.importInfo.noMatchResistors = resistorState.noMatchResistors;
+    nextState.importInfo.resistorStats = resistorState.resistorStats;
+    nextState.importInfo.dictXlsxPath = dictXlsxPath;
+    nextState.importInfo.dictWorkbook = resistorDict.workbook;
+  }
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
   const sourcePath = String(payload && payload.sourcePath ? payload.sourcePath : importInfo.sourcePath || '').trim();
@@ -1266,6 +1291,7 @@ async function savePnpState(payload) {
     importCsvPath: state.importCsvPath || '',
     exportXlsxFolder: state.exportXlsxFolder || '',
     exportFolder: state.exportFolder || getPnpDefaultExportFolder(),
+    dictXlsxPath: state.dictXlsxPath || PNP_DEFAULT_DICT_XLSX_PATH,
     dictPath: state.dictPath || getPnpRootDictPath(),
     statePath: filePath,
     importInfo: state.importInfo || (state.pnp && state.pnp.importInfo ? state.pnp.importInfo : null)
@@ -1304,6 +1330,7 @@ async function loadPnpState(payload) {
       importCsvPath: loadedState.importCsvPath || '',
       exportXlsxFolder: loadedState.exportXlsxFolder || '',
       exportFolder: loadedState.exportFolder || getPnpDefaultExportFolder(),
+      dictXlsxPath: loadedState.dictXlsxPath || PNP_DEFAULT_DICT_XLSX_PATH,
       dictPath: loadedState.dictPath || getPnpRootDictPath(),
       statePath: loadedState.statePath || filePath,
       importInfo: loadedState.importInfo || (loadedState.pnp && loadedState.pnp.importInfo ? loadedState.pnp.importInfo : null)

@@ -1,12 +1,13 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.40
+ * Версия: 3.1.42
  * Автор: Новожилов Артем
  */
 
 const fs = require('fs/promises');
 const path = require('path');
 const { TextDecoder } = require('util');
+const unzipper = require('unzipper');
 
 const DEFAULT_DICT_FILE = 'pnp_dict_v300.js';
 const DEFAULT_STATE_FILE = 'pnp_state_v300.js';
@@ -253,6 +254,174 @@ function normalizeImportedColumnKind(headerName) {
 
 function normalizeWorkbookHeaderText(value) {
   return normalizeText(value).toUpperCase();
+}
+
+function decodeXmlText(value) {
+  return String(value || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, '\'');
+}
+
+function columnLettersToIndex(columnLetters) {
+  const letters = String(columnLetters || '').replace(/[^A-Z]/gi, '').toUpperCase();
+  let index = 0;
+
+  for (let charIndex = 0; charIndex < letters.length; charIndex += 1) {
+    index = (index * 26) + (letters.charCodeAt(charIndex) - 64);
+  }
+
+  return index > 0 ? index - 1 : -1;
+}
+
+function extractXmlAttrValue(source, attrName) {
+  const match = String(source || '').match(new RegExp(`${attrName}="([^"]*)"`));
+  return match ? decodeXmlText(match[1]) : '';
+}
+
+function parseInlineXmlText(source) {
+  return Array.from(String(source || '').matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g))
+    .map((match) => decodeXmlText(match[1]))
+    .join('');
+}
+
+function parseSharedStringsXml(xmlText) {
+  const sharedStrings = [];
+  const content = String(xmlText || '');
+  const stringMatches = content.matchAll(/<si\b[\s\S]*?<\/si>/g);
+
+  for (const match of stringMatches) {
+    sharedStrings.push(parseInlineXmlText(match[0]));
+  }
+
+  return sharedStrings;
+}
+
+function parseWorkbookSheetsXml(workbookXml, workbookRelsXml) {
+  const relMap = new Map();
+  const relMatches = String(workbookRelsXml || '').matchAll(/<Relationship\b([^>]*)\/>/g);
+
+  for (const match of relMatches) {
+    const relId = extractXmlAttrValue(match[1], 'Id');
+    const target = extractXmlAttrValue(match[1], 'Target');
+
+    if (relId && target) {
+      relMap.set(relId, target.replace(/^\.\//, '').replace(/^\/+/, ''));
+    }
+  }
+
+  const sheets = [];
+  const sheetMatches = String(workbookXml || '').matchAll(/<sheet\b([^>]*)\/>/g);
+
+  for (const match of sheetMatches) {
+    const sheetName = extractXmlAttrValue(match[1], 'name');
+    const relId = extractXmlAttrValue(match[1], 'r:id');
+    const target = relMap.get(relId);
+
+    if (sheetName && target) {
+      sheets.push({
+        name: sheetName,
+        path: `xl/${target.replace(/^\/+/, '')}`
+      });
+    }
+  }
+
+  return sheets;
+}
+
+function parseWorksheetXmlRows(sheetXml, sharedStrings) {
+  const rows = [];
+  const rowMatches = String(sheetXml || '').matchAll(/<row\b[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g);
+
+  for (const rowMatch of rowMatches) {
+    const rowXml = rowMatch[2];
+    const cells = [];
+    let lastIndex = -1;
+    const cellMatches = rowXml.matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g);
+
+    for (const cellMatch of cellMatches) {
+      const cellAttrs = cellMatch[1];
+      const cellXml = cellMatch[2];
+      const cellRef = extractXmlAttrValue(cellAttrs, 'r');
+      const cellIndex = columnLettersToIndex(cellRef);
+      const cellType = extractXmlAttrValue(cellAttrs, 't');
+      const valueMatch = cellXml.match(/<v>([\s\S]*?)<\/v>/);
+      let cellValue = '';
+
+      if (cellType === 'inlineStr') {
+        cellValue = parseInlineXmlText(cellXml);
+      } else if (cellType === 's') {
+        const sharedIndex = Number(valueMatch ? valueMatch[1] : '');
+        cellValue = Number.isFinite(sharedIndex) && sharedStrings[sharedIndex] !== undefined
+          ? sharedStrings[sharedIndex]
+          : '';
+      } else if (cellType === 'b') {
+        cellValue = valueMatch ? decodeXmlText(valueMatch[1]) : '';
+      } else if (valueMatch) {
+        cellValue = decodeXmlText(valueMatch[1]);
+      }
+
+      if (cellIndex >= 0) {
+        cells[cellIndex] = cellValue;
+        if (cellIndex > lastIndex) {
+          lastIndex = cellIndex;
+        }
+      }
+    }
+
+    if (lastIndex >= 0) {
+      for (let index = 0; index <= lastIndex; index += 1) {
+        if (cells[index] === undefined) {
+          cells[index] = '';
+        }
+      }
+    }
+
+    rows.push(cells);
+  }
+
+  return rows;
+}
+
+async function readZipEntryText(zipFile, entryPath) {
+  const normalizedPath = String(entryPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  const entry = zipFile.files.find((item) => item.path === normalizedPath);
+
+  if (!entry) {
+    return '';
+  }
+
+  const buffer = await entry.buffer();
+  return buffer.toString('utf8');
+}
+
+async function readXlsxSheetRows(filePath, sheetName) {
+  const zipFile = await unzipper.Open.file(path.resolve(filePath));
+  const workbookXml = await readZipEntryText(zipFile, 'xl/workbook.xml');
+  const workbookRelsXml = await readZipEntryText(zipFile, 'xl/_rels/workbook.xml.rels');
+  const sharedStringsXml = await readZipEntryText(zipFile, 'xl/sharedStrings.xml');
+  const sharedStrings = parseSharedStringsXml(sharedStringsXml);
+  const sheets = parseWorkbookSheetsXml(workbookXml, workbookRelsXml);
+  const sheetInfo = sheets.find((sheet) => normalizeWorkbookHeaderText(sheet.name) === normalizeWorkbookHeaderText(sheetName));
+
+  if (!sheetInfo) {
+    throw new Error(`Лист ${sheetName} не найден в книге ${path.basename(filePath)}`);
+  }
+
+  const sheetXml = await readZipEntryText(zipFile, sheetInfo.path);
+
+  if (!sheetXml) {
+    throw new Error(`Лист ${sheetName} пустой или недоступен в книге ${path.basename(filePath)}`);
+  }
+
+  return {
+    sheetName: sheetInfo.name,
+    rows: parseWorksheetXmlRows(sheetXml, sharedStrings)
+  };
 }
 
 function measureWorkbookColumnWidths(rows) {
@@ -1375,6 +1544,13 @@ function cleanPnpTolText(value) {
 }
 
 function clonePnpWorksheetRow(rowModel) {
+  if (Array.isArray(rowModel)) {
+    return {
+      values: rowModel.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell)),
+      hidden: false
+    };
+  }
+
   return {
     values: Array.isArray(rowModel && rowModel.values)
       ? rowModel.values.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell))
@@ -1525,6 +1701,224 @@ function buildDataResistTableState(dataSet2State) {
   };
 }
 
+function normalizeResistorCellText(value, headerName) {
+  const text = normalizeText(clonePnpCellValue(value));
+
+  if (!text) {
+    return '';
+  }
+
+  if (normalizeWorkbookHeaderText(headerName) === 'TOL' || normalizeWorkbookHeaderText(headerName) === 'PREF') {
+    return normalizeDecimalText(text).toUpperCase();
+  }
+
+  return text.replace(/\s+/g, ' ').toUpperCase();
+}
+
+function findResistorColumnIndex(rawHeaders, columnName) {
+  return Array.isArray(rawHeaders)
+    ? rawHeaders.findIndex((header) => normalizeWorkbookHeaderText(header) === normalizeWorkbookHeaderText(columnName))
+    : -1;
+}
+
+function buildResistorCellValue(value, matchState, styleIndex) {
+  const cellValue = normalizeText(value);
+
+  return {
+    value: cellValue,
+    styleIndex,
+    className: matchState === 'full'
+      ? 'pnp-resist-full'
+      : matchState === 'match'
+        ? 'pnp-resist-match'
+        : 'pnp-resist-miss'
+  };
+}
+
+function buildResistorMatchDetail(sourceRowIndex, sourceRow, dictRowIndex, dictRow, matchCount, matchedFields, mismatchedFields, rawHeaders, dictHeaders) {
+  return {
+    sourceRowIndex: sourceRowIndex + 1,
+    dictRowIndex: dictRowIndex + 1,
+    matchCount,
+    matchedFields: matchedFields.slice(),
+    mismatchedFields: mismatchedFields.slice(),
+    source: {
+      comment: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'COMMENT')])),
+      footprint: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'FOOTPRINT')])),
+      tol: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'TOL')])),
+      pref: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'PREF')]))
+    },
+    dict: {
+      comment: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'COMMENT')])),
+      footprint: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'FOOTPRINT')])),
+      tol: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'TOL')])),
+      pref: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'PREF')]))
+    }
+  };
+}
+
+function buildResistorMatchState(dataSet2State, resistorSheetState) {
+  const rawHeaders = Array.isArray(dataSet2State && dataSet2State.rawHeaders) ? dataSet2State.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataSet2State && dataSet2State.rows) ? dataSet2State.rows : [];
+  const worksheetRows = Array.isArray(dataSet2State && dataSet2State.worksheetRows) ? dataSet2State.worksheetRows : [];
+  const dictRawHeaders = Array.isArray(resistorSheetState && resistorSheetState.rawHeaders) ? resistorSheetState.rawHeaders.slice() : [];
+  const dictRows = Array.isArray(resistorSheetState && resistorSheetState.rows) ? resistorSheetState.rows : [];
+  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT', 'TOL', 'PREF'];
+  const requiredDictColumns = ['COMMENT', 'FOOTPRINT', 'TOL', 'PREF', 'COMMENT_FR', 'FOOTPRINT_FR', 'TOL_FR'];
+  const sourceIndexes = {};
+  const dictIndexes = {};
+
+  requiredSourceColumns.forEach((columnName) => {
+    sourceIndexes[columnName] = findResistorColumnIndex(rawHeaders, columnName);
+  });
+  requiredDictColumns.forEach((columnName) => {
+    dictIndexes[columnName] = findResistorColumnIndex(dictRawHeaders, columnName);
+  });
+
+  const missingSourceColumns = requiredSourceColumns.filter((columnName) => sourceIndexes[columnName] < 0);
+  const missingDictColumns = requiredDictColumns.filter((columnName) => dictIndexes[columnName] < 0);
+
+  if (missingSourceColumns.length) {
+    throw new Error(`В DataResist не найдены столбцы: ${missingSourceColumns.join(', ')}`);
+  }
+
+  if (missingDictColumns.length) {
+    throw new Error(`В листе Resist не найдены столбцы: ${missingDictColumns.join(', ')}`);
+  }
+
+  const nextRows = [];
+  const nextWorksheetRows = [];
+  const noMatchResistors = [];
+  let totalCount = 0;
+  let fullMatchCount = 0;
+  let partialMatchCount = 0;
+
+  rows.forEach((sourceRow, sourceRowIndex) => {
+    const nextRow = clonePnpRawRow(sourceRow);
+    const nextWorksheetRow = worksheetRows[sourceRowIndex]
+      ? clonePnpWorksheetRow(worksheetRows[sourceRowIndex])
+      : { values: clonePnpRawRow(sourceRow), hidden: false };
+    const sourceValues = {
+      COMMENT: normalizeResistorCellText(nextRow[sourceIndexes.COMMENT], 'COMMENT'),
+      FOOTPRINT: normalizeResistorCellText(nextRow[sourceIndexes.FOOTPRINT], 'FOOTPRINT'),
+      TOL: normalizeResistorCellText(nextRow[sourceIndexes.TOL], 'TOL'),
+      PREF: normalizeResistorCellText(nextRow[sourceIndexes.PREF], 'PREF')
+    };
+    let bestMatch = null;
+
+    dictRows.forEach((dictRow, dictRowIndex) => {
+      const dictValues = {
+        COMMENT: normalizeResistorCellText(dictRow[dictIndexes.COMMENT], 'COMMENT'),
+        FOOTPRINT: normalizeResistorCellText(dictRow[dictIndexes.FOOTPRINT], 'FOOTPRINT'),
+        TOL: normalizeResistorCellText(dictRow[dictIndexes.TOL], 'TOL'),
+        PREF: normalizeResistorCellText(dictRow[dictIndexes.PREF], 'PREF')
+      };
+      const matchedFields = [];
+      const mismatchedFields = [];
+
+      requiredSourceColumns.forEach((columnName) => {
+        const sourceValue = sourceValues[columnName];
+        const dictValue = dictValues[columnName];
+
+        if (sourceValue !== '' && dictValue !== '' && sourceValue === dictValue) {
+          matchedFields.push(columnName);
+        } else if (sourceValue !== '' || dictValue !== '') {
+          mismatchedFields.push(columnName);
+        }
+      });
+
+      const matchCount = matchedFields.length;
+
+      if (!bestMatch || matchCount > bestMatch.matchCount) {
+        bestMatch = {
+          dictRowIndex,
+          dictRow,
+          dictValues,
+          matchCount,
+          matchedFields,
+          mismatchedFields
+        };
+      }
+    });
+
+    totalCount += 1;
+
+    if (!bestMatch || bestMatch.matchCount < 3) {
+      nextRows.push(nextRow);
+      nextWorksheetRows.push(nextWorksheetRow);
+      return;
+    }
+
+    const isFullMatch = bestMatch.matchCount === requiredSourceColumns.length;
+    const fullMatchStyle = 4; // Розовый, как в VBA при полном совпадении.
+    const partialMatchStyle = 5; // Зеленый для совпавших полей.
+    const partialMissStyle = 10; // Красный с белым шрифтом для несовпавших полей.
+
+    requiredSourceColumns.forEach((columnName) => {
+      const sourceIndex = sourceIndexes[columnName];
+      const isMatched = bestMatch.matchedFields.includes(columnName);
+      const currentValue = normalizeText(clonePnpCellValue(nextRow[sourceIndex]));
+
+      nextRow[sourceIndex] = {
+        value: currentValue,
+        styleIndex: isFullMatch ? fullMatchStyle : (isMatched ? partialMatchStyle : partialMissStyle),
+        className: isFullMatch ? 'pnp-resist-full' : (isMatched ? 'pnp-resist-match' : 'pnp-resist-miss')
+      };
+
+      if (Array.isArray(nextWorksheetRow.values)) {
+        nextWorksheetRow.values[sourceIndex] = {
+          value: currentValue,
+          styleIndex: isFullMatch ? fullMatchStyle : (isMatched ? partialMatchStyle : partialMissStyle),
+          className: isFullMatch ? 'pnp-resist-full' : (isMatched ? 'pnp-resist-match' : 'pnp-resist-miss')
+        };
+      }
+    });
+
+    if (isFullMatch) {
+      const replacementComment = normalizeText(bestMatch.dictRow[dictIndexes.COMMENT_FR]);
+      const replacementFootprint = normalizeText(bestMatch.dictRow[dictIndexes.FOOTPRINT_FR]);
+
+      if (replacementComment) {
+        nextRow[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+        if (Array.isArray(nextWorksheetRow.values)) {
+          nextWorksheetRow.values[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+        }
+      }
+
+      if (replacementFootprint) {
+        nextRow[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+        if (Array.isArray(nextWorksheetRow.values)) {
+          nextWorksheetRow.values[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+        }
+      }
+
+      fullMatchCount += 1;
+    } else {
+      partialMatchCount += 1;
+      noMatchResistors.push(buildResistorMatchDetail(sourceRowIndex, nextRow, bestMatch.dictRowIndex, bestMatch.dictRow, bestMatch.matchCount, bestMatch.matchedFields, bestMatch.mismatchedFields, rawHeaders, dictRawHeaders));
+    }
+
+    nextRows.push(nextRow);
+    nextWorksheetRows.push(nextWorksheetRow);
+  });
+
+  return {
+    rawHeaders,
+    rows: nextRows,
+    worksheetRows: nextWorksheetRows,
+    noMatchResistors,
+    resistorStats: {
+      Stats_Resistors_Total: totalCount,
+      Stats_Resistors_Full: fullMatchCount,
+      Stats_Resistors_Partial: partialMatchCount
+    },
+    sourceColumnIndexes: sourceIndexes,
+    dictColumnIndexes: dictIndexes,
+    sourceRowsCount: rows.length,
+    dictRowsCount: dictRows.length
+  };
+}
+
 function buildTableColumnsXml(headers) {
   return headers.map((header, index) => (
     `<tableColumn id="${index + 1}" name="${escapeXml(String(header || `Column${index + 1}`))}"/>`
@@ -1595,7 +1989,9 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
         rows: [],
         worksheetRows: []
       };
-  const dataResistState = dataSet2State ? buildDataResistTableState(dataSet2State) : null;
+  const dataResistState = importInfo && importInfo.dataResistTable
+    ? importInfo.dataResistTable
+    : (dataSet2State ? buildDataResistTableState(dataSet2State) : null);
   const dataResistTable = dataResistState
     ? {
         rawHeaders: Array.isArray(dataResistState.rawHeaders) ? dataResistState.rawHeaders : dataHeaders,
@@ -1714,7 +2110,10 @@ function buildWorkbookRelsXml(sheetNames) {
 function buildStylesXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
+  <fonts count="2">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><sz val="11"/><name val="Calibri"/><color rgb="FFFFFFFF"/></font>
+  </fonts>
   <fills count="9">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
@@ -1728,7 +2127,7 @@ function buildStylesXml() {
   </fills>
   <borders count="1"><border/></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="10">
+  <cellXfs count="11">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left"/></xf>
@@ -1739,6 +2138,7 @@ function buildStylesXml() {
     <xf numFmtId="0" fontId="0" fillId="6" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="7" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
     <xf numFmtId="0" fontId="0" fillId="8" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left"/></xf>
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
@@ -1898,7 +2298,31 @@ function buildZipArchive(entries) {
 async function savePnpXlsxFile(targetFolder, baseName, importInfo, sourcePath) {
   const workbookName = `${String(baseName || 'pnp_export_v300').trim() || 'pnp_export_v300'}.xlsx`;
   const targetPath = path.join(targetFolder, workbookName);
-  const workbookBuffer = buildPnpXlsxBuffer(importInfo || {}, sourcePath || '');
+  let nextImportInfo = importInfo || {};
+
+  if (nextImportInfo && nextImportInfo.dataSet2Table) {
+    const dictXlsxPath = String(nextImportInfo.dictXlsxPath || '').trim();
+
+    if (dictXlsxPath) {
+      // Для Excel-файла повторяем сравнение с Resist, чтобы стили ушли именно в книгу.
+      const resistorDict = await loadResistDictXlsxFile(dictXlsxPath);
+      const resistorState = buildResistorMatchState(nextImportInfo.dataSet2Table, resistorDict);
+
+      nextImportInfo = {
+        ...nextImportInfo,
+        dataResistTable: {
+          rawHeaders: Array.isArray(resistorState.rawHeaders) ? resistorState.rawHeaders.slice() : [],
+          rows: resistorState.rows,
+          worksheetRows: resistorState.worksheetRows
+        },
+        noMatchResistors: resistorState.noMatchResistors,
+        resistorStats: resistorState.resistorStats,
+        dictWorkbook: resistorDict.workbook
+      };
+    }
+  }
+
+  const workbookBuffer = buildPnpXlsxBuffer(nextImportInfo || {}, sourcePath || '');
 
   await fs.mkdir(targetFolder, { recursive: true });
   await fs.writeFile(targetPath, workbookBuffer);
@@ -1948,7 +2372,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.1.31 Preview</title>
+<title>Pick and Place 3.1.41 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -1959,7 +2383,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.1.31</h1>
+    <h1>Pick and Place 3.1.41</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -1995,7 +2419,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.1.40',
+    ' * Версия: 3.1.41',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -2018,6 +2442,38 @@ async function loadModuleExport(filePath) {
 
     throw error;
   }
+}
+
+async function loadResistDictXlsxFile(filePath) {
+  const resolvedPath = path.resolve(filePath);
+  const resistSheet = await readXlsxSheetRows(resolvedPath, 'Resist');
+  const rawHeaders = Array.isArray(resistSheet.rows) && resistSheet.rows.length ? resistSheet.rows[0].slice() : [];
+  const dataRows = Array.isArray(resistSheet.rows) ? resistSheet.rows.slice(1) : [];
+
+  return {
+    description: 'Лист Resist из Dict.xlsx',
+    version: '3.1.41',
+    author: 'Новожилов Артем',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    meta: {
+      sourcePath: resolvedPath,
+      sourceFile: path.basename(resolvedPath),
+      mode: 'xlsx',
+      sheetName: 'Resist'
+    },
+    sheetName: 'Resist',
+    rawHeaders,
+    rows: dataRows,
+    worksheetRows: dataRows.map((row) => ({
+      values: clonePnpRawRow(row),
+      hidden: false
+    })),
+    workbook: {
+      sheetName: resistSheet.sheetName,
+      rowCount: dataRows.length
+    }
+  };
 }
 
 async function loadDictFile(filePath) {
@@ -2197,6 +2653,8 @@ module.exports = {
   buildDataSetTableState,
   buildDataSet2TableState,
   buildDataResistTableState,
+  loadResistDictXlsxFile,
+  buildResistorMatchState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,
