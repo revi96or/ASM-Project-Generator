@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.19.32
+Версия: 9.19.33
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2871,7 +2871,7 @@ function renderPnpVisibleTable(){
     ? [
         `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`,
         `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)} · Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
-      ].join('<br>')
+      ].join(' · ')
     : `Всего: ${escapePnpHtml(stats.totalRows || 0)} · Top: ${escapePnpHtml(stats.topRows || 0)} · Bottom: ${escapePnpHtml(stats.bottomRows || 0)} · Rename: ${escapePnpHtml(stats.renamedRows || 0)}`;
 
   placeholder.innerHTML = [
