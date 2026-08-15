@@ -1,6 +1,6 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.30
+ * Версия: 3.1.32
  * Автор: Новожилов Артем
  */
 
@@ -801,13 +801,13 @@ function buildTableColumnsXml(headers) {
   )).join('');
 }
 
-function buildTableXml(tableName, tableRange, headers) {
+function buildTableXml(tableName, tableRange, headers, tableId = 1) {
   const safeTableName = String(tableName || 'ImportedCSVTable').trim() || 'ImportedCSVTable';
   const safeTableRange = String(tableRange || 'A1:A1').trim() || 'A1:A1';
   const columns = Array.isArray(headers) && headers.length ? headers.map((header) => normalizeWorkbookHeaderText(header)) : ['COLUMN1'];
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
- <table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="${escapeXml(safeTableName)}" displayName="${escapeXml(safeTableName)}" ref="${escapeXml(safeTableRange)}" headerRowCount="1" totalsRowShown="false">
+ <table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="${tableId}" name="${escapeXml(safeTableName)}" displayName="${escapeXml(safeTableName)}" ref="${escapeXml(safeTableRange)}" headerRowCount="1" totalsRowShown="false">
    <autoFilter ref="${escapeXml(safeTableRange)}"/>
    <tableColumns count="${columns.length}">
      ${buildTableColumnsXml(columns)}
@@ -816,10 +816,10 @@ function buildTableXml(tableName, tableRange, headers) {
  </table>`;
 }
 
-function buildWorksheetRelsXml() {
+function buildWorksheetRelsXml(targetTablePath = '/xl/tables/table1.xml') {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="/xl/tables/table1.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="${escapeXml(targetTablePath)}"/>
 </Relationships>`;
 }
 
@@ -829,11 +829,13 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const dataRows = Array.isArray(tableInfo && tableInfo.rows) ? tableInfo.rows : [];
   const workbookHeaders = dataHeaders.map((header) => normalizeWorkbookHeaderText(header));
   const columnKinds = dataHeaders.map((header) => normalizeImportedColumnKind(header));
+  // Лист 1 остается исходной таблицей, а DataSet — ее копией по VBA-логике.
   const listSheetRows = [
     workbookHeaders
   ].concat(dataRows.map((row) => row.map((value) => String(value))));
   const infoSheetRows = buildInfoSheetRows(importInfo || {}, sourcePath);
-  const sheetNames = ['Лист1', 'Info'];
+  const dataSetSheetRows = listSheetRows.map((row) => row.slice());
+  const sheetNames = ['Лист1', 'Info', 'DataSet'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
@@ -842,7 +844,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     : -1;
 
   return buildZipArchive([
-    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length) },
+    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 2) },
     { path: '_rels/.rels', content: buildRelsXml() },
     { path: 'docProps/core.xml', content: buildCorePropsXml(importInfo, sourcePath) },
     { path: 'docProps/app.xml', content: buildAppPropsXml(sheetNames) },
@@ -850,15 +852,21 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(sheetNames) },
     { path: 'xl/styles.xml', content: buildStylesXml() },
     { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(listSheetRows, columnKinds, { tableRange, columnWidths, highlightColumnIndex }) },
-    { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml() },
-    { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders) },
-    { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) }
+    { path: 'xl/worksheets/_rels/sheet1.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table1.xml') },
+    { path: 'xl/tables/table1.xml', content: buildTableXml('ImportedCSVTable', tableRange, dataHeaders, 1) },
+    { path: 'xl/worksheets/sheet2.xml', content: buildWorksheetXml(infoSheetRows) },
+    { path: 'xl/worksheets/sheet3.xml', content: buildWorksheetXml(dataSetSheetRows, columnKinds, { tableRange, columnWidths, highlightColumnIndex: -1 }) },
+    { path: 'xl/worksheets/_rels/sheet3.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table2.xml') },
+    { path: 'xl/tables/table2.xml', content: buildTableXml('DataSetTable', tableRange, dataHeaders, 2) }
   ]);
 }
 
-function buildContentTypesXml(sheetCount) {
+function buildContentTypesXml(sheetCount, tableCount = 1) {
   const worksheetOverrides = Array.from({ length: sheetCount }, (_, index) => (
     `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  )).join('');
+  const tableOverrides = Array.from({ length: tableCount }, (_, index) => (
+    `<Override PartName="/xl/tables/table${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>`
   )).join('');
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -869,7 +877,7 @@ function buildContentTypesXml(sheetCount) {
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-  <Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>
+  ${tableOverrides}
   ${worksheetOverrides}
 </Types>`;
 }
@@ -1143,7 +1151,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.1.30 Preview</title>
+<title>Pick and Place 3.1.31 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -1154,7 +1162,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.1.30</h1>
+    <h1>Pick and Place 3.1.31</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
