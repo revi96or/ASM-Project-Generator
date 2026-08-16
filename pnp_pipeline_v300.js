@@ -1,6 +1,6 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.1.0 для словаря Dict/.
- * Версия: 3.1.42
+ * Описание: Минимальный конвейер Pick and Place 3.2.0 для словаря Dict/.
+ * Версия: 3.2.1
  * Автор: Новожилов Артем
  */
 
@@ -25,7 +25,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.1.0',
+    version: '3.2.0',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -501,7 +501,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.1.0',
+    version: '3.2.0',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -690,7 +690,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.1.0',
+    version: '3.2.0',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -723,7 +723,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.1.0'),
+    version: String((dictLike && dictLike.version) || '3.2.0'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -1839,6 +1839,7 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
           mismatchedFields
         };
       }
+
     });
 
     totalCount += 1;
@@ -1911,6 +1912,135 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
       Stats_Resistors_Total: totalCount,
       Stats_Resistors_Full: fullMatchCount,
       Stats_Resistors_Partial: partialMatchCount
+    },
+    sourceColumnIndexes: sourceIndexes,
+    dictColumnIndexes: dictIndexes,
+    sourceRowsCount: rows.length,
+    dictRowsCount: dictRows.length
+  };
+}
+
+function computeResistorRotationValue(currentRotation, rotationDelta, layerValue) {
+  const layerText = normalizeText(layerValue).toLowerCase();
+  const currentValue = Number(normalizeDecimalText(currentRotation));
+  const deltaValue = Number(normalizeDecimalText(rotationDelta));
+  const safeCurrent = Number.isFinite(currentValue) ? currentValue : 0;
+  const safeDelta = Number.isFinite(deltaValue) ? deltaValue : 0;
+  let nextRotation = null;
+
+  // Формулы повторяют VBA-макрос CalculateRotationForResist.
+  if (layerText === 'toplayer' || layerText === 'top') {
+    nextRotation = (safeCurrent - safeDelta) % 360;
+    if (nextRotation < 0) {
+      nextRotation += 360;
+    }
+  } else if (layerText === 'bottomlayer' || layerText === 'bottom') {
+    if (safeCurrent <= 180) {
+      nextRotation = 180 - safeCurrent - safeDelta;
+    } else {
+      nextRotation = 540 - safeCurrent - safeDelta;
+    }
+
+    nextRotation %= 360;
+    if (nextRotation < 0) {
+      nextRotation += 360;
+    }
+  }
+
+  if (nextRotation === null || !Number.isFinite(nextRotation)) {
+    return null;
+  }
+
+  return normalizeRotationValue(nextRotation);
+}
+
+function buildResistorRotationState(dataResistState, resistorSheetState) {
+  const rawHeaders = Array.isArray(dataResistState && dataResistState.rawHeaders) ? dataResistState.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataResistState && dataResistState.rows) ? dataResistState.rows : [];
+  const worksheetRows = Array.isArray(dataResistState && dataResistState.worksheetRows) ? dataResistState.worksheetRows : [];
+  const dictRawHeaders = Array.isArray(resistorSheetState && resistorSheetState.rawHeaders) ? resistorSheetState.rawHeaders.slice() : [];
+  const dictRows = Array.isArray(resistorSheetState && resistorSheetState.rows) ? resistorSheetState.rows : [];
+  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT', 'ROTATION', 'LAYER'];
+  const requiredDictColumns = ['COMMENT_FR', 'FOOTPRINT_FR', 'ROTATION_DELTA'];
+  const sourceIndexes = {};
+  const dictIndexes = {};
+
+  requiredSourceColumns.forEach((columnName) => {
+    sourceIndexes[columnName] = findResistorColumnIndex(rawHeaders, columnName);
+  });
+  requiredDictColumns.forEach((columnName) => {
+    dictIndexes[columnName] = findResistorColumnIndex(dictRawHeaders, columnName);
+  });
+
+  const missingSourceColumns = requiredSourceColumns.filter((columnName) => sourceIndexes[columnName] < 0);
+  const missingDictColumns = requiredDictColumns.filter((columnName) => dictIndexes[columnName] < 0);
+
+  if (missingSourceColumns.length) {
+    throw new Error(`В DataResist не найдены столбцы для расчета ROTATION: ${missingSourceColumns.join(', ')}`);
+  }
+
+  if (missingDictColumns.length) {
+    throw new Error(`В листе Resist не найдены столбцы для расчета ROTATION: ${missingDictColumns.join(', ')}`);
+  }
+
+  const nextRows = [];
+  const nextWorksheetRows = [];
+  let totalCount = 0;
+  let processedCount = 0;
+  let skippedCount = 0;
+
+  rows.forEach((sourceRow, sourceRowIndex) => {
+    const nextRow = clonePnpRawRow(sourceRow);
+    const nextWorksheetRow = worksheetRows[sourceRowIndex]
+      ? clonePnpWorksheetRow(worksheetRows[sourceRowIndex])
+      : { values: clonePnpRawRow(sourceRow), hidden: false };
+    const sourceComment = normalizeText(clonePnpCellValue(nextRow[sourceIndexes.COMMENT]));
+    const sourceFootprint = normalizeText(clonePnpCellValue(nextRow[sourceIndexes.FOOTPRINT]));
+    const sourceRotation = clonePnpCellValue(nextRow[sourceIndexes.ROTATION]);
+    const sourceLayer = clonePnpCellValue(nextRow[sourceIndexes.LAYER]);
+    const matchedDictRowIndex = dictRows.findIndex((dictRow) => (
+      normalizeText(clonePnpCellValue(dictRow[dictIndexes.COMMENT_FR])) === sourceComment
+      && normalizeText(clonePnpCellValue(dictRow[dictIndexes.FOOTPRINT_FR])) === sourceFootprint
+    ));
+
+    totalCount += 1;
+
+    if (matchedDictRowIndex < 0) {
+      skippedCount += 1;
+      nextRows.push(nextRow);
+      nextWorksheetRows.push(nextWorksheetRow);
+      return;
+    }
+
+    const rotationDelta = clonePnpCellValue(dictRows[matchedDictRowIndex][dictIndexes.ROTATION_DELTA]);
+    const nextRotation = computeResistorRotationValue(sourceRotation, rotationDelta, sourceLayer);
+
+    if (nextRotation === null) {
+      skippedCount += 1;
+      nextRows.push(nextRow);
+      nextWorksheetRows.push(nextWorksheetRow);
+      return;
+    }
+
+    nextRow[sourceIndexes.ROTATION] = nextRotation;
+
+    if (Array.isArray(nextWorksheetRow.values)) {
+      nextWorksheetRow.values[sourceIndexes.ROTATION] = nextRotation;
+    }
+
+    processedCount += 1;
+    nextRows.push(nextRow);
+    nextWorksheetRows.push(nextWorksheetRow);
+  });
+
+  return {
+    rawHeaders,
+    rows: nextRows,
+    worksheetRows: nextWorksheetRows,
+    rotationStats: {
+      Stats_Rotation_Total: totalCount,
+      Stats_Rotation_Processed: processedCount,
+      Stats_Rotation_Skipped: skippedCount
     },
     sourceColumnIndexes: sourceIndexes,
     dictColumnIndexes: dictIndexes,
@@ -2295,28 +2425,30 @@ function buildZipArchive(entries) {
   return Buffer.concat([localFiles, centralDirectory, endRecord]);
 }
 
-async function savePnpXlsxFile(targetFolder, baseName, importInfo, sourcePath) {
+async function savePnpXlsxFile(targetFolder, baseName, importInfo, sourcePath, options = {}) {
   const workbookName = `${String(baseName || 'pnp_export_v300').trim() || 'pnp_export_v300'}.xlsx`;
   const targetPath = path.join(targetFolder, workbookName);
   let nextImportInfo = importInfo || {};
 
   if (nextImportInfo && nextImportInfo.dataSet2Table) {
-    const dictXlsxPath = String(nextImportInfo.dictXlsxPath || '').trim();
+    const dictXlsxPath = String((options && options.dictXlsxPath) || nextImportInfo.dictXlsxPath || '').trim();
 
     if (dictXlsxPath) {
       // Для Excel-файла повторяем сравнение с Resist, чтобы стили ушли именно в книгу.
       const resistorDict = await loadResistDictXlsxFile(dictXlsxPath);
       const resistorState = buildResistorMatchState(nextImportInfo.dataSet2Table, resistorDict);
+      const rotationState = buildResistorRotationState(resistorState, resistorDict);
 
       nextImportInfo = {
         ...nextImportInfo,
         dataResistTable: {
-          rawHeaders: Array.isArray(resistorState.rawHeaders) ? resistorState.rawHeaders.slice() : [],
-          rows: resistorState.rows,
-          worksheetRows: resistorState.worksheetRows
+          rawHeaders: Array.isArray(rotationState.rawHeaders) ? rotationState.rawHeaders.slice() : [],
+          rows: rotationState.rows,
+          worksheetRows: rotationState.worksheetRows
         },
         noMatchResistors: resistorState.noMatchResistors,
         resistorStats: resistorState.resistorStats,
+        rotationStats: rotationState.rotationStats,
         dictWorkbook: resistorDict.workbook
       };
     }
@@ -2446,6 +2578,15 @@ async function loadModuleExport(filePath) {
 
 async function loadResistDictXlsxFile(filePath) {
   const resolvedPath = path.resolve(filePath);
+  try {
+    const fileStat = await fs.stat(resolvedPath);
+    if (!fileStat.isFile()) {
+      throw new Error(`Файл Dict.xlsx не найден по указанному пути: ${resolvedPath}\nУкажите точный путь, включая имя файла.`);
+    }
+  } catch {
+    throw new Error(`Файл Dict.xlsx не найден по указанному пути: ${resolvedPath}\nУкажите точный путь, включая имя файла.`);
+  }
+
   const resistSheet = await readXlsxSheetRows(resolvedPath, 'Resist');
   const rawHeaders = Array.isArray(resistSheet.rows) && resistSheet.rows.length ? resistSheet.rows[0].slice() : [];
   const dataRows = Array.isArray(resistSheet.rows) ? resistSheet.rows.slice(1) : [];
@@ -2617,7 +2758,9 @@ async function exportFiles(dictLike, targetFolder, options = {}) {
   await fs.writeFile(exportHtmlPath, buildPreviewHtml(prepared), 'utf8');
 
   if (exportXlsxFolder) {
-    exportXlsxResult = await savePnpXlsxFile(exportXlsxFolder, xlsxBaseName, importInfo, options.sourcePath || '');
+    exportXlsxResult = await savePnpXlsxFile(exportXlsxFolder, xlsxBaseName, importInfo, options.sourcePath || '', {
+      dictXlsxPath: options.dictXlsxPath || ''
+    });
   }
 
   return {
@@ -2655,6 +2798,7 @@ module.exports = {
   buildDataResistTableState,
   loadResistDictXlsxFile,
   buildResistorMatchState,
+  buildResistorRotationState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,
