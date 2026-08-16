@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.2
+ * Версия: 3.5.4
  * Автор: Новожилов Артем
  */
 
@@ -1106,17 +1106,19 @@ function buildPnpState(dict, overrides = {}) {
   const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictPath());
   const statePath = getPnpStatePathValue(overrides, 'statePath');
   const infoD3 = getPnpStatePathValue(overrides, 'infoD3');
+  const infoD7 = getPnpStatePathValue(overrides, 'infoD7');
   const importInfo = overrides && overrides.importInfo ? overrides.importInfo : null;
   const activeSheet = String(overrides && overrides.activeSheet ? overrides.activeSheet : 'Info');
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.2',
+    version: '3.5.4',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
     activeSheet,
     infoD3,
+    infoD7,
     localPath,
     importCsvPath,
     exportXlsxFolder,
@@ -1133,7 +1135,8 @@ function buildPnpState(dict, overrides = {}) {
       dictXlsxPath,
       dictPath,
       statePath,
-      infoD3
+      infoD3,
+      infoD7
     },
     dict
   };
@@ -1380,6 +1383,15 @@ async function fillPnpSetColumn(payload) {
     nextState.importInfo.rotationOStats = otherRotationState.rotationStats;
     nextState.importInfo.rotationO = otherRotationState.rotationStats.Stats_Rotation_Changed || 0;
 
+    // Имя файла окончательно собираем уже после DataOther, как в макросе GenerateFileNameFromVariant.
+    nextState.importInfo.infoD7 = pnpPipeline.generateFileNameFromVariant(
+     nextState.importInfo.infoD5 || '',
+     nextState.importInfo.infoD6 || '',
+     infoD3,
+     nextState.importInfo,
+     nextState.importInfo.baseName || 'pnp_export_v300'
+    );
+
     nextState.importInfo.dataPredExitTable = {
      rawHeaders: Array.isArray(nextState.importInfo.dataOtherTable.rawHeaders) ? nextState.importInfo.dataOtherTable.rawHeaders.slice() : [],
      rows: Array.isArray(nextState.importInfo.dataOtherTable.rows)
@@ -1401,7 +1413,11 @@ async function fillPnpSetColumn(payload) {
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
   const sourcePath = String(payload && payload.sourcePath ? payload.sourcePath : importInfo.sourcePath || '').trim();
-  const baseName = String(payload && payload.baseName ? payload.baseName : importInfo.baseName || 'pnp_export_v300').trim() || 'pnp_export_v300';
+  const baseName = String(
+    payload && payload.baseName
+      ? payload.baseName
+      : (importInfo && (importInfo.infoD7 || importInfo.baseName))
+  ).trim() || 'pnp_export_v300';
   let xlsxResult = null;
   let targetFolder = exportXlsxFolder;
 
@@ -1445,6 +1461,7 @@ async function savePnpState(payload) {
     mode: state.mode || 'dict',
     activeSheet: state.activeSheet || (state.pnp && state.pnp.activeSheet ? state.pnp.activeSheet : 'Info'),
     infoD3: state.infoD3 || (state.importInfo && state.importInfo.infoD3 ? state.importInfo.infoD3 : ''),
+    infoD7: state.infoD7 || (state.importInfo && state.importInfo.infoD7 ? state.importInfo.infoD7 : ''),
     localPath: state.localPath || '',
     importCsvPath: state.importCsvPath || '',
     exportXlsxFolder: state.exportXlsxFolder || '',
@@ -1484,6 +1501,7 @@ async function loadPnpState(payload) {
       mode: loadedState.mode || 'dict',
       activeSheet: loadedState.activeSheet || (loadedState.pnp && loadedState.pnp.activeSheet ? loadedState.pnp.activeSheet : 'Info'),
       infoD3: loadedState.infoD3 || (loadedState.importInfo && loadedState.importInfo.infoD3 ? loadedState.importInfo.infoD3 : ''),
+      infoD7: loadedState.infoD7 || (loadedState.importInfo && loadedState.importInfo.infoD7 ? loadedState.importInfo.infoD7 : ''),
       localPath: loadedState.localPath || '',
       importCsvPath: loadedState.importCsvPath || '',
       exportXlsxFolder: loadedState.exportXlsxFolder || '',

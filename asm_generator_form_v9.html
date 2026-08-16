@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.22.0
+Версия: 9.23.0
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -249,6 +249,26 @@
     font-weight:800;
     margin-bottom:14px;
     line-height:1.08;
+  }
+
+  .pnp-workbook-title-row{
+    display:flex;
+    align-items:baseline;
+    gap:16px;
+    width:100%;
+  }
+
+  .pnp-workbook-title-file{
+    margin-left:auto;
+    text-align:right;
+    color:var(--muted);
+    font-size:14px;
+    line-height:1.2;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:600;
+    word-break:break-word;
+    overflow-wrap:anywhere;
+    max-width:min(52%, 520px);
   }
 
   .field-label{
@@ -1156,7 +1176,10 @@
 
       <div class="space-y-4">
         <div class="section-card p-4 pnp-workbook-panel">
-          <h2 class="section-title">Таблица P&P</h2>
+          <div class="pnp-workbook-title-row">
+            <h2 class="section-title">Таблица P&P</h2>
+            <div id="pnpInfoD7Preview" class="pnp-workbook-title-file"></div>
+          </div>
           <div class="hint-list" id="pnpTablePlaceholder">Таблица появится здесь позже.</div>
         </div>
       </div>
@@ -1409,13 +1432,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.20.0
+// Версия: 9.23.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.2",
+    version: "    3.5.4",
     versionDate: "2026-08-16"
   }),
   getUserSettings: async () => ({
@@ -1516,8 +1539,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.2",
-    latestVersion: "3.5.2",
+    currentVersion: "3.5.4",
+    latestVersion: "3.5.4",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1551,7 +1574,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.2",
+  version: "3.5.4",
   versionDate: "2026-08-16"
   },
   projectMode: "create",
@@ -2498,6 +2521,245 @@ function showPnpExecutionDialog(defaultValue = ""){
   });
 }
 
+function formatPnpDateStamp(date = new Date()){
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function sanitizePnpFileNamePart(value){
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/[<>:"/\\|?*]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Убираем служебные префиксы, чтобы имя файла следовало форме макроса.
+function normalizePnpVariantLabelPart(value){
+  return sanitizePnpFileNamePart(value)
+    .trim();
+}
+
+function extractPnpBaseCodeFromText(inputText){
+  const text = sanitizePnpFileNamePart(inputText);
+  const posNSFT = text.indexOf("НСФТ");
+
+  if (posNSFT < 0) {
+    return "";
+  }
+
+  const afterNSFT = text.slice(posNSFT + 4).replace(/^\s+/, "");
+  let extractedPart = "";
+
+  for (let index = 0; index < afterNSFT.length; index += 1) {
+    const char = afterNSFT[index];
+    if (/[0-9.]/.test(char)) {
+      extractedPart += char;
+      if (extractedPart.length >= 10) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return extractedPart ? `НСФТ ${extractedPart}`.trim() : "";
+}
+
+function extractPnpDateFromText(inputText){
+  const text = sanitizePnpFileNamePart(inputText);
+
+  if (text.length < 8) {
+    return "";
+  }
+
+  const rightPart = text.slice(-8);
+  if (/^\d{8}$/.test(rightPart)) {
+    return rightPart;
+  }
+
+  let datePart = "";
+  let digitCount = 0;
+
+  for (let index = text.length - 1; index >= 0; index -= 1) {
+    const char = text[index];
+    if (/[0-9]/.test(char)) {
+      datePart = char + datePart;
+      digitCount += 1;
+      if (digitCount === 8) {
+        break;
+      }
+    } else if (digitCount > 0 && digitCount < 8) {
+      datePart = "";
+      digitCount = 0;
+    }
+  }
+
+  return digitCount === 8 ? datePart : "";
+}
+
+function determinePnpLayerSuffix(importInfo){
+  const table = importInfo && importInfo.dataOtherTable ? importInfo.dataOtherTable : importInfo;
+  const rawHeaders = table && Array.isArray(table.rawHeaders) ? table.rawHeaders : [];
+  const rows = table && Array.isArray(table.rows) ? table.rows : [];
+  let colLayer = -1;
+  let colDesignator = -1;
+
+  for (let index = 0; index < rawHeaders.length; index += 1) {
+    const headerValue = String(rawHeaders[index] || "").trim().toUpperCase();
+    if (headerValue === "LAYER") {
+      colLayer = index;
+    } else if (headerValue === "DESIGNATOR") {
+      colDesignator = index;
+    }
+
+    if (colLayer >= 0 && colDesignator >= 0) {
+      break;
+    }
+  }
+
+  if (colLayer < 0 || colDesignator < 0) {
+    return "";
+  }
+
+  let hasTopLayer = false;
+  let hasBottomLayer = false;
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
+    const designatorValue = String(row && row[colDesignator] !== undefined && row[colDesignator] !== null ? row[colDesignator] : "").trim().toUpperCase();
+
+    if (designatorValue.indexOf("REF") === 0) {
+      continue;
+    }
+
+    const layerValue = String(row && row[colLayer] !== undefined && row[colLayer] !== null ? row[colLayer] : "").trim().toUpperCase();
+    if (layerValue === "") {
+      continue;
+    }
+
+    if (layerValue === "TOPLAYER" || layerValue === "TOP" || layerValue === "TOP LAYER") {
+      hasTopLayer = true;
+    } else if (layerValue === "BOTTOMLAYER" || layerValue === "BOTTOM" || layerValue === "BOTTOM LAYER" || layerValue === "BOT") {
+      hasBottomLayer = true;
+    }
+
+    if (hasTopLayer && hasBottomLayer) {
+      break;
+    }
+  }
+
+  if (hasTopLayer && hasBottomLayer) {
+    return "_R_";
+  }
+  if (hasTopLayer) {
+    return "_T_";
+  }
+  if (hasBottomLayer) {
+    return "_B_";
+  }
+
+  return "";
+}
+
+function buildPnpVariantFileName(infoD5, infoD6, executionValue, importInfo){
+  const variantText = sanitizePnpFileNamePart(infoD5);
+  const csvFileName = String(infoD6 || "").split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
+  const baseCode = variantText ? extractPnpBaseCodeFromText(variantText) : (csvFileName ? extractPnpBaseCodeFromText(csvFileName) || csvFileName : "");
+  const dashPart = Number(executionValue) > 0 ? `-0${String(Number(executionValue))}` : "";
+  const layerSuffix = determinePnpLayerSuffix(importInfo);
+  const dateToken = variantText ? extractPnpDateFromText(variantText) : extractPnpDateFromText(csvFileName);
+
+  if (!baseCode) {
+    return "НСФТ";
+  }
+
+  return sanitizePnpFileNamePart(`${baseCode}${dashPart}${layerSuffix}(${dateToken})`) || "НСФТ";
+}
+
+function showPnpFileNameDialog(defaultValue = ""){
+  return new Promise((resolve) => {
+    const inputId = "pnpFileNameInput";
+    const errorId = "pnpFileNameError";
+    let currentValue = sanitizePnpFileNamePart(defaultValue) || "НСФТ";
+
+    const bodyHtml = [
+      `<div class="space-y-3">`,
+      `<div>Какое имя файла использовать для экспорта?</div>`,
+      `<div>`,
+      `<input id="${inputId}" class="field-input" type="text" autocomplete="off" spellcheck="false" maxlength="120" value="${escapePnpHtml(currentValue)}" placeholder="НСФТ...">`,
+      `<div class="mt-1 text-xs" style="color:var(--muted);">Имя можно отредактировать вручную перед сохранением.</div>`,
+      `<div id="${errorId}" class="mt-2 text-sm" style="display:none;color:var(--danger);"></div>`,
+      `</div>`,
+      `</div>`
+    ].join("");
+
+    const setError = (message) => {
+      const errorNode = $(errorId);
+      if (!errorNode) return;
+      if (message) {
+        errorNode.textContent = message;
+        errorNode.style.display = "block";
+      } else {
+        errorNode.textContent = "";
+        errorNode.style.display = "none";
+      }
+    };
+
+    showAppDialog("Pick and Place", { html: bodyHtml }, [
+      {
+        id: "accept",
+        label: "Принять",
+        variant: "solid",
+        onClick: () => {
+          const input = $(inputId);
+          const normalized = sanitizePnpFileNamePart(input ? input.value : "");
+          if (normalized === "") {
+            setError("Имя файла не может быть пустым.");
+            if (input) {
+              input.focus();
+              input.select();
+            }
+            return false;
+          }
+          currentValue = normalized;
+          return "accept";
+        }
+      },
+      {
+        id: "cancel",
+        label: "Отмена",
+        variant: "ghost",
+        onClick: () => {
+          currentValue = "";
+          return "cancel";
+        }
+      }
+    ], {
+      onRender: () => {
+        const input = $(inputId);
+        if (!input) return;
+        input.focus();
+        input.select();
+        input.addEventListener("input", () => setError(""));
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            const acceptButton = $("appDialogActions") ? $("appDialogActions").querySelector('[data-action-id="accept"]') : null;
+            if (acceptButton) {
+              acceptButton.click();
+            }
+          }
+        });
+      },
+      actionsGap: "10px"
+    }).then((result) => {
+      resolve(result === "accept" ? currentValue : null);
+    });
+  });
+}
+
 function normalizePnpSetColumnName(rawValue){
   const normalizedExecution = normalizePnpExecutionValue(rawValue);
   return normalizedExecution === null ? "" : `SET${normalizedExecution.padStart(2, "0")}`;
@@ -2716,7 +2978,7 @@ function escapePnpHtml(value){
     .replace(/'/g, "&#39;");
 }
 
-function buildPnpInfoSheetRows(infoD3, infoD5, infoD6){
+function buildPnpInfoSheetRows(infoD3, infoD5, infoD6, infoD7){
   const rows = Array.from({ length: 15 }, () => (["", "", "", ""]));
   const legendRows = [
     { row: 10, color: "rgb(255, 199, 206)", text: "Данные, которые заменились из словаря." },
@@ -2730,6 +2992,7 @@ function buildPnpInfoSheetRows(infoD3, infoD5, infoD6){
   rows[2][3] = infoD3;
   rows[4][3] = infoD5;
   rows[5][3] = infoD6;
+  rows[6][3] = infoD7;
 
   legendRows.forEach((entry) => {
     const rowIndex = entry.row - 1;
@@ -2880,6 +3143,7 @@ function getPnpDataSetSummaryCounts(importInfo){
 
 function renderPnpVisibleTable(){
   const placeholder = $("pnpTablePlaceholder");
+  const fileNamePreview = $("pnpInfoD7Preview");
   const activeSection = getPnpActiveSection();
   const rows = activeSection && Array.isArray(activeSection.previewRows) ? activeSection.previewRows : [];
   const stats = state.pnp.stats || getPnpEmptyStats();
@@ -2913,6 +3177,10 @@ function renderPnpVisibleTable(){
   const infoD3 = String((importInfo && importInfo.infoD3) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD3) || "");
   const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
   const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
+  const infoD7 = String((importInfo && importInfo.infoD7) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD7) || "");
+  if (fileNamePreview) {
+    fileNamePreview.textContent = infoD7;
+  }
   const separator = " | ";
   const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther" || visibleSheet === "DataPredExit")
     ? [
@@ -2926,7 +3194,7 @@ function renderPnpVisibleTable(){
     `<div class="section-card p-0" style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">`,
     visibleSheet === "Info"
       ? (() => {
-          const infoRows = buildPnpInfoSheetRows(infoD3, infoD5, infoD6);
+          const infoRows = buildPnpInfoSheetRows(infoD3, infoD5, infoD6, infoD7);
           return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
             `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
             `<thead><tr><th style="width:48px;"></th><th style="width:52px;">A</th><th>B</th><th>C</th><th>D</th></tr></thead>` +
@@ -3050,6 +3318,7 @@ function loadPnpPreview(dictLike, meta = {}){
   const dictPath = String(meta.dictPath || paths.dictPath || state.pnp.dict.path || "");
   const statePath = String(meta.statePath || paths.statePath || state.pnp.state.path || "");
   const infoD3 = String(meta.infoD3 || (dictLike && dictLike.importInfo && dictLike.importInfo.infoD3) || (state.pnp.importInfo && state.pnp.importInfo.infoD3) || "");
+  const infoD7 = String(meta.infoD7 || (dictLike && dictLike.importInfo && dictLike.importInfo.infoD7) || (state.pnp.importInfo && state.pnp.importInfo.infoD7) || "");
 
   if (activeSection) {
     activeSection.data = dict || null;
@@ -3073,6 +3342,12 @@ function loadPnpPreview(dictLike, meta = {}){
   }
   if (state.pnp.state.importInfo && !state.pnp.state.importInfo.infoD3) {
     state.pnp.state.importInfo.infoD3 = infoD3;
+  }
+  if (state.pnp.importInfo && !state.pnp.importInfo.infoD7) {
+    state.pnp.importInfo.infoD7 = infoD7;
+  }
+  if (state.pnp.state.importInfo && !state.pnp.state.importInfo.infoD7) {
+    state.pnp.state.importInfo.infoD7 = infoD7;
   }
   state.pnp.activeSheet = String(
     meta.activeSheet
@@ -3119,6 +3394,7 @@ function buildPnpStatePayload(){
     ? localPath.replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
     : "C:\\settings\\PickAndPlace\\pnp_state_v300.js");
   const infoD3 = String((state.pnp.importInfo && state.pnp.importInfo.infoD3) || (state.pnp.state.importInfo && state.pnp.state.importInfo.infoD3) || "");
+  const infoD7 = String((state.pnp.importInfo && state.pnp.importInfo.infoD7) || (state.pnp.state.importInfo && state.pnp.state.importInfo.infoD7) || "");
   return {
     mode: state.pnp.mode,
     dictPath: dictPath,
@@ -3129,6 +3405,7 @@ function buildPnpStatePayload(){
     exportFolder: exportFolder,
     statePath: statePath,
     infoD3: infoD3,
+    infoD7: infoD7,
     paths: {
       localPath: localPath,
       dictXlsxPath: state.pnp.dictXlsxPath,
@@ -3137,7 +3414,8 @@ function buildPnpStatePayload(){
       exportFolder: exportFolder,
       dictPath: dictPath,
       statePath: statePath,
-      infoD3: infoD3
+      infoD3: infoD3,
+      infoD7: infoD7
     },
     dict: state.pnp.dict.data,
     importInfo: state.pnp.importInfo,
@@ -3150,6 +3428,7 @@ function buildPnpStatePayload(){
       export: { ...state.pnp.export },
       localPath: localPath,
       infoD3: infoD3,
+      infoD7: infoD7,
       paths: {
         localPath: localPath,
         dictXlsxPath: dictXlsxPath,
@@ -3158,7 +3437,8 @@ function buildPnpStatePayload(){
         exportFolder: exportFolder,
         dictPath: dictPath,
         statePath: statePath,
-        infoD3: infoD3
+        infoD3: infoD3,
+        infoD7: infoD7
       },
       stats: { ...state.pnp.stats },
       importInfo: state.pnp.importInfo,
@@ -3208,12 +3488,25 @@ async function importPnpCsvFile(options = {}){
       exportXlsxFolder: result.xlsx && result.xlsx.path ? state.pnp.exportXlsx.folder : (state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""))
     });
 
+    // Черновое имя из первичного импорта не показываем до финального расчета по DataOther.
+    if (result.importInfo) {
+      result.importInfo.infoD7 = "";
+    }
+    if (state.pnp.importInfo) {
+      state.pnp.importInfo.infoD7 = "";
+    }
+    if (state.pnp.state && state.pnp.state.importInfo) {
+      state.pnp.state.importInfo.infoD7 = "";
+    }
+    renderPnpVisibleTable();
+
     const executionValue = await showPnpExecutionDialog(state.pnp.importInfo && state.pnp.importInfo.infoD3 ? state.pnp.importInfo.infoD3 : "0");
     if (executionValue === null) {
       return;
     }
 
     syncPnpExecutionValue(executionValue);
+
     const setState = getPnpSetColumnState(state.pnp.importInfo || (result && result.importInfo ? result.importInfo : null), executionValue);
     let applyFill = false;
 
@@ -3241,12 +3534,44 @@ async function importPnpCsvFile(options = {}){
       applyFill: applyFill,
       exportXlsxFolder: state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : ""),
       xlsxPath: result.xlsx && result.xlsx.path ? result.xlsx.path : "",
-      baseName: result.importInfo && result.importInfo.baseName ? result.importInfo.baseName : "",
+      baseName: result.importInfo && (result.importInfo.infoD7 || result.importInfo.baseName) ? (result.importInfo.infoD7 || result.importInfo.baseName) : "",
       sourcePath: result.filePath || csvPath
     });
 
     if (!refreshResult || refreshResult.canceled) {
       return;
+    }
+
+    const proposedFileName = String(
+      refreshResult.importInfo && refreshResult.importInfo.infoD7
+        ? refreshResult.importInfo.infoD7
+        : buildPnpVariantFileName(
+            result.importInfo && result.importInfo.infoD5 ? result.importInfo.infoD5 : "",
+            result.filePath || csvPath,
+            executionValue
+          )
+    ).trim();
+    const fileNameValue = await showPnpFileNameDialog(proposedFileName);
+    if (fileNameValue === null) {
+      return;
+    }
+
+    const nextFileName = sanitizePnpFileNamePart(fileNameValue);
+    if (refreshResult.importInfo) {
+      refreshResult.importInfo.infoD7 = nextFileName;
+    }
+    if (refreshResult.state && refreshResult.state.importInfo) {
+      refreshResult.state.importInfo.infoD7 = nextFileName;
+    }
+    state.pnp.importInfo = {
+      ...(state.pnp.importInfo || {}),
+      infoD7: nextFileName
+    };
+    if (state.pnp.state) {
+      state.pnp.state.importInfo = {
+        ...(state.pnp.state.importInfo || {}),
+        infoD7: nextFileName
+      };
     }
 
     loadPnpPreview(refreshResult, {
@@ -3256,7 +3581,8 @@ async function importPnpCsvFile(options = {}){
       importCsvPath: refreshResult.filePath || result.filePath || csvPath,
       sourcePath: refreshResult.filePath || result.filePath || csvPath,
       exportXlsxFolder: refreshResult.xlsx && refreshResult.xlsx.path ? state.pnp.exportXlsx.folder : (state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : "")),
-      infoD3: executionValue
+      infoD3: executionValue,
+      infoD7: nextFileName
     });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось импортировать CSV.\n\n${formatPnpErrorMessage(error)}`);
@@ -3340,7 +3666,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.2",
+    version: "3.5.4",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

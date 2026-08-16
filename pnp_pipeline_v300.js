@@ -1,6 +1,6 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.2 для словаря Dict/.
- * Версия: 3.5.2
+ * Описание: Минимальный конвейер Pick and Place 3.5.4 для словаря Dict/.
+ * Версия: 3.5.4
  * Автор: Новожилов Артем
  */
 
@@ -25,7 +25,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.2',
+    version: '3.5.4',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -89,6 +89,159 @@ function deriveImportBaseName(filePath) {
   }
 
   return baseName;
+}
+
+function formatDateStamp(date = new Date()) {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}${month}${day}`;
+}
+
+function sanitizeVariantStemPart(value) {
+  return normalizeText(value)
+    .replace(/[<>:"/\\|?*]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractBaseCodeFromText(inputText) {
+  const text = sanitizeVariantStemPart(inputText);
+  const posNSFT = text.indexOf('НСФТ');
+
+  if (posNSFT < 0) {
+    return '';
+  }
+
+  const afterNSFT = text.slice(posNSFT + 4).replace(/^\s+/, '');
+  let extractedPart = '';
+
+  for (let index = 0; index < afterNSFT.length; index += 1) {
+    const char = afterNSFT[index];
+
+    if (/[0-9.]/.test(char)) {
+      extractedPart += char;
+      if (extractedPart.length >= 10) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return extractedPart ? `НСФТ ${extractedPart}`.trim() : '';
+}
+
+function extractDateFromText(inputText) {
+  const text = sanitizeVariantStemPart(inputText);
+
+  if (text.length < 8) {
+    return '';
+  }
+
+  const rightPart = text.slice(-8);
+  if (/^\d{8}$/.test(rightPart)) {
+    return rightPart;
+  }
+
+  let datePart = '';
+  let digitCount = 0;
+
+  for (let index = text.length - 1; index >= 0; index -= 1) {
+    const char = text[index];
+    if (/[0-9]/.test(char)) {
+      datePart = char + datePart;
+      digitCount += 1;
+      if (digitCount === 8) {
+        break;
+      }
+    } else if (digitCount > 0 && digitCount < 8) {
+      datePart = '';
+      digitCount = 0;
+    }
+  }
+
+  return digitCount === 8 ? datePart : '';
+}
+
+function determineLayerSuffix(importInfo) {
+  const table = importInfo && importInfo.dataOtherTable ? importInfo.dataOtherTable : importInfo;
+  const rawHeaders = table && Array.isArray(table.rawHeaders) ? table.rawHeaders : [];
+  const rows = table && Array.isArray(table.rows) ? table.rows : [];
+  let colLayer = -1;
+  let colDesignator = -1;
+
+  for (let index = 0; index < rawHeaders.length; index += 1) {
+    const headerValue = String(rawHeaders[index] || '').trim().toUpperCase();
+    if (headerValue === 'LAYER') {
+      colLayer = index;
+    } else if (headerValue === 'DESIGNATOR') {
+      colDesignator = index;
+    }
+
+    if (colLayer >= 0 && colDesignator >= 0) {
+      break;
+    }
+  }
+
+  if (colLayer < 0 || colDesignator < 0) {
+    return '';
+  }
+
+  let hasTopLayer = false;
+  let hasBottomLayer = false;
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
+    const designatorValue = String(row && row[colDesignator] !== undefined && row[colDesignator] !== null ? row[colDesignator] : '').trim().toUpperCase();
+
+    if (designatorValue.indexOf('REF') === 0) {
+      continue;
+    }
+
+    const layerValue = String(row && row[colLayer] !== undefined && row[colLayer] !== null ? row[colLayer] : '').trim().toUpperCase();
+    if (layerValue === '') {
+      continue;
+    }
+
+    if (layerValue === 'TOPLAYER' || layerValue === 'TOP' || layerValue === 'TOP LAYER') {
+      hasTopLayer = true;
+    } else if (layerValue === 'BOTTOMLAYER' || layerValue === 'BOTTOM' || layerValue === 'BOTTOM LAYER' || layerValue === 'BOT') {
+      hasBottomLayer = true;
+    }
+
+    if (hasTopLayer && hasBottomLayer) {
+      break;
+    }
+  }
+
+  if (hasTopLayer && hasBottomLayer) {
+    return '_R_';
+  }
+  if (hasTopLayer) {
+    return '_T_';
+  }
+  if (hasBottomLayer) {
+    return '_B_';
+  }
+
+  return '';
+}
+
+function generateFileNameFromVariant(infoD5, infoD6 = '', infoD3 = '', importInfo = null, fallbackStem = DEFAULT_EXPORT_STEM) {
+  const variantText = sanitizeVariantStemPart(infoD5);
+  const csvFileName = path.basename(String(infoD6 || '')).replace(path.extname(String(infoD6 || '')), '');
+  const executionToken = Number(infoD3) > 0 ? `-0${String(Number(infoD3))}` : '';
+  const layerSuffix = determineLayerSuffix(importInfo);
+  const baseCode = variantText ? extractBaseCodeFromText(variantText) : (csvFileName ? extractBaseCodeFromText(csvFileName) || csvFileName : '');
+  const dateToken = variantText ? extractDateFromText(variantText) : extractDateFromText(csvFileName);
+
+  if (!baseCode) {
+    return fallbackStem;
+  }
+
+  return `${baseCode}${executionToken}${layerSuffix}(${dateToken})`.replace(/[<>:"/\\|?*]+/g, '_');
 }
 
 function normalizeCsvHeaderForImport(value) {
@@ -501,7 +654,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.2',
+    version: '3.5.4',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -690,7 +843,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.2',
+    version: '3.5.4',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -723,7 +876,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.2'),
+    version: String((dictLike && dictLike.version) || '3.5.4'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -967,11 +1120,13 @@ function buildInfoSheetRows(importInfo, sourcePath) {
   const d3Value = String(importInfo && importInfo.infoD3 ? importInfo.infoD3 : '');
   const d5Value = String(importInfo && importInfo.infoD5 ? importInfo.infoD5 : '');
   const d6Value = String(importInfo && importInfo.infoD6 ? importInfo.infoD6 : sourcePath || '');
+  const d7Value = String(importInfo && importInfo.infoD7 ? importInfo.infoD7 : '');
   const rows = Array.from({ length: 15 }, () => ['', '', '', '']);
 
   rows[2][3] = d3Value;
   rows[4][3] = d5Value;
   rows[5][3] = d6Value;
+  rows[6][3] = d7Value;
 
   INFO_LEGEND_ROWS.forEach((entry) => {
     const rowIndex = entry.row - 1;
@@ -2929,7 +3084,7 @@ function buildAppPropsXml(sheetNames) {
 }
 
 function buildCorePropsXml(importInfo, sourcePath) {
-  const title = String(importInfo && importInfo.baseName ? importInfo.baseName : 'Pick and Place');
+  const title = String(importInfo && (importInfo.infoD7 || importInfo.baseName) ? (importInfo.infoD7 || importInfo.baseName) : 'Pick and Place');
   const created = new Date().toISOString();
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -3054,7 +3209,8 @@ function buildZipArchive(entries) {
 }
 
 async function savePnpXlsxFile(targetFolder, baseName, importInfo, sourcePath, options = {}) {
-  const workbookName = `${String(baseName || 'pnp_export_v300').trim() || 'pnp_export_v300'}.xlsx`;
+  const workbookStem = String(baseName || (importInfo && importInfo.infoD7) || 'pnp_export_v300').trim() || 'pnp_export_v300';
+  const workbookName = `${workbookStem}.xlsx`;
   const targetPath = path.join(targetFolder, workbookName);
   let nextImportInfo = importInfo || {};
 
@@ -3132,7 +3288,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.2 Preview</title>
+<title>Pick and Place 3.5.4 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3143,7 +3299,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.2</h1>
+    <h1>Pick and Place 3.5.4</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3179,7 +3335,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.2',
+    ' * Версия: 3.5.4',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3221,7 +3377,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.2',
+    version: '3.5.4',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -3338,6 +3494,7 @@ async function importCsvFile(filePath) {
   });
 
   const baseName = deriveImportBaseName(filePath);
+  const infoD7 = generateFileNameFromVariant(getCsvCellAtLine(sourceText, 10, 0), filePath, '', null, baseName);
 
   return {
     ...dict,
@@ -3359,6 +3516,7 @@ async function importCsvFile(filePath) {
       infoD3: '',
       infoD5: getCsvCellAtLine(sourceText, 10, 0),
       infoD6: filePath,
+      infoD7,
       importedTableName: 'ImportedCSVTable',
       deletedHeaderRows: 12,
       commentColumn: 3,
@@ -3389,7 +3547,7 @@ async function exportFiles(dictLike, targetFolder, options = {}) {
   const exportHtmlPath = path.join(targetFolder, `${exportStem}.html`);
   const exportXlsxFolder = String(options.exportXlsxFolder || '').trim();
   const importInfo = options.importInfo || prepared.importInfo || null;
-  const xlsxBaseName = String((importInfo && importInfo.baseName) || options.exportXlsxStem || exportStem).trim() || exportStem;
+  const xlsxBaseName = String((importInfo && (importInfo.infoD7 || importInfo.baseName)) || options.exportXlsxStem || exportStem).trim() || exportStem;
   let exportXlsxResult = null;
 
   await fs.mkdir(targetFolder, { recursive: true });
@@ -3455,5 +3613,6 @@ module.exports = {
   importCsvFile,
   exportFiles,
   getSetColumnState,
-  applySetColumnFill
+  applySetColumnFill,
+  generateFileNameFromVariant
 };
