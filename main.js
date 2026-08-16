@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.4.2
+ * Версия: 3.5.2
  * Автор: Новожилов Артем
  */
 
@@ -23,6 +23,7 @@ const APP_META = {
 const PNP_DEFAULT_DICT_FILE = path.join('Dict', 'pnp_dict_v300.js');
 const PNP_DEFAULT_STATE_FILE_NAME = 'pnp_state_v300.js';
 const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
+const PNP_ERRORS_LOG_FILE_NAME = 'Errors.log';
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
   printer: '\\\\server\\common\\Novozhilov\\',
@@ -1028,6 +1029,67 @@ function getPnpDefaultExportFolder() {
   return path.join(app.getPath('userData'), PNP_DEFAULT_EXPORT_FOLDER_NAME);
 }
 
+function getErrorsLogPath() {
+  try {
+    return path.join(app.getPath('userData'), PNP_ERRORS_LOG_FILE_NAME);
+  } catch {
+    return path.join(__dirname, PNP_ERRORS_LOG_FILE_NAME);
+  }
+}
+
+function serializeErrorForLog(context, error, details = {}) {
+  const safeError = error instanceof Error ? error : new Error(String(error || 'Неизвестная ошибка'));
+  const timestamp = new Date().toISOString();
+  const detailText = details && Object.keys(details).length ? `\nDetails: ${JSON.stringify(details)}` : '';
+  const codeText = safeError.code ? `\nCode: ${safeError.code}` : '';
+
+  return [
+    `[${timestamp}] ${context}`,
+    `Message: ${safeError.message || 'Неизвестная ошибка'}`,
+    codeText ? codeText.slice(1) : null,
+    detailText ? detailText.slice(1) : null,
+    safeError.stack ? `Stack:\n${safeError.stack}` : null,
+    ''
+  ].filter(Boolean).join('\n');
+}
+
+async function appendErrorsLog(context, error, details = {}) {
+  try {
+    await fs.mkdir(path.dirname(getErrorsLogPath()), { recursive: true });
+    await fs.appendFile(getErrorsLogPath(), `${serializeErrorForLog(context, error, details)}\n`, 'utf8');
+  } catch (logError) {
+    console.error('Не удалось записать Errors.log:', logError);
+  }
+}
+
+function withLoggedErrors(context, handler, detailsProvider) {
+  return async function loggedHandler(...args) {
+    try {
+      return await handler.apply(this, args);
+    } catch (error) {
+      const details = typeof detailsProvider === 'function'
+        ? detailsProvider.apply(this, args)
+        : (detailsProvider || {});
+      await appendErrorsLog(context, error, details);
+      throw error;
+    }
+  };
+}
+
+function getPnpErrorDetails(_event, payload) {
+  if (!payload || typeof payload !== 'object') {
+    return {};
+  }
+
+  return {
+    payloadKeys: Object.keys(payload),
+    filePath: String(payload.filePath || ''),
+    sourcePath: String(payload.sourcePath || ''),
+    targetFolder: String(payload.targetFolder || ''),
+    mode: String(payload.mode || '')
+  };
+}
+
 function getPnpStatePathValue(source, key, fallback = '') {
   const sourcePaths = source && source.paths ? source.paths : {};
   const flatValue = source && Object.prototype.hasOwnProperty.call(source, key) ? source[key] : '';
@@ -1049,7 +1111,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.4.1',
+    version: '3.5.2',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1296,7 +1358,45 @@ async function fillPnpSetColumn(payload) {
          }))
        : []
     };
-    nextState.importInfo.activeSheet = 'DataOther';
+    const otherDict = await pnpPipeline.loadOtherDictXlsxFile(dictXlsxPath);
+    assertOperationNotCancelled();
+    const otherSourceTable = nextState.importInfo.dataOtherTable;
+    const otherMatchState = pnpPipeline.buildOtherMatchState(otherSourceTable, otherDict);
+    nextState.importInfo.dataOtherTable = {
+     rawHeaders: Array.isArray(otherMatchState.rawHeaders) ? otherMatchState.rawHeaders.slice() : [],
+     rows: otherMatchState.rows,
+     worksheetRows: otherMatchState.worksheetRows
+    };
+    nextState.importInfo.noMatchOthers = otherMatchState.noMatchOthers;
+    nextState.importInfo.otherStats = otherMatchState.otherStats;
+
+    const otherRotationState = pnpPipeline.buildOtherRotationState(nextState.importInfo.dataOtherTable, otherDict);
+    nextState.importInfo.dataOtherTable = {
+     rawHeaders: Array.isArray(otherRotationState.rawHeaders) ? otherRotationState.rawHeaders.slice() : [],
+     rows: otherRotationState.rows,
+     worksheetRows: otherRotationState.worksheetRows
+    };
+    nextState.importInfo.rotationOtherStats = otherRotationState.rotationStats;
+    nextState.importInfo.rotationOStats = otherRotationState.rotationStats;
+    nextState.importInfo.rotationO = otherRotationState.rotationStats.Stats_Rotation_Changed || 0;
+
+    nextState.importInfo.dataPredExitTable = {
+     rawHeaders: Array.isArray(nextState.importInfo.dataOtherTable.rawHeaders) ? nextState.importInfo.dataOtherTable.rawHeaders.slice() : [],
+     rows: Array.isArray(nextState.importInfo.dataOtherTable.rows)
+       ? nextState.importInfo.dataOtherTable.rows.map((row) => (
+           Array.isArray(row)
+             ? row.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell))
+             : row
+         ))
+       : [],
+     worksheetRows: Array.isArray(nextState.importInfo.dataOtherTable.worksheetRows)
+       ? nextState.importInfo.dataOtherTable.worksheetRows.map((row) => ({
+           values: Array.isArray(row && row.values) ? row.values.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell)) : [],
+           hidden: Boolean(row && row.hidden)
+         }))
+       : []
+    };
+    nextState.importInfo.activeSheet = 'DataPredExit';
   }
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
@@ -1715,31 +1815,31 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
   });
 
   ipcMain.handle('asm:pnp-import-csv', async (_event, payload) => {
-    return importPnpCsv(payload || {});
+    return withLoggedErrors('asm:pnp-import-csv', () => importPnpCsv(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-load-dict', async (_event, payload) => {
-    return loadPnpDict(payload || {});
+    return withLoggedErrors('asm:pnp-load-dict', () => loadPnpDict(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-export-files', async (_event, payload) => {
-    return exportPnpFiles(payload || {});
+    return withLoggedErrors('asm:pnp-export-files', () => exportPnpFiles(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-fill-set-column', async (_event, payload) => {
-    return fillPnpSetColumn(payload || {});
+    return withLoggedErrors('asm:pnp-fill-set-column', () => fillPnpSetColumn(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-save-state', async (_event, payload) => {
-    return savePnpState(payload || {});
+    return withLoggedErrors('asm:pnp-save-state', () => savePnpState(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-load-state', async (_event, payload) => {
-    return loadPnpState(payload || {});
+    return withLoggedErrors('asm:pnp-load-state', () => loadPnpState(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:save-project-state', async (_event, payload) => {
-    return saveProjectState(payload || {});
+    return withLoggedErrors('asm:save-project-state', () => saveProjectState(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 }
 
@@ -1774,6 +1874,15 @@ function createWindow() {
 }
 
 if (app && typeof app.whenReady === 'function') {
+  process.on('uncaughtException', (error) => {
+    void appendErrorsLog('process:uncaughtException', error);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    const error = reason instanceof Error ? reason : new Error(String(reason || 'Неизвестная причина отклонения'));
+    void appendErrorsLog('process:unhandledRejection', error);
+  });
+
   app.whenReady().then(() => {
     configureAutoUpdater();
     loadUserSettings().finally(() => {

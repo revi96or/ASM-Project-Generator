@@ -6,6 +6,18 @@
 
 # CHANGELOG
 
+## 3.5.2
+
+- Убрана преждевременная вкладка `DataExit` из P&P-превью и xlsx-цепочки, добавлено логирование ошибок в `Errors.log` с контекстом операции и временем сбоя.
+
+## 3.5.1
+
+- Исправлена ветка `Other`: сравнение снова идёт по `COMMENT`/`FOOTPRINT`, добавлен пропуск уже розовых строк, а счётчики `REF` и `Not Fitted + SET=1` возвращены в сводку после `Rotation O`.
+
+- После задачи 17 добавлена ветка `Other`: перенесены `ProcessOther`, `CalculateRotationForOther`, `CopyDataOtherToDataPredExit`, а на панели появился счётчик `Rotation O`.
+
+## 3.5.0
+
 ## 3.4.2
 
 - Уточнены названия вкладок P&P-превью: убран `Resist`, а `Capacitor` и `Other` переименованы в `DataCapacitor` и `DataOther`.
