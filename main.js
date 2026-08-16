@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.11
+ * Версия: 3.5.23
  * Автор: Новожилов Артем
  */
 
@@ -1112,7 +1112,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.11',
+    version: '3.5.23',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1261,25 +1261,119 @@ async function exportPnpTxtFiles(payload) {
 
   const exportFolder = String(payload && payload.exportFolder ? payload.exportFolder : '').trim();
   const placerPath = String(payload && payload.placerPath ? payload.placerPath : '').trim();
-  const targetFolders = dedupeFolderPaths([exportFolder, placerPath]).filter((folder) => String(folder || '').trim() !== '');
+  const targetEntries = [];
+  const seenFolders = new Set();
 
-  if (!targetFolders.length) {
+  [
+    { label: 'Экспорт P&P', folder: exportFolder },
+    { label: 'Адрес расстановщика', folder: placerPath }
+  ].forEach((entry) => {
+    const normalizedFolder = String(entry.folder || '').trim();
+    if (!normalizedFolder || seenFolders.has(normalizedFolder)) {
+      return;
+    }
+    seenFolders.add(normalizedFolder);
+    targetEntries.push({
+      label: entry.label,
+      folder: normalizedFolder
+    });
+  });
+
+  if (!targetEntries.length) {
     throw new Error('Не заданы пути для TXT-экспорта.');
   }
 
-  const result = await pnpPipeline.saveDataExitTxtOutputs(
-    targetFolders,
+  const txtStem = payload && payload.exportTxtStem ? payload.exportTxtStem : (importInfo.infoD7 || importInfo.baseName || 'pnp_export_v300');
+  const txtResult = await pnpPipeline.saveDataExitTxtOutputs(
+    targetEntries.map((entry) => entry.folder),
     dataExitTable,
-    payload && payload.exportTxtStem ? payload.exportTxtStem : (importInfo.infoD7 || importInfo.baseName || 'pnp_export_v300'),
+    txtStem,
     payload && payload.sourcePath ? payload.sourcePath : ''
   );
 
   assertOperationNotCancelled();
+  const statsSource = payload && payload.pnp && payload.pnp.stats ? payload.pnp.stats : (payload && payload.stats ? payload.stats : null);
+  const statsSnapshot = pnpPipeline.buildPnpStatsSnapshot({
+    ...importInfo,
+    stats: statsSource && statsSource.stats ? statsSource.stats : (statsSource || importInfo.stats || {})
+  }, {
+    saved: txtResult.saved.map((item) => {
+      const matchedEntry = targetEntries.find((targetEntry) => targetEntry.folder === item.folder);
+      return {
+        ...item,
+        label: matchedEntry ? matchedEntry.label : item.folder
+      };
+    }),
+    errors: txtResult.errors.map((item) => {
+      const matchedEntry = targetEntries.find((targetEntry) => targetEntry.folder === item.folder);
+      return {
+        ...item,
+        label: matchedEntry ? matchedEntry.label : item.folder
+      };
+    })
+  }, null);
+
+  let xlsxResult = null;
+  let xlsxErrorMessage = '';
+  const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
+
+  if (exportXlsxFolder) {
+    try {
+      xlsxResult = await pnpPipeline.savePnpXlsxFile(
+        path.resolve(exportXlsxFolder),
+        txtStem,
+        importInfo,
+        payload && payload.sourcePath ? payload.sourcePath : '',
+        {
+          dictXlsxPath: payload && payload.dictXlsxPath ? payload.dictXlsxPath : '',
+          statsRows: statsSnapshot.sheetRows
+        }
+      );
+    } catch (error) {
+      xlsxErrorMessage = error && error.message ? error.message : String(error || 'Неизвестная ошибка сохранения XLSX.');
+    }
+  }
+
+  const finalStats = pnpPipeline.buildPnpStatsSnapshot({
+    ...importInfo,
+    stats: statsSource && statsSource.stats ? statsSource.stats : (statsSource || importInfo.stats || {})
+  }, {
+    saved: txtResult.saved.map((item) => {
+      const matchedEntry = targetEntries.find((targetEntry) => targetEntry.folder === item.folder);
+      return {
+        ...item,
+        label: matchedEntry ? matchedEntry.label : item.folder
+      };
+    }),
+    errors: txtResult.errors.map((item) => {
+      const matchedEntry = targetEntries.find((targetEntry) => targetEntry.folder === item.folder);
+      return {
+        ...item,
+        label: matchedEntry ? matchedEntry.label : item.folder
+      };
+    })
+  }, xlsxResult || (xlsxErrorMessage ? { errorMessage: xlsxErrorMessage } : null));
+
   return {
-    fileName: result.fileName,
-    saved: result.saved,
-    errors: result.errors,
-    targetFolders
+    fileName: txtResult.fileName,
+    saved: txtResult.saved.map((item) => {
+      const matchedEntry = targetEntries.find((targetEntry) => targetEntry.folder === item.folder);
+      return {
+        ...item,
+        label: matchedEntry ? matchedEntry.label : item.folder
+      };
+    }),
+    errors: txtResult.errors.map((item) => {
+      const matchedEntry = targetEntries.find((targetEntry) => targetEntry.folder === item.folder);
+      return {
+        ...item,
+        label: matchedEntry ? matchedEntry.label : item.folder
+      };
+    }),
+    targetFolders: targetEntries,
+    xlsx: xlsxResult,
+    xlsxErrorMessage,
+    stats: finalStats
   };
 }
 

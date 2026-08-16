@@ -1,6 +1,6 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.11 для словаря Dict/.
- * Версия: 3.5.11
+ * Описание: Минимальный конвейер Pick and Place 3.5.23 для словаря Dict/.
+ * Версия: 3.5.23
  * Автор: Новожилов Артем
  */
 
@@ -26,7 +26,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.11',
+    version: '3.5.23',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -578,7 +578,8 @@ async function readXlsxSheetRows(filePath, sheetName) {
   };
 }
 
-function measureWorkbookColumnWidths(rows) {
+function measureWorkbookColumnWidths(rows, options = {}) {
+  const maxWidth = Number.isFinite(options.maxWidth) ? Number(options.maxWidth) : 60;
   const normalizedRows = Array.isArray(rows)
     ? rows.map((row) => (Array.isArray(row) ? row : Array.isArray(row && row.values) ? row.values : []))
     : [];
@@ -587,8 +588,13 @@ function measureWorkbookColumnWidths(rows) {
 
   normalizedRows.forEach((row) => {
     row.forEach((value, index) => {
-      const length = normalizeText(value).length;
-      const nextWidth = Math.max(8, Math.min(60, length + 2));
+      // Для Stats и других листов ячейка может быть объектом { value, styleIndex }.
+      // Для автоширины учитываем именно текст, а не строку "[object Object]".
+      const cellText = value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')
+        ? value.value
+        : value;
+      const length = normalizeText(cellText).length;
+      const nextWidth = Math.max(8, Math.min(maxWidth, length + 2));
       widths[index] = Math.max(widths[index], nextWidth);
     });
   });
@@ -658,7 +664,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.11',
+    version: '3.5.23',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -847,7 +853,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.11',
+    version: '3.5.23',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -880,7 +886,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.11'),
+    version: String((dictLike && dictLike.version) || '3.5.23'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -2933,7 +2939,281 @@ function buildWorksheetRelsXml(targetTablePath = '/xl/tables/table1.xml') {
 </Relationships>`;
 }
 
-function buildPnpXlsxBuffer(importInfo, sourcePath) {
+function normalizePnpStatsCount(value) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function normalizePnpStatsText(value) {
+  return normalizeText(value);
+}
+
+function joinPnpStatsList(values, limit) {
+  const items = Array.isArray(values) ? values : [];
+  const maxItems = Number.isInteger(limit) && limit > 0 ? limit : items.length;
+  const shown = items.slice(0, maxItems).map((item) => normalizePnpStatsText(item)).filter((item) => item !== '');
+  if (!shown.length) {
+    return '—';
+  }
+  if (items.length > shown.length) {
+    shown.push(`...еще ${items.length - shown.length}`);
+  }
+  return shown.join(', ');
+}
+
+function formatPnpStatsMatchDetail(prefix, item) {
+  if (!item) {
+    return `${prefix}: —`;
+  }
+
+  const source = item.source || {};
+  const dict = item.dict || {};
+  const sourceParts = [];
+  const dictParts = [];
+  const matchedFields = joinPnpStatsList(item.matchedFields);
+  const mismatchedFields = joinPnpStatsList(item.mismatchedFields);
+
+  Object.keys(source).forEach((key) => {
+    const value = normalizePnpStatsText(source[key]);
+    if (value !== '') {
+      sourceParts.push(`${key}=${value}`);
+    }
+  });
+
+  Object.keys(dict).forEach((key) => {
+    const value = normalizePnpStatsText(dict[key]);
+    if (value !== '') {
+      dictParts.push(`${key}=${value}`);
+    }
+  });
+
+  return `${prefix} #${normalizePnpStatsCount(item.sourceRowIndex)} -> #${normalizePnpStatsCount(item.dictRowIndex)} | ${normalizePnpStatsCount(item.matchCount)} | src: ${sourceParts.join(' ; ')} | dict: ${dictParts.join(' ; ')} | matched: ${matchedFields} | miss: ${mismatchedFields}`;
+}
+
+function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
+  const info = importInfo || {};
+  const dictStats = info.stats || {};
+  const resistorStats = info.resistorStats || {};
+  const capacitorStats = info.capacitorStats || {};
+  const otherStats = info.otherStats || {};
+  const resistorRotation = info.rotationStats || {};
+  const capacitorRotation = info.rotationCapacitorStats || info.rotationCStats || {};
+  const otherRotation = info.rotationOtherStats || info.rotationOStats || {};
+  const noMatchResistors = Array.isArray(info.noMatchResistors) ? info.noMatchResistors : [];
+  const noMatchCapacitors = Array.isArray(info.noMatchCapacitors) ? info.noMatchCapacitors : [];
+  const noMatchOthers = Array.isArray(info.noMatchOthers) ? info.noMatchOthers : [];
+  // Для отчёта берём именно удалённые строки Not Fitted + SET=1, а не общий счётчик удаления PCB.
+  const deletedNotFittedCount = normalizePnpStatsCount(
+    (info.deleteNotFittedState && info.deleteNotFittedState.deletedCount) ||
+    info.deletedNotFittedCount ||
+    0
+  );
+  const resistorTotal = normalizePnpStatsCount(resistorStats.Stats_Resistors_Total);
+  const resistorFull = normalizePnpStatsCount(resistorStats.Stats_Resistors_Full);
+  const resistorPartial = normalizePnpStatsCount(resistorStats.Stats_Resistors_Partial);
+  const resistorNoMatch = Math.max(0, resistorTotal - resistorFull - resistorPartial);
+  const capacitorTotal = normalizePnpStatsCount(capacitorStats.Stats_Capacitors_Total);
+  const capacitorFull = normalizePnpStatsCount(capacitorStats.Stats_Capacitors_Full);
+  const capacitorPartial = normalizePnpStatsCount(capacitorStats.Stats_Capacitors_Partial);
+  const capacitorNoMatch = Math.max(0, capacitorTotal - capacitorFull - capacitorPartial);
+  const otherTotal = normalizePnpStatsCount(otherStats.Stats_Other_Total);
+  const otherFull = normalizePnpStatsCount(otherStats.Stats_Other_Full);
+  const otherPartial = normalizePnpStatsCount(otherStats.Stats_Other_Partial);
+  const otherNoMatch = Math.max(0, otherTotal - otherFull - otherPartial);
+  const totalProcessed = resistorTotal + capacitorTotal + otherTotal;
+  const totalFull = resistorFull + capacitorFull + otherFull;
+  const totalPartial = resistorPartial + capacitorPartial + otherPartial;
+  const totalNoMatch = Math.max(0, totalProcessed - totalFull - totalPartial);
+  const refMarksCount = normalizePnpStatsCount(otherStats.Stats_RefMarks_Count || info.refMarksCount || 0);
+  const statsTotals = normalizePnpStatsCount(dictStats.totalRows);
+  const statsTopRows = normalizePnpStatsCount(dictStats.topRows);
+  const statsBottomRows = normalizePnpStatsCount(dictStats.bottomRows);
+  const statsRotatedRows = normalizePnpStatsCount(dictStats.rotatedRows);
+  const statsRenamedRows = normalizePnpStatsCount(dictStats.renamedRows);
+  const statsCommentedRows = normalizePnpStatsCount(dictStats.commentedRows);
+  const txtSaved = txtResult && Array.isArray(txtResult.saved) ? txtResult.saved : [];
+  const txtErrors = txtResult && Array.isArray(txtResult.errors) ? txtResult.errors : [];
+  const xlsxPath = xlsxResult && xlsxResult.path ? normalizePnpStatsText(xlsxResult.path) : '';
+  const xlsxFileName = xlsxResult && xlsxResult.fileName ? normalizePnpStatsText(xlsxResult.fileName) : '';
+  const nowText = new Date().toLocaleString('ru-RU');
+
+  const summaryLines = [
+    'ИТОГИ ОБРАБОТКИ КОМПОНЕНТОВ',
+    `Дата: ${nowText}`,
+    '',
+    '[R] РЕЗИСТОРЫ:',
+    `Всего: ${resistorTotal}`,
+    `Полных совпадений (4/4): ${resistorFull}`,
+    `Частичных (3/4): ${resistorPartial}`,
+    `Без совпадений: ${resistorNoMatch}`,
+    '',
+    '[C] КОНДЕНСАТОРЫ:',
+    `Всего: ${capacitorTotal}`,
+    `Полных совпадений (3/3): ${capacitorFull}`,
+    `Частичных (2/3): ${capacitorPartial}`,
+    `Без совпадений: ${capacitorNoMatch}`,
+    '',
+    '[O] ПРОЧИЕ:',
+    `Всего: ${otherTotal}`,
+    `Полных совпадений (2/2): ${otherFull}`,
+    `Частичных (1/2): ${otherPartial}`,
+    `Без совпадений: ${otherNoMatch}`,
+    '',
+    '[=] ИТОГО:',
+    `Обработано: ${totalProcessed}`,
+    `Полных: ${totalFull} (${totalProcessed > 0 ? (totalFull / totalProcessed * 100).toFixed(1) : '0.0'}%)`,
+    `Частичных: ${totalPartial} (${totalProcessed > 0 ? (totalPartial / totalProcessed * 100).toFixed(1) : '0.0'}%)`,
+    `Без совпадений: ${totalNoMatch} (${totalProcessed > 0 ? (totalNoMatch / totalProcessed * 100).toFixed(1) : '0.0'}%)`,
+    '',
+    `[*] В проекте ${refMarksCount} реперных знаков.`,
+    `[*] Удалено Not Fitted: ${deletedNotFittedCount} компонентов.`,
+    '',
+    '=== СТАТИСТИКА ПЕРЕИМЕНОВАНИЯ И ПОВОРОТА ===',
+    `Всего строк: ${statsTotals}`,
+    `С верхнего слоя: ${statsTopRows}`,
+    `С нижнего слоя: ${statsBottomRows}`,
+    `Переименовано: ${statsRenamedRows}`,
+    `Повернуто: ${statsRotatedRows}`,
+    `С комментариями: ${statsCommentedRows}`,
+    '',
+    '=== СОХРАНЕНИЕ ФАЙЛОВ ==='
+  ];
+
+  if (txtSaved.length) {
+    txtSaved.forEach((entry) => {
+      const targetLabel = entry && entry.label ? entry.label : (entry && entry.folder ? entry.folder : 'TXT');
+      const targetPath = entry && entry.path ? normalizePnpStatsText(entry.path) : '';
+      summaryLines.push(`${targetLabel}: УСПЕШНО${targetPath ? ` -> ${targetPath}` : ''}`);
+    });
+  }
+
+  if (txtErrors.length) {
+    summaryLines.push('Ошибки TXT:');
+    txtErrors.forEach((entry) => {
+      const targetLabel = entry && entry.label ? entry.label : (entry && entry.folder ? entry.folder : 'TXT');
+      const targetPath = entry && entry.path ? normalizePnpStatsText(entry.path) : '';
+      const message = entry && entry.message ? normalizePnpStatsText(entry.message) : 'Неизвестная ошибка.';
+      summaryLines.push(`${targetLabel}: ${message}${targetPath ? ` -> ${targetPath}` : ''}`);
+    });
+  }
+
+  if (xlsxResult && xlsxPath) {
+    summaryLines.push(`XLSX: УСПЕШНО${xlsxFileName ? ` (${xlsxFileName})` : ''} -> ${xlsxPath}`);
+  } else if (xlsxResult && xlsxResult.errorMessage) {
+    summaryLines.push(`XLSX: ${normalizePnpStatsText(xlsxResult.errorMessage)}`);
+  } else {
+    summaryLines.push('XLSX: не сохранен.');
+  }
+
+  const sheetRows = [];
+  const pushLine = (text, styleIndex) => {
+    if (styleIndex) {
+      sheetRows.push([{ value: text, styleIndex: styleIndex, preserveEmpty: true }]);
+    } else {
+      sheetRows.push([text]);
+    }
+  };
+  const pushBlank = () => {
+    sheetRows.push(['']);
+  };
+
+  pushLine('ИТОГИ ОБРАБОТКИ КОМПОНЕНТОВ', 3);
+  pushLine(`Дата: ${nowText}`);
+  pushBlank();
+  pushLine('[R] РЕЗИСТОРЫ:', 4);
+  pushLine(`Всего: ${resistorTotal}`);
+  pushLine(`Полных совпадений (4/4): ${resistorFull}`);
+  pushLine(`Частичных (3/4): ${resistorPartial}`);
+  pushLine(`Без совпадений: ${resistorNoMatch}`);
+  pushBlank();
+  pushLine('[C] КОНДЕНСАТОРЫ:', 4);
+  pushLine(`Всего: ${capacitorTotal}`);
+  pushLine(`Полных совпадений (3/3): ${capacitorFull}`);
+  pushLine(`Частичных (2/3): ${capacitorPartial}`);
+  pushLine(`Без совпадений: ${capacitorNoMatch}`);
+  pushBlank();
+  pushLine('[O] ПРОЧИЕ:', 4);
+  pushLine(`Всего: ${otherTotal}`);
+  pushLine(`Полных совпадений (2/2): ${otherFull}`);
+  pushLine(`Частичных (1/2): ${otherPartial}`);
+  pushLine(`Без совпадений: ${otherNoMatch}`);
+  pushBlank();
+  pushLine('[=] ИТОГО:', 5);
+  pushLine(`Обработано: ${totalProcessed}`);
+  pushLine(`Полных: ${totalFull} (${totalProcessed > 0 ? (totalFull / totalProcessed * 100).toFixed(1) : '0.0'}%)`);
+  pushLine(`Частичных: ${totalPartial} (${totalProcessed > 0 ? (totalPartial / totalProcessed * 100).toFixed(1) : '0.0'}%)`);
+  pushLine(`Без совпадений: ${totalNoMatch} (${totalProcessed > 0 ? (totalNoMatch / totalProcessed * 100).toFixed(1) : '0.0'}%)`);
+  pushBlank();
+  pushLine(`[*] В проекте ${refMarksCount} реперных знаков.`, 5);
+  pushLine(`[*] Удалено Not Fitted: ${deletedNotFittedCount} компонентов.`, 4);
+  pushBlank();
+  pushLine('=== СТАТИСТИКА ПЕРЕИМЕНОВАНИЯ И ПОВОРОТА ===', 3);
+  pushLine(`Всего строк: ${statsTotals}`);
+  pushLine(`С верхнего слоя: ${statsTopRows}`);
+  pushLine(`С нижнего слоя: ${statsBottomRows}`);
+  pushLine(`Переименовано: ${statsRenamedRows}`);
+  pushLine(`Повернуто: ${statsRotatedRows}`);
+  pushLine(`С комментариями: ${statsCommentedRows}`);
+  pushBlank();
+  pushLine('=== PNP_ROTATION ===', 3);
+  pushLine(`Resistor: Total ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Total)} | Processed ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Processed)} | Skipped ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Skipped)}`);
+  pushLine(`Capacitor: Total ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Total)} | Processed ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Processed)} | Skipped ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Skipped)} | Changed ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Changed)}`);
+  pushLine(`Other: Total ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Total)} | Processed ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Processed)} | Skipped ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Skipped)} | Changed ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Changed)}`);
+  pushBlank();
+  pushLine('=== ЧАСТИЧНЫЕ И БЕЗ СОВПАДЕНИЙ ===', 3);
+  if (noMatchResistors.length) {
+    pushLine('[R] Резисторы:', 4);
+    noMatchResistors.forEach((item) => {
+      pushLine(formatPnpStatsMatchDetail('R', item));
+    });
+  } else {
+    pushLine('[R] Резисторы: нет.', 4);
+  }
+  if (noMatchCapacitors.length) {
+    pushLine('[C] Конденсаторы:', 4);
+    noMatchCapacitors.forEach((item) => {
+      pushLine(formatPnpStatsMatchDetail('C', item));
+    });
+  } else {
+    pushLine('[C] Конденсаторы: нет.', 4);
+  }
+  if (noMatchOthers.length) {
+    pushLine('[O] Прочие:', 4);
+    noMatchOthers.forEach((item) => {
+      pushLine(formatPnpStatsMatchDetail('O', item));
+    });
+  } else {
+    pushLine('[O] Прочие: нет.', 4);
+  }
+  pushBlank();
+  pushLine('=== РЕЗУЛЬТАТ СОХРАНЕНИЯ ФАЙЛОВ ===', 5);
+  if (txtSaved.length) {
+    txtSaved.forEach((entry) => {
+      const targetLabel = entry && entry.label ? entry.label : (entry && entry.folder ? entry.folder : 'TXT');
+      const targetPath = entry && entry.path ? normalizePnpStatsText(entry.path) : '';
+      pushLine(`${targetLabel}: УСПЕШНО${targetPath ? ` -> ${targetPath}` : ''}`);
+    });
+  }
+  if (txtErrors.length) {
+    pushLine('Ошибки TXT:', 4);
+    txtErrors.forEach((entry) => {
+      const targetLabel = entry && entry.label ? entry.label : (entry && entry.folder ? entry.folder : 'TXT');
+      const targetPath = entry && entry.path ? normalizePnpStatsText(entry.path) : '';
+      const message = entry && entry.message ? normalizePnpStatsText(entry.message) : 'Неизвестная ошибка.';
+      pushLine(`${targetLabel}: ${message}${targetPath ? ` -> ${targetPath}` : ''}`);
+    });
+  }
+  if (xlsxResult && xlsxPath) {
+    pushLine(`XLSX: УСПЕШНО${xlsxFileName ? ` (${xlsxFileName})` : ''} -> ${xlsxPath}`);
+  }
+
+  return {
+    summaryLines,
+    sheetRows
+  };
+}
+
+function buildPnpXlsxBuffer(importInfo, sourcePath, options = {}) {
   const tableInfo = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
   const dataHeaders = Array.isArray(tableInfo && tableInfo.rawHeaders) ? tableInfo.rawHeaders : [];
   const dataRows = Array.isArray(tableInfo && tableInfo.rows) ? tableInfo.rows : [];
@@ -3030,6 +3310,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const dataExitState = importInfo && importInfo.dataExitTable
     ? importInfo.dataExitTable
     : (dataPredExitState ? buildDataExitTableState(dataPredExitState, importInfo || {}) : null);
+  const statsRows = Array.isArray(options && options.statsRows) ? options.statsRows : [];
   const buildSheetRows = (tableState) => ([
     Array.isArray(tableState && tableState.rawHeaders) && tableState.rawHeaders.length ? tableState.rawHeaders : workbookHeaders
   ].concat((Array.isArray(tableState.worksheetRows) && tableState.worksheetRows.length
@@ -3044,8 +3325,6 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const dataExitSheetRows = dataExitState
     ? dataExitState.rows
     : [];
-  // DataCapacitor, DataOther, DataPredExit и DataExit продолжают цепочку после DataResist и тоже должны попасть в xlsx.
-  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
   const dataSet2TableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSet2SheetRows.length, 1)}`;
@@ -3059,11 +3338,16 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const dataPredExitColumnKinds = dataPredExitHeaders.map((header) => normalizeImportedColumnKind(header));
   const dataPredExitColumnWidths = measureWorkbookColumnWidths(dataPredExitSheetRows);
   const dataExitColumnKinds = [];
+  const statsColumnWidths = measureWorkbookColumnWidths(statsRows, { maxWidth: 255 });
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
     ? setState.columnIndex
     : -1;
+  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'];
+  if (statsRows.length) {
+    sheetNames.push('Stats');
+  }
 
   return buildZipArchive([
     { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 7) },
@@ -3095,7 +3379,8 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/worksheets/sheet8.xml', content: buildWorksheetXml(dataPredExitSheetRows, dataPredExitColumnKinds, { tableRange: dataPredExitTableRange, columnWidths: dataPredExitColumnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet8.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table7.xml') },
     { path: 'xl/tables/table7.xml', content: buildTableXml('DataPredExitTable', dataPredExitTableRange, dataPredExitTable.rawHeaders, 7) },
-    { path: 'xl/worksheets/sheet9.xml', content: buildWorksheetXml(dataExitSheetRows, dataExitColumnKinds, { firstRowAsHeaders: false, columnWidths: [], highlightColumnIndex: -1 }) }
+    { path: 'xl/worksheets/sheet9.xml', content: buildWorksheetXml(dataExitSheetRows, dataExitColumnKinds, { firstRowAsHeaders: false, columnWidths: [], highlightColumnIndex: -1 }) },
+    ...(statsRows.length ? [{ path: 'xl/worksheets/sheet10.xml', content: buildWorksheetXml(statsRows, [], { firstRowAsHeaders: false, columnWidths: statsColumnWidths, highlightColumnIndex: -1 }) }] : [])
   ]);
 }
 
@@ -3370,7 +3655,9 @@ async function savePnpXlsxFile(targetFolder, baseName, importInfo, sourcePath, o
     }
   }
 
-  const workbookBuffer = buildPnpXlsxBuffer(nextImportInfo || {}, sourcePath || '');
+  const workbookBuffer = buildPnpXlsxBuffer(nextImportInfo || {}, sourcePath || '', {
+    statsRows: Array.isArray(options.statsRows) ? options.statsRows : []
+  });
 
   await fs.mkdir(targetFolder, { recursive: true });
   await fs.writeFile(targetPath, workbookBuffer);
@@ -3420,7 +3707,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.11 Preview</title>
+<title>Pick and Place 3.5.23 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3431,7 +3718,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.11</h1>
+    <h1>Pick and Place 3.5.23</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3467,7 +3754,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.11',
+    ' * Версия: 3.5.23',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3509,7 +3796,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.11',
+    version: '3.5.23',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -3654,7 +3941,7 @@ async function importCsvFile(filePath) {
       commentColumn: 3,
       footprintColumn: 5,
       textNumberFormatColumns: [2, 3, 5, 6, 7],
-      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'],
+      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit', 'Stats'],
       tableName: 'ImportedCSVTable',
       activeSheet: 'DataSet2',
       rowCount: parsed.rows.length,
@@ -3824,6 +4111,7 @@ module.exports = {
   getStats,
   buildCsv,
   buildPreviewHtml,
+  buildPnpStatsSnapshot,
   normalizePnpExportStem,
   buildDataExitTxtContent,
   saveDataExitTxtOutputs,

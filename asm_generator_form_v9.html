@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.3
+Версия: 9.27.13
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -819,14 +819,52 @@
     overflow:hidden;
   }
 
+  .app-dialog.app-dialog--stats{
+    width:min(1440px, calc(100vw - 24px));
+    background:var(--surface);
+    border:0;
+    box-shadow:none;
+  }
+
   .app-dialog-head{
     padding:18px 22px 14px;
     border-bottom:1px solid var(--border);
   }
 
+  .app-dialog.app-dialog--stats .app-dialog-head{
+    padding:18px 28px 14px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    cursor:move;
+    user-select:none;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+  }
+
   .app-dialog-title{
     font-size:20px;
     font-weight:800;
+  }
+
+  .app-dialog.app-dialog--stats .app-dialog-title{
+    font-size:28px;
+    line-height:1.05;
+    font-weight:900;
+    letter-spacing:-.02em;
+    padding-left:2px;
+  }
+
+  .app-dialog-meta{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    text-align:right;
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.2;
+    padding-top:6px;
+    white-space:nowrap;
   }
 
   .app-dialog-body{
@@ -837,10 +875,39 @@
     word-break:break-word;
   }
 
+  .app-dialog-body.app-dialog-body--stats{
+    padding:18px 28px 20px;
+    line-height:1.2;
+    white-space:normal;
+    word-break:break-word;
+    overflow-wrap:anywhere;
+  }
+
   .app-dialog-actions{
     display:flex;
     justify-content:flex-end;
     padding:0 22px 20px;
+  }
+
+  .app-dialog.app-dialog--stats .app-dialog-actions{
+    padding:10px 34px 22px 28px;
+    justify-content:flex-end;
+  }
+
+  .app-dialog.app-dialog--stats .app-dialog-body,
+  .app-dialog.app-dialog--stats .app-dialog-head,
+  .app-dialog.app-dialog--stats .app-dialog-actions{
+    margin-left:auto;
+    margin-right:auto;
+    width:100%;
+    box-sizing:border-box;
+  }
+
+  .app-dialog.app-dialog--stats .solid-btn{
+    min-width:112px;
+    padding-left:20px;
+    padding-right:20px;
+    justify-content:center;
   }
 
   .settings-panel{
@@ -1445,14 +1512,14 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.27.3
+// Версия: 9.27.13
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.11",
-    versionDate: "2026-08-16"
+    version: "3.5.21",
+    versionDate: "2026-08-17"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1552,8 +1619,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.11",
-    latestVersion: "3.5.11",
+    currentVersion: "3.5.21",
+    latestVersion: "3.5.21",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1587,8 +1654,8 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.11",
-  versionDate: "2026-08-16"
+  version: "3.5.21",
+  versionDate: "2026-08-17"
   },
   projectMode: "create",
   pr1SourcePath: "",
@@ -1674,14 +1741,103 @@ const demoProjects = [
 function $(id){ return document.getElementById(id); }
 
 let appDialogResolver = null;
+let appDialogDragCleanup = null;
+
+function setupAppDialogDrag(dialogNode, handleNode){
+  if (!dialogNode || !handleNode) {
+    return;
+  }
+
+  if (appDialogDragCleanup) {
+    appDialogDragCleanup();
+    appDialogDragCleanup = null;
+  }
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  dialogNode.style.transform = "translate(0px, 0px)";
+
+  const onMove = (event) => {
+    if (!dragging) {
+      return;
+    }
+    offsetX += event.clientX - startX;
+    offsetY += event.clientY - startY;
+    startX = event.clientX;
+    startY = event.clientY;
+    dialogNode.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+  };
+
+  const endDrag = () => {
+    dragging = false;
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", endDrag);
+    document.removeEventListener("pointercancel", endDrag);
+  };
+
+  const onDown = (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    dragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    event.preventDefault();
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", endDrag);
+    document.addEventListener("pointercancel", endDrag);
+  };
+
+  handleNode.addEventListener("pointerdown", onDown);
+  appDialogDragCleanup = () => {
+    endDrag();
+    handleNode.removeEventListener("pointerdown", onDown);
+  };
+}
 
 function showAppDialog(title, body, actions, options = {}){
-  $("appDialogTitle").textContent = title;
+  const dialogBackdrop = $("appDialogBackdrop");
+  const dialogNode = dialogBackdrop.querySelector(".app-dialog");
+  const headNode = dialogBackdrop.querySelector(".app-dialog-head");
+  const titleNode = $("appDialogTitle");
   const bodyNode = $("appDialogBody");
+  if (titleNode) {
+    if (options.titleHtml) {
+      titleNode.innerHTML = options.titleHtml;
+    } else {
+      titleNode.textContent = title;
+    }
+  }
+  if (dialogNode) {
+    dialogNode.classList.toggle("app-dialog--stats", options.dialogClass === "app-dialog--stats");
+  }
+  if (headNode) {
+    let metaNode = headNode.querySelector("[data-app-dialog-meta]");
+    if (options.headerRightHtml) {
+      if (!metaNode) {
+        metaNode = document.createElement("div");
+        metaNode.dataset.appDialogMeta = "1";
+        metaNode.className = "app-dialog-meta";
+        headNode.appendChild(metaNode);
+      }
+      metaNode.innerHTML = options.headerRightHtml;
+    } else if (metaNode) {
+      metaNode.remove();
+    }
+  }
+  bodyNode.classList.toggle("app-dialog-body--stats", options.bodyClass === "app-dialog-body--stats");
   if (body && typeof body === "object" && typeof body.html === "string") {
     bodyNode.innerHTML = body.html;
   } else {
     bodyNode.textContent = String(body === null || body === undefined ? "" : body);
+  }
+  if (appDialogDragCleanup) {
+    appDialogDragCleanup();
+    appDialogDragCleanup = null;
   }
   const actionsWrap = $("appDialogActions");
   actionsWrap.innerHTML = "";
@@ -1714,7 +1870,10 @@ function showAppDialog(title, body, actions, options = {}){
     actionsWrap.appendChild(button);
   });
 
-  $("appDialogBackdrop").hidden = false;
+  dialogBackdrop.hidden = false;
+  if (dialogNode && options.dialogClass === "app-dialog--stats") {
+    setupAppDialogDrag(dialogNode, headNode);
+  }
   if (typeof options.onRender === "function") {
     options.onRender();
   }
@@ -1731,7 +1890,171 @@ function formatPnpErrorMessage(error) {
     .trim();
 }
 
+function buildPnpStatsDialogHtml(stats, summaryLines) {
+  const currentStats = stats || getPnpEmptyStats();
+  const lines = Array.isArray(summaryLines) ? summaryLines : [];
+  const parsed = {
+    resistorTotal: 0,
+    resistorFull: 0,
+    resistorPartial: 0,
+    resistorNoMatch: 0,
+    capacitorTotal: 0,
+    capacitorFull: 0,
+    capacitorPartial: 0,
+    capacitorNoMatch: 0,
+    otherTotal: 0,
+    otherFull: 0,
+    otherPartial: 0,
+    otherNoMatch: 0,
+    totalProcessed: Number(currentStats.totalRows || 0),
+    totalFull: 0,
+    totalPartial: 0,
+    totalNoMatch: 0
+  };
+
+  let currentSection = "";
+  lines.forEach((line) => {
+    const text = String(line || "").trim();
+    if (!text) {
+      return;
+    }
+    if (text === "[R] РЕЗИСТОРЫ:") {
+      currentSection = "R";
+      return;
+    }
+    if (text === "[C] КОНДЕНСАТОРЫ:") {
+      currentSection = "C";
+      return;
+    }
+    if (text === "[O] ПРОЧИЕ:") {
+      currentSection = "O";
+      return;
+    }
+    if (text === "[=] ИТОГО:") {
+      currentSection = "TOTAL";
+      return;
+    }
+    if (text.indexOf("===") === 0 || text.indexOf("[*]") === 0) {
+      currentSection = "";
+      return;
+    }
+
+    const valueMatch = text.match(/:\s*(-?\d+(?:[.,]\d+)?)/);
+    if (!valueMatch) {
+      return;
+    }
+
+    const numericValue = Number(String(valueMatch[1]).replace(",", ".")) || 0;
+    if (currentSection === "R") {
+      if (text.indexOf("Всего:") === 0) parsed.resistorTotal = numericValue;
+      if (text.indexOf("Полных совпадений") === 0) parsed.resistorFull = numericValue;
+      if (text.indexOf("Частичных") === 0) parsed.resistorPartial = numericValue;
+      if (text.indexOf("Без совпадений") === 0) parsed.resistorNoMatch = numericValue;
+    }
+    if (currentSection === "C") {
+      if (text.indexOf("Всего:") === 0) parsed.capacitorTotal = numericValue;
+      if (text.indexOf("Полных совпадений") === 0) parsed.capacitorFull = numericValue;
+      if (text.indexOf("Частичных") === 0) parsed.capacitorPartial = numericValue;
+      if (text.indexOf("Без совпадений") === 0) parsed.capacitorNoMatch = numericValue;
+    }
+    if (currentSection === "O") {
+      if (text.indexOf("Всего:") === 0) parsed.otherTotal = numericValue;
+      if (text.indexOf("Полных совпадений") === 0) parsed.otherFull = numericValue;
+      if (text.indexOf("Частичных") === 0) parsed.otherPartial = numericValue;
+      if (text.indexOf("Без совпадений") === 0) parsed.otherNoMatch = numericValue;
+    }
+    if (currentSection === "TOTAL") {
+      if (text.indexOf("Обработано:") === 0) parsed.totalProcessed = numericValue;
+      if (text.indexOf("Полных:") === 0) parsed.totalFull = numericValue;
+      if (text.indexOf("Частичных:") === 0) parsed.totalPartial = numericValue;
+      if (text.indexOf("Без совпадений:") === 0) parsed.totalNoMatch = numericValue;
+    }
+  });
+
+  const fullPercent = parsed.totalProcessed > 0 ? (parsed.totalFull / parsed.totalProcessed * 100).toFixed(1) : "0.0";
+  const partialPercent = parsed.totalProcessed > 0 ? (parsed.totalPartial / parsed.totalProcessed * 100).toFixed(1) : "0.0";
+  const noMatchPercent = parsed.totalProcessed > 0 ? (parsed.totalNoMatch / parsed.totalProcessed * 100).toFixed(1) : "0.0";
+  const saveLines = lines.filter((line) => /^(Экспорт P&P|Адрес расстановщика|XLSX):/i.test(String(line || "")));
+  const saveEntries = saveLines.map((line) => {
+    const text = String(line || "");
+    const success = /УСПЕШНО/i.test(text);
+    const parts = text.split('->');
+    const head = String(parts.shift() || '').trim();
+    const pathText = String(parts.join('->') || '').trim();
+    const detail = head.indexOf(':') >= 0 ? head.split(':').slice(1).join(':').trim() : '';
+    return {
+      head: head.replace(/:.*$/, ''),
+      status: success ? 'УСПЕШНО' : 'ОШИБКА',
+      detail: detail,
+      path: pathText,
+      tone: success ? 'success' : 'danger'
+    };
+  });
+
+  const card = (title, value, note, tone, accent) => [
+    `<div style="padding:14px 16px;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));border:1px solid ${accent};box-shadow:inset 0 1px 0 rgba(255,255,255,.04);">`,
+    `<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${accent};font-weight:700;">${escapePnpHtml(title)}</div>`,
+    `<div style="margin-top:8px;font-size:26px;line-height:1;font-weight:900;color:${tone};">${escapePnpHtml(value)}</div>`,
+    note ? `<div style="margin-top:6px;font-size:12px;line-height:1.25;color:var(--muted);">${escapePnpHtml(note)}</div>` : '',
+    `</div>`
+  ].join('');
+
+  const section = (title, accent, bodyHtml) => [
+    `<section style="border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;background:rgba(15,23,42,.38);">`,
+    `<div style="padding:10px 14px;background:linear-gradient(90deg, ${accent}22, transparent);border-bottom:1px solid rgba(255,255,255,.06);font-weight:800;">${escapePnpHtml(title)}</div>`,
+    `<div style="padding:12px 14px;">${bodyHtml}</div>`,
+    `</section>`
+  ].join('');
+
+  const row = (label, value, tone) => [
+    `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.08);">`,
+    `<div style="color:var(--muted);">${escapePnpHtml(label)}</div>`,
+    `<div style="font-weight:800;color:${tone};white-space:nowrap;">${escapePnpHtml(value)}</div>`,
+    `</div>`
+  ].join('');
+
+  const saveCard = (label, accent, item) => [
+    `<div style="padding:14px 16px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015));border:1px solid ${accent};min-height:108px;">`,
+    `<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${accent};font-weight:800;">${escapePnpHtml(label)}</div>`,
+    item ? [
+      item.tone === 'success'
+        ? `<div style="margin-top:10px;font-size:13px;font-weight:800;color:#86efac;">УСПЕШНО</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:var(--text);word-break:break-word;overflow-wrap:anywhere;">${escapePnpHtml(item.path || '')}</div>`
+        : `<div style="margin-top:10px;font-size:13px;font-weight:800;color:#fca5a5;">НЕ УДАЛОСЬ</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:#fca5a5;word-break:break-word;overflow-wrap:anywhere;">${escapePnpHtml(item.detail || 'Папка не прописана в дереве каталогов или недоступна.')}</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:var(--text);word-break:break-word;overflow-wrap:anywhere;">${escapePnpHtml(item.path || '')}</div>`
+    ].join('') : `<div style="margin-top:10px;color:#fca5a5;font-size:12px;font-weight:800;">НЕ УДАЛОСЬ</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:#fca5a5;">Папка не прописана в дереве каталогов или недоступна.</div>`,
+    `</div>`
+  ].join('');
+
+  return [
+    `<div style="display:flex;flex-direction:column;gap:14px;color:var(--text);">`,
+    `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">`,
+    card('Обработано', parsed.totalProcessed, 'Всего строк после классификации', '#f8fafc', '#38bdf8'),
+    card('Полных', `${parsed.totalFull} (${fullPercent}%)`, 'Совпадения по словарю', '#e0f2fe', '#22c55e'),
+    card('Частичных', `${parsed.totalPartial} (${partialPercent}%)`, 'Нужны ручные проверки', '#f5f3ff', '#a78bfa'),
+    card('Без совпадений', `${parsed.totalNoMatch} (${noMatchPercent}%)`, 'Не найдено в словаре', '#fee2e2', '#fb7185'),
+    card('Not Fitted + SET=1', currentStats.deletedNotFittedCount || 0, 'Удалено из P&P перед экспортом', '#ffedd5', '#f97316'),
+    card('Реперные знаки', currentStats.refCount || 0, 'Базовая привязка проекта', '#ecfccb', '#84cc16'),
+    card('Переименовано', currentStats.renamedRows || 0, 'R_COMMENT / R_DESIGNATOR / R_TOL', '#f5f3ff', '#c084fc'),
+    card('Повернуто', currentStats.rotatedRows || 0, 'Итог по поворотам', '#dbeafe', '#60a5fa'),
+    `</div>`,
+    `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;">`,
+    section('Резисторы', '#22c55e', row('Всего', parsed.resistorTotal, '#86efac') + row('Полных совпадений', parsed.resistorFull, '#86efac') + row('Частичных', parsed.resistorPartial, '#86efac') + row('Без совпадений', parsed.resistorNoMatch, '#86efac')),
+    section('Конденсаторы', '#38bdf8', row('Всего', parsed.capacitorTotal, '#93c5fd') + row('Полных совпадений', parsed.capacitorFull, '#93c5fd') + row('Частичных', parsed.capacitorPartial, '#93c5fd') + row('Без совпадений', parsed.capacitorNoMatch, '#93c5fd')),
+    section('Прочие', '#f97316', row('Всего', parsed.otherTotal, '#fdba74') + row('Полных совпадений', parsed.otherFull, '#fdba74') + row('Частичных', parsed.otherPartial, '#fdba74') + row('Без совпадений', parsed.otherNoMatch, '#fdba74')),
+    `</div>`,
+    `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;">`,
+    saveCard('Экспорт P&P', '#38bdf8', saveEntries.find((item) => item.head === 'Экспорт P&P')),
+    saveCard('Адрес расстановщика', '#38bdf8', saveEntries.find((item) => item.head === 'Адрес расстановщика')),
+    saveCard('XLSX', '#38bdf8', saveEntries.find((item) => item.head === 'XLSX')),
+    `</div>`,
+    `</div>`
+  ].join('');
+}
+
 function hideAppDialog(){
+  if (appDialogDragCleanup) {
+    appDialogDragCleanup();
+    appDialogDragCleanup = null;
+  }
   $("appDialogBackdrop").hidden = true;
 }
 
@@ -3026,6 +3349,31 @@ function buildPnpInfoSheetRows(infoD3, infoD5, infoD6, infoD7){
   return rows;
 }
 
+function buildPnpStatsSheetRows(stats){
+  const source = stats || getPnpEmptyStats();
+
+  // Если после экспорта уже есть готовые строки листа, показываем их как есть.
+  if (Array.isArray(source.sheetRows) && source.sheetRows.length) {
+    return source.sheetRows;
+  }
+
+  if (Array.isArray(source.summaryLines) && source.summaryLines.length) {
+    return source.summaryLines.map((line) => [String(line)]);
+  }
+
+  return [
+    ['ИТОГИ ОБРАБОТКИ КОМПОНЕНТОВ'],
+    [''],
+    [`Всего строк: ${source.totalRows || 0}`],
+    [`С верхнего слоя: ${source.topRows || 0}`],
+    [`С нижнего слоя: ${source.bottomRows || 0}`],
+    [`Переименовано: ${source.renamedRows || 0}`],
+    [`Повернуто: ${source.rotatedRows || 0}`],
+    [`С комментариями: ${source.commentedRows || 0}`],
+    [`[*] Удалено Not Fitted + SET=1: ${source.deletedNotFittedCount || 0}`]
+  ];
+}
+
 function renderPnpCellHtml(cell){
   if (cell && typeof cell === "object" && Object.prototype.hasOwnProperty.call(cell, "value")) {
     const style = String(cell.style || "");
@@ -3053,6 +3401,42 @@ function normalizePnpRows(dictLike){
     side: String(row && row.side ? row.side : "Top"),
     comment: String(row && row.comment ? row.comment : "")
   }));
+}
+
+function buildPnpRowStats(dictLike){
+  const rows = Array.isArray(dictLike && dictLike.rows) ? dictLike.rows : [];
+  let topRows = 0;
+  let bottomRows = 0;
+  let rotatedRows = 0;
+  let renamedRows = 0;
+  let commentedRows = 0;
+
+  rows.forEach((row) => {
+    const side = String(row && row.side ? row.side : "Top").trim().toLowerCase();
+    if (side === "bottom") {
+      bottomRows += 1;
+    } else {
+      topRows += 1;
+    }
+    if (Number(row && row.rotationOffset) === 180) {
+      rotatedRows += 1;
+    }
+    if (String(row && row.sourceDesignator ? row.sourceDesignator : "").trim() !== String(row && row.designator ? row.designator : "").trim()) {
+      renamedRows += 1;
+    }
+    if (String(row && row.comment ? row.comment : "").trim() !== "") {
+      commentedRows += 1;
+    }
+  });
+
+  return {
+    totalRows: rows.length,
+    topRows,
+    bottomRows,
+    rotatedRows,
+    renamedRows,
+    commentedRows
+  };
 }
 
 function updatePnpStats(stats){
@@ -3164,9 +3548,10 @@ function renderPnpVisibleTable(){
   const rows = activeSection && Array.isArray(activeSection.previewRows) ? activeSection.previewRows : [];
   const stats = state.pnp.stats || getPnpEmptyStats();
   const importInfo = state.pnp.importInfo || (activeSection && activeSection.importInfo) || null;
-  const sheetNames = importInfo && Array.isArray(importInfo.sheetNames) && importInfo.sheetNames.length
+  const sheetNamesSource = importInfo && Array.isArray(importInfo.sheetNames) && importInfo.sheetNames.length
     ? importInfo.sheetNames
-    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "DataCapacitor", "DataOther", "DataPredExit", "DataExit"];
+    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "DataCapacitor", "DataOther", "DataPredExit", "DataExit", "Stats"];
+  const sheetNames = sheetNamesSource.indexOf("Stats") >= 0 ? sheetNamesSource : sheetNamesSource.concat(["Stats"]);
   const activeSheet = state.pnp.activeSheet || (importInfo && importInfo.activeSheet) || "Info";
 
   if (!placeholder) {
@@ -3198,7 +3583,7 @@ function renderPnpVisibleTable(){
     fileNamePreview.textContent = infoD7;
   }
   const separator = " | ";
-  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther" || visibleSheet === "DataPredExit" || visibleSheet === "DataExit")
+  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther" || visibleSheet === "DataPredExit" || visibleSheet === "DataExit" || visibleSheet === "Stats")
     ? [
         `Всего: ${escapePnpHtml(stats.totalRows || 0)}${separator}Top: ${escapePnpHtml(stats.topRows || 0)}${separator}Bottom: ${escapePnpHtml(stats.bottomRows || 0)}${separator}Rename: ${escapePnpHtml(stats.renamedRows || 0)}${separator}Rotation R: ${escapePnpHtml(stats.rotationR || 0)}${separator}Rotation C: ${escapePnpHtml(stats.rotationC || 0)}${separator}Rotation O: ${escapePnpHtml(stats.rotationO || 0)}${separator}REF: ${escapePnpHtml(stats.refCount || 0)}${separator}Not Fitted + SET=1: ${escapePnpHtml(stats.deletedNotFittedCount || 0)}`
       ].join(separator)
@@ -3298,6 +3683,20 @@ function renderPnpVisibleTable(){
               `</table>` +
               `</div>`;
           })()
+        : visibleSheet === "Stats"
+          ? (() => {
+              const statsRows = buildPnpStatsSheetRows(stats);
+              const previewRows = statsRows.map((row) => {
+                const rowValues = Array.isArray(row) ? row : [row];
+                return `<tr>` + rowValues.map((cell) => `<td>${escapePnpHtml(cell)}</td>`).join("") + `</tr>`;
+              }).join("");
+              return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
+                `<table class="pnp-table" style="width:100%;table-layout:fixed;border-collapse:collapse;">` +
+                `<colgroup><col style="width:100%;" /></colgroup>` +
+                `<tbody>${previewRows}</tbody>` +
+                `</table>` +
+                `</div>`;
+            })()
         : `<div class="p-4 flex-1" style="display:flex;align-items:center;justify-content:center;color:var(--muted);">Лист ${escapePnpHtml(visibleSheet)} будет сформирован после соответствующего шага макроса.</div>`,
     `</div>`,
       `<div class="pnp-sheet-tabs" data-pnp-sheet-tabs>`,
@@ -3329,7 +3728,11 @@ function setPnpPathInputValue(inputId, value) {
 
 function loadPnpPreview(dictLike, meta = {}){
   const dict = dictLike && dictLike.dict ? dictLike.dict : dictLike;
-  const baseStats = dictLike && dictLike.stats ? dictLike.stats : getPnpEmptyStats();
+  const dictStats = buildPnpRowStats(dict);
+  const incomingStats = dictLike && dictLike.stats ? dictLike.stats : null;
+  const baseStats = incomingStats && Number(incomingStats.totalRows || 0) > 0
+    ? incomingStats
+    : dictStats;
   // Rotation R is a separate P&P counter so we can later add capacitor/other counters without changing the summary shape.
   const rotationR = dictLike && dictLike.importInfo && dictLike.importInfo.rotationStats
     ? Number(dictLike.importInfo.rotationStats.Stats_Rotation_Processed || 0)
@@ -3717,22 +4120,20 @@ async function exportPnpFiles(){
       renderPnpVisibleTable();
     }
 
+    const statsBeforeExport = { ...state.pnp.stats };
     const result = await asmBridge.pnpExportTxtFiles(buildPnpStatePayload());
+    const summaryLines = result && result.stats && Array.isArray(result.stats.summaryLines)
+      ? result.stats.summaryLines
+      : [];
+    const now = new Date();
+    const statsDateText = `${now.toLocaleDateString('ru-RU')} | ${now.toLocaleTimeString('ru-RU')}`;
+    const summaryHtml = buildPnpStatsDialogHtml(statsBeforeExport, summaryLines);
+    const titleHtml = '<span style="color:#f8fafc;">Итоги</span> <span style="color:var(--accent);">обработки компонентов</span>';
+    const headerRightHtml = `<div style="text-align:right;font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;">${escapePnpHtml(statsDateText)}</div>`;
 
-    if (result && result.errors && result.errors.length) {
-      const errorLines = result.errors.map((item) => {
-        const folder = item && item.folder ? item.folder : "";
-        const pathName = item && item.path ? item.path : "";
-        const message = item && item.message ? item.message : "Не удалось записать TXT.";
-        return `${folder || pathName} — ${message}`;
-      });
-      showAppDialog("Pick and Place", `TXT экспорт выполнен не везде.\n\n${errorLines.join("\n")}`);
-      return;
-    }
-
-    if (result && result.fileName) {
-      showAppDialog("Pick and Place", `TXT файл сохранен.\n\n${result.fileName}`);
-    }
+    showAppDialog("Итоги обработки компонентов", { html: summaryHtml }, [
+      { id: "ok", label: "Ok", variant: "solid" }
+    ], { dialogClass: "app-dialog--stats", bodyClass: "app-dialog-body--stats", titleHtml: titleHtml, headerRightHtml: headerRightHtml });
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось экспортировать файлы P&P.\n\n${formatPnpErrorMessage(error)}`);
   }
@@ -3753,7 +4154,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.11",
+    version: "3.5.21",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
