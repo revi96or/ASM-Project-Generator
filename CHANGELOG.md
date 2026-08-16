@@ -6,6 +6,10 @@
 
 # CHANGELOG
 
+## 3.3.0
+
+- После реализации задачи 15: перенесена логика `CalculateRotationForResist`, добавлен счетчик `Rotation R`, а счётчик `Rename` привязан к реальным заменам по `R_Comment` / `R_Designator` / `R_TOL`.
+
 ## 3.1.33
 
 - В `DataSet` теперь удаляются строки, где `COMMENT` начинается с `Плата печатная`, как в макросе `DeletePCBRows`.

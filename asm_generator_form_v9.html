@@ -1415,8 +1415,8 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.2.0",
-    versionDate: "2026-08-10"
+    version: "3.3.0",
+    versionDate: "2026-08-16"
   }),
   getUserSettings: async () => ({
     paths: {
@@ -1516,8 +1516,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.2.0",
-    latestVersion: "3.2.0",
+    currentVersion: "3.3.0",
+    latestVersion: "3.3.0",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1551,8 +1551,8 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.2.0",
-    versionDate: "2026-08-10"
+  version: "3.3.0",
+  versionDate: "2026-08-16"
   },
   projectMode: "create",
   pr1SourcePath: "",
@@ -3009,8 +3009,13 @@ function loadPnpPreview(dictLike, meta = {}){
   const rotationR = dictLike && dictLike.importInfo && dictLike.importInfo.rotationStats
     ? Number(dictLike.importInfo.rotationStats.Stats_Rotation_Processed || 0)
     : Number(baseStats.rotationR || 0);
+  // Rename now means "how many rows were really changed by R_Comment / R_Designator / R_TOL".
+  const renameR = dictLike && dictLike.importInfo && dictLike.importInfo.rReplacementState
+    ? Number(dictLike.importInfo.rReplacementState.replacedRows || 0)
+    : Number(baseStats.renamedRows || 0);
   const stats = {
     ...baseStats,
+    renamedRows: renameR,
     rotationR: rotationR
   };
   const mode = meta.mode || state.pnp.mode;
@@ -3314,7 +3319,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.2.0",
+    version: "3.3.0",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
