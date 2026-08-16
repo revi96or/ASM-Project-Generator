@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.20.0
+Версия: 9.21.2
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1415,7 +1415,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.3.0",
+    version: "3.4.1",
     versionDate: "2026-08-16"
   }),
   getUserSettings: async () => ({
@@ -1488,36 +1488,36 @@ const asmBridge = window.asmApi || {
     exists: false,
     filePath: "",
     dict: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 },
     previewHtml: ""
   }),
   pnpLoadDict: async () => ({
     exists: false,
     filePath: "",
     dict: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 },
     previewHtml: ""
   }),
   pnpExportFiles: async () => ({
     targetFolder: "",
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 },
     files: []
   }),
   pnpSaveState: async () => ({
     filePath: "",
     state: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 }
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }),
   pnpLoadState: async () => ({
     exists: false,
     filePath: "",
     state: null,
     dict: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 }
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.3.0",
-    latestVersion: "3.3.0",
+    currentVersion: "3.4.1",
+    latestVersion: "3.4.1",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1551,7 +1551,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.3.0",
+  version: "3.4.1",
   versionDate: "2026-08-16"
   },
   projectMode: "create",
@@ -1599,7 +1599,7 @@ const state = {
       noMatchOther: [],
       deletedNotFitted: []
     },
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0 }
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }
 };
 
@@ -2625,7 +2625,8 @@ function getPnpEmptyStats(){
     rotatedRows: 0,
     renamedRows: 0,
     commentedRows: 0,
-    rotationR: 0
+    rotationR: 0,
+    rotationC: 0
   };
 }
 
@@ -2785,12 +2786,14 @@ function updatePnpStats(stats){
   const bottomCountNode = $("pnpBottomCount");
   const renamedCountNode = $("pnpRenamedCount");
   const rotationCountNode = $("pnpRotationCount");
+  const rotationCCountNode = $("pnpRotationCCount");
 
   if (totalCountNode) totalCountNode.textContent = String(currentStats.totalRows || 0);
   if (topCountNode) topCountNode.textContent = String(currentStats.topRows || 0);
   if (bottomCountNode) bottomCountNode.textContent = String(currentStats.bottomRows || 0);
   if (renamedCountNode) renamedCountNode.textContent = String(currentStats.renamedRows || 0);
   if (rotationCountNode) rotationCountNode.textContent = String(currentStats.rotationR || 0);
+  if (rotationCCountNode) rotationCCountNode.textContent = String(currentStats.rotationC || 0);
 }
 
 function updatePnpMetaText(label, value){
@@ -2878,7 +2881,7 @@ function renderPnpVisibleTable(){
   const importInfo = state.pnp.importInfo || (activeSection && activeSection.importInfo) || null;
   const sheetNames = importInfo && Array.isArray(importInfo.sheetNames) && importInfo.sheetNames.length
     ? importInfo.sheetNames
-    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "Resist", "Capacitor", "Other", "DataPredExit", "DataExit"];
+    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "DataCapacitor", "DataOther", "DataPredExit", "DataExit"];
   const activeSheet = state.pnp.activeSheet || (importInfo && importInfo.activeSheet) || "Info";
 
   if (!placeholder) {
@@ -2905,16 +2908,16 @@ function renderPnpVisibleTable(){
   const infoD3 = String((importInfo && importInfo.infoD3) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD3) || "");
   const infoD5 = String((importInfo && importInfo.infoD5) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD5) || "");
   const infoD6 = String((importInfo && importInfo.infoD6) || (activeSection && activeSection.importInfo && activeSection.importInfo.infoD6) || "");
-  const dataSetSummary = visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist"
+  const dataSetSummary = visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther"
     ? getPnpDataSetSummaryCounts(importInfo || (activeSection && activeSection.importInfo ? activeSection.importInfo : null))
     : null;
   const separator = " | ";
-  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist") && dataSetSummary
+  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther") && dataSetSummary
     ? [
-        `Всего: ${escapePnpHtml(stats.totalRows || 0)}${separator}Top: ${escapePnpHtml(stats.topRows || 0)}${separator}Bottom: ${escapePnpHtml(stats.bottomRows || 0)}${separator}Rename: ${escapePnpHtml(stats.renamedRows || 0)}${separator}Rotation R: ${escapePnpHtml(stats.rotationR || 0)}`,
+        `Всего: ${escapePnpHtml(stats.totalRows || 0)}${separator}Top: ${escapePnpHtml(stats.topRows || 0)}${separator}Bottom: ${escapePnpHtml(stats.bottomRows || 0)}${separator}Rename: ${escapePnpHtml(stats.renamedRows || 0)}${separator}Rotation R: ${escapePnpHtml(stats.rotationR || 0)}${separator}Rotation C: ${escapePnpHtml(stats.rotationC || 0)}`,
         `REF: ${escapePnpHtml(dataSetSummary.refCount || 0)}${separator}Not Fitted + SET=1: ${escapePnpHtml(dataSetSummary.deletedNotFittedCount || 0)}`
       ].join(separator)
-    : `Всего: ${escapePnpHtml(stats.totalRows || 0)}${separator}Top: ${escapePnpHtml(stats.topRows || 0)}${separator}Bottom: ${escapePnpHtml(stats.bottomRows || 0)}${separator}Rename: ${escapePnpHtml(stats.renamedRows || 0)}${separator}Rotation R: ${escapePnpHtml(stats.rotationR || 0)}`;
+    : `Всего: ${escapePnpHtml(stats.totalRows || 0)}${separator}Top: ${escapePnpHtml(stats.topRows || 0)}${separator}Bottom: ${escapePnpHtml(stats.bottomRows || 0)}${separator}Rename: ${escapePnpHtml(stats.renamedRows || 0)}${separator}Rotation R: ${escapePnpHtml(stats.rotationR || 0)}${separator}Rotation C: ${escapePnpHtml(stats.rotationC || 0)}`;
 
   placeholder.innerHTML = [
     `<div class="p-4 pnp-workbook-shell" style="min-height:0;gap:12px;">`,
@@ -2932,16 +2935,20 @@ function renderPnpVisibleTable(){
             `</table>` +
             `</div>`;
         })()
-      : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist"
+      : visibleSheet === "ImportedCSVTable" || visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther"
         ? (() => {
-            // Для DataResist и DataSet2 берем собственные копии таблиц, а для DataSet — базовую очищенную копию.
+            // Для DataSet2/DataResist/DataCapacitor/DataOther берем собственные копии таблиц, а для DataSet — базовую очищенную копию.
             const tableInfo = visibleSheet === "DataResist" && importInfo && importInfo.dataResistTable
               ? importInfo.dataResistTable
-              : visibleSheet === "DataSet2" && importInfo && importInfo.dataSet2Table
-              ? importInfo.dataSet2Table
-              : (visibleSheet === "DataSet" && importInfo && importInfo.dataSetTable
-                ? importInfo.dataSetTable
-                : importInfo && importInfo.rawTable ? importInfo.rawTable : null);
+            : visibleSheet === "DataCapacitor" && importInfo && importInfo.dataCapacitorTable
+            ? importInfo.dataCapacitorTable
+            : visibleSheet === "DataOther" && importInfo && importInfo.dataOtherTable
+            ? importInfo.dataOtherTable
+            : visibleSheet === "DataSet2" && importInfo && importInfo.dataSet2Table
+            ? importInfo.dataSet2Table
+            : (visibleSheet === "DataSet" && importInfo && importInfo.dataSetTable
+              ? importInfo.dataSetTable
+              : importInfo && importInfo.rawTable ? importInfo.rawTable : null);
             const tableRows = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist") && tableInfo && Array.isArray(tableInfo.worksheetRows) && tableInfo.worksheetRows.length
               ? tableInfo.worksheetRows
               : tableInfo && Array.isArray(tableInfo.rows) ? tableInfo.rows : [];
@@ -3009,6 +3016,9 @@ function loadPnpPreview(dictLike, meta = {}){
   const rotationR = dictLike && dictLike.importInfo && dictLike.importInfo.rotationStats
     ? Number(dictLike.importInfo.rotationStats.Stats_Rotation_Processed || 0)
     : Number(baseStats.rotationR || 0);
+  const rotationC = dictLike && dictLike.importInfo && dictLike.importInfo.rotationCapacitorStats
+    ? Number(dictLike.importInfo.rotationCapacitorStats.Stats_Rotation_Changed || 0)
+    : Number(baseStats.rotationC || 0);
   // Rename now means "how many rows were really changed by R_Comment / R_Designator / R_TOL".
   const renameR = dictLike && dictLike.importInfo && dictLike.importInfo.rReplacementState
     ? Number(dictLike.importInfo.rReplacementState.replacedRows || 0)
@@ -3016,7 +3026,8 @@ function loadPnpPreview(dictLike, meta = {}){
   const stats = {
     ...baseStats,
     renamedRows: renameR,
-    rotationR: rotationR
+    rotationR: rotationR,
+    rotationC: rotationC
   };
   const mode = meta.mode || state.pnp.mode;
   const activeSection = mode === "csv" ? state.pnp.csv : state.pnp.dict;
@@ -3319,7 +3330,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.3.0",
+    version: "3.4.1",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

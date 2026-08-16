@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.3.0
+ * Версия: 3.4.2
  * Автор: Новожилов Артем
  */
 
@@ -1049,7 +1049,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.3.0',
+    version: '3.4.1',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1256,6 +1256,47 @@ async function fillPnpSetColumn(payload) {
      worksheetRows: rotationState.worksheetRows
     };
     nextState.importInfo.rotationStats = rotationState.rotationStats;
+
+    const capacitorDict = await pnpPipeline.loadCapacitorDictXlsxFile(dictXlsxPath);
+    assertOperationNotCancelled();
+    const capacitorSourceTable = nextState.importInfo.dataResistTable;
+    const capacitorMatchState = pnpPipeline.buildCapacitorMatchState(capacitorSourceTable, capacitorDict);
+    nextState.importInfo.dataCapacitorTable = {
+     rawHeaders: Array.isArray(capacitorMatchState.rawHeaders) ? capacitorMatchState.rawHeaders.slice() : [],
+     rows: capacitorMatchState.rows,
+     worksheetRows: capacitorMatchState.worksheetRows
+    };
+    nextState.importInfo.noMatchCapacitors = capacitorMatchState.noMatchCapacitors;
+    nextState.importInfo.capacitorStats = capacitorMatchState.capacitorStats;
+
+    const capacitorRotationState = pnpPipeline.buildCapacitorRotationState(nextState.importInfo.dataCapacitorTable, capacitorDict);
+    nextState.importInfo.dataCapacitorTable = {
+     rawHeaders: Array.isArray(capacitorRotationState.rawHeaders) ? capacitorRotationState.rawHeaders.slice() : [],
+     rows: capacitorRotationState.rows,
+     worksheetRows: capacitorRotationState.worksheetRows
+    };
+    nextState.importInfo.rotationCapacitorStats = capacitorRotationState.rotationStats;
+    nextState.importInfo.rotationCStats = capacitorRotationState.rotationStats;
+    nextState.importInfo.rotationC = capacitorRotationState.rotationStats.Stats_Rotation_Changed || 0;
+
+    // Переход к следующей ступени цепочки: DataCapacitor становится основой для DataOther.
+    nextState.importInfo.dataOtherTable = {
+     rawHeaders: Array.isArray(nextState.importInfo.dataCapacitorTable.rawHeaders) ? nextState.importInfo.dataCapacitorTable.rawHeaders.slice() : [],
+     rows: Array.isArray(nextState.importInfo.dataCapacitorTable.rows)
+       ? nextState.importInfo.dataCapacitorTable.rows.map((row) => (
+           Array.isArray(row)
+             ? row.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell))
+             : row
+         ))
+       : [],
+     worksheetRows: Array.isArray(nextState.importInfo.dataCapacitorTable.worksheetRows)
+       ? nextState.importInfo.dataCapacitorTable.worksheetRows.map((row) => ({
+           values: Array.isArray(row && row.values) ? row.values.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell)) : [],
+           hidden: Boolean(row && row.hidden)
+         }))
+       : []
+    };
+    nextState.importInfo.activeSheet = 'DataOther';
   }
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();

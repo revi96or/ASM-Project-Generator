@@ -6,6 +6,18 @@
 
 # CHANGELOG
 
+## 3.4.2
+
+- Уточнены названия вкладок P&P-превью: убран `Resist`, а `Capacitor` и `Other` переименованы в `DataCapacitor` и `DataOther`.
+
+## 3.4.1
+
+- Исправлено отображение и экспорт листов `DataCapacitor` и `DataOther` в P&P-превью и xlsx.
+
+## 3.4.0
+
+- После задачи 16 добавлена ветка `CopyDataResistToCapacitor`: создается `DataCapacitor`, обрабатывается лист `Capacitor`, считается `Rotation C`, и затем формируется `DataOther`.
+
 ## 3.3.0
 
 - После реализации задачи 15: перенесена логика `CalculateRotationForResist`, добавлен счетчик `Rotation R`, а счётчик `Rename` привязан к реальным заменам по `R_Comment` / `R_Designator` / `R_TOL`.

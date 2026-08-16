@@ -1,6 +1,6 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.3.0 для словаря Dict/.
- * Версия: 3.3.0
+ * Описание: Минимальный конвейер Pick and Place 3.4.2 для словаря Dict/.
+ * Версия: 3.4.2
  * Автор: Новожилов Артем
  */
 
@@ -25,7 +25,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.3.0',
+    version: '3.4.2',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -501,7 +501,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.3.0',
+    version: '3.4.2',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -690,7 +690,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.3.0',
+    version: '3.4.2',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -723,7 +723,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.3.0'),
+    version: String((dictLike && dictLike.version) || '3.4.2'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -2049,6 +2049,288 @@ function buildResistorRotationState(dataResistState, resistorSheetState) {
   };
 }
 
+function buildCapacitorMatchDetail(sourceRowIndex, sourceRow, dictRowIndex, dictRow, matchCount, matchedFields, mismatchedFields, rawHeaders, dictHeaders) {
+  return {
+    sourceRowIndex: sourceRowIndex + 1,
+    dictRowIndex: dictRowIndex + 1,
+    matchCount,
+    matchedFields: matchedFields.slice(),
+    mismatchedFields: mismatchedFields.slice(),
+    source: {
+      comment: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'COMMENT')])),
+      footprint: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'FOOTPRINT')])),
+      pref: normalizeText(clonePnpCellValue(sourceRow[findResistorColumnIndex(rawHeaders, 'PREF')]))
+    },
+    dict: {
+      comment: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'COMMENT')])),
+      footprint: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'FOOTPRINT')])),
+      pref: normalizeText(clonePnpCellValue(dictRow[findResistorColumnIndex(dictHeaders, 'PREF')]))
+    }
+  };
+}
+
+function buildCapacitorMatchState(dataCapacitorState, capacitorSheetState) {
+  const rawHeaders = Array.isArray(dataCapacitorState && dataCapacitorState.rawHeaders) ? dataCapacitorState.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataCapacitorState && dataCapacitorState.rows) ? dataCapacitorState.rows : [];
+  const worksheetRows = Array.isArray(dataCapacitorState && dataCapacitorState.worksheetRows) ? dataCapacitorState.worksheetRows : [];
+  const dictRawHeaders = Array.isArray(capacitorSheetState && capacitorSheetState.rawHeaders) ? capacitorSheetState.rawHeaders.slice() : [];
+  const dictRows = Array.isArray(capacitorSheetState && capacitorSheetState.rows) ? capacitorSheetState.rows : [];
+  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT', 'PREF'];
+  const requiredDictColumns = ['COMMENT', 'FOOTPRINT', 'PREF', 'COMMENT_FR', 'FOOTPRINT_FR'];
+  const sourceIndexes = {};
+  const dictIndexes = {};
+
+  requiredSourceColumns.forEach((columnName) => {
+    sourceIndexes[columnName] = findResistorColumnIndex(rawHeaders, columnName);
+  });
+  requiredDictColumns.forEach((columnName) => {
+    dictIndexes[columnName] = findResistorColumnIndex(dictRawHeaders, columnName);
+  });
+
+  const missingSourceColumns = requiredSourceColumns.filter((columnName) => sourceIndexes[columnName] < 0);
+  const missingDictColumns = requiredDictColumns.filter((columnName) => dictIndexes[columnName] < 0);
+
+  if (missingSourceColumns.length) {
+    throw new Error(`В DataCapacitor не найдены столбцы: ${missingSourceColumns.join(', ')}`);
+  }
+
+  if (missingDictColumns.length) {
+    throw new Error(`В листе Capacitor не найдены столбцы: ${missingDictColumns.join(', ')}`);
+  }
+
+  const nextRows = [];
+  const nextWorksheetRows = [];
+  const noMatchCapacitors = [];
+  let totalCount = 0;
+  let fullMatchCount = 0;
+  let partialMatchCount = 0;
+
+  rows.forEach((sourceRow, sourceRowIndex) => {
+    const nextRow = clonePnpRawRow(sourceRow);
+    const nextWorksheetRow = worksheetRows[sourceRowIndex]
+      ? clonePnpWorksheetRow(worksheetRows[sourceRowIndex])
+      : { values: clonePnpRawRow(sourceRow), hidden: false };
+    const sourceValues = {
+      COMMENT: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.COMMENT])),
+      FOOTPRINT: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.FOOTPRINT])),
+      PREF: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.PREF]))
+    };
+    let bestMatch = null;
+
+    dictRows.forEach((dictRow, dictRowIndex) => {
+      const dictValues = {
+        COMMENT: normalizeText(clonePnpCellValue(dictRow[dictIndexes.COMMENT])),
+        FOOTPRINT: normalizeText(clonePnpCellValue(dictRow[dictIndexes.FOOTPRINT])),
+        PREF: normalizeText(clonePnpCellValue(dictRow[dictIndexes.PREF]))
+      };
+      const matchedFields = [];
+      const mismatchedFields = [];
+
+      requiredSourceColumns.forEach((columnName) => {
+        const sourceValue = sourceValues[columnName];
+        const dictValue = dictValues[columnName];
+
+        if (sourceValue !== '' && dictValue !== '' && sourceValue === dictValue) {
+          matchedFields.push(columnName);
+        } else if (sourceValue !== '' || dictValue !== '') {
+          mismatchedFields.push(columnName);
+        }
+      });
+
+      const matchCount = matchedFields.length;
+
+      if (!bestMatch || matchCount > bestMatch.matchCount) {
+        bestMatch = {
+          dictRowIndex,
+          dictRow,
+          dictValues,
+          matchCount,
+          matchedFields,
+          mismatchedFields
+        };
+      }
+    });
+
+    totalCount += 1;
+
+    if (!bestMatch || bestMatch.matchCount < 2) {
+      nextRows.push(nextRow);
+      nextWorksheetRows.push(nextWorksheetRow);
+      return;
+    }
+
+    const isFullMatch = bestMatch.matchCount === requiredSourceColumns.length;
+    const fullMatchStyle = 4;
+    const partialMatchStyle = 5;
+    const partialMissStyle = 10;
+
+    requiredSourceColumns.forEach((columnName) => {
+      const sourceIndex = sourceIndexes[columnName];
+      const isMatched = bestMatch.matchedFields.includes(columnName);
+      const currentValue = normalizeText(clonePnpCellValue(nextRow[sourceIndex]));
+
+      nextRow[sourceIndex] = {
+        value: currentValue,
+        styleIndex: isFullMatch ? fullMatchStyle : (isMatched ? partialMatchStyle : partialMissStyle),
+        className: isFullMatch ? 'pnp-resist-full' : (isMatched ? 'pnp-resist-match' : 'pnp-resist-miss')
+      };
+
+      if (Array.isArray(nextWorksheetRow.values)) {
+        nextWorksheetRow.values[sourceIndex] = {
+          value: currentValue,
+          styleIndex: isFullMatch ? fullMatchStyle : (isMatched ? partialMatchStyle : partialMissStyle),
+          className: isFullMatch ? 'pnp-resist-full' : (isMatched ? 'pnp-resist-match' : 'pnp-resist-miss')
+        };
+      }
+    });
+
+    if (isFullMatch) {
+      const replacementComment = normalizeText(bestMatch.dictRow[dictIndexes.COMMENT_FR]);
+      const replacementFootprint = normalizeText(bestMatch.dictRow[dictIndexes.FOOTPRINT_FR]);
+
+      if (replacementComment) {
+        nextRow[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+        if (Array.isArray(nextWorksheetRow.values)) {
+          nextWorksheetRow.values[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+        }
+      }
+
+      if (replacementFootprint) {
+        nextRow[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+        if (Array.isArray(nextWorksheetRow.values)) {
+          nextWorksheetRow.values[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+        }
+      }
+
+      fullMatchCount += 1;
+    } else {
+      partialMatchCount += 1;
+      noMatchCapacitors.push(buildCapacitorMatchDetail(sourceRowIndex, nextRow, bestMatch.dictRowIndex, bestMatch.dictRow, bestMatch.matchCount, bestMatch.matchedFields, bestMatch.mismatchedFields, rawHeaders, dictRawHeaders));
+    }
+
+    nextRows.push(nextRow);
+    nextWorksheetRows.push(nextWorksheetRow);
+  });
+
+  return {
+    rawHeaders,
+    rows: nextRows,
+    worksheetRows: nextWorksheetRows,
+    noMatchCapacitors,
+    capacitorStats: {
+      Stats_Capacitors_Total: totalCount,
+      Stats_Capacitors_Full: fullMatchCount,
+      Stats_Capacitors_Partial: partialMatchCount
+    },
+    sourceColumnIndexes: sourceIndexes,
+    dictColumnIndexes: dictIndexes,
+    sourceRowsCount: rows.length,
+    dictRowsCount: dictRows.length
+  };
+}
+
+function buildCapacitorRotationState(dataCapacitorState, capacitorSheetState) {
+  const rawHeaders = Array.isArray(dataCapacitorState && dataCapacitorState.rawHeaders) ? dataCapacitorState.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataCapacitorState && dataCapacitorState.rows) ? dataCapacitorState.rows : [];
+  const worksheetRows = Array.isArray(dataCapacitorState && dataCapacitorState.worksheetRows) ? dataCapacitorState.worksheetRows : [];
+  const dictRawHeaders = Array.isArray(capacitorSheetState && capacitorSheetState.rawHeaders) ? capacitorSheetState.rawHeaders.slice() : [];
+  const dictRows = Array.isArray(capacitorSheetState && capacitorSheetState.rows) ? capacitorSheetState.rows : [];
+  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT', 'ROTATION', 'LAYER'];
+  const requiredDictColumns = ['COMMENT_FR', 'FOOTPRINT_FR', 'ROTATION_DELTA'];
+  const sourceIndexes = {};
+  const dictIndexes = {};
+
+  requiredSourceColumns.forEach((columnName) => {
+    sourceIndexes[columnName] = findResistorColumnIndex(rawHeaders, columnName);
+  });
+  requiredDictColumns.forEach((columnName) => {
+    dictIndexes[columnName] = findResistorColumnIndex(dictRawHeaders, columnName);
+  });
+
+  const missingSourceColumns = requiredSourceColumns.filter((columnName) => sourceIndexes[columnName] < 0);
+  const missingDictColumns = requiredDictColumns.filter((columnName) => dictIndexes[columnName] < 0);
+
+  if (missingSourceColumns.length) {
+    throw new Error(`В DataCapacitor не найдены столбцы: ${missingSourceColumns.join(', ')}`);
+  }
+
+  if (missingDictColumns.length) {
+    throw new Error(`В листе Capacitor не найдены столбцы: ${missingDictColumns.join(', ')}`);
+  }
+
+  const nextRows = [];
+  const nextWorksheetRows = [];
+  let totalCount = 0;
+  let processedCount = 0;
+  let skippedCount = 0;
+  let changedCount = 0;
+
+  rows.forEach((sourceRow, sourceRowIndex) => {
+    const nextRow = clonePnpRawRow(sourceRow);
+    const nextWorksheetRow = worksheetRows[sourceRowIndex]
+      ? clonePnpWorksheetRow(worksheetRows[sourceRowIndex])
+      : { values: clonePnpRawRow(sourceRow), hidden: false };
+    const sourceComment = normalizeText(clonePnpCellValue(nextRow[sourceIndexes.COMMENT]));
+    const sourceFootprint = normalizeText(clonePnpCellValue(nextRow[sourceIndexes.FOOTPRINT]));
+    const sourceRotation = clonePnpCellValue(nextRow[sourceIndexes.ROTATION]);
+    const sourceLayer = normalizeText(clonePnpCellValue(nextRow[sourceIndexes.LAYER]));
+    const matchedDictRowIndex = dictRows.findIndex((dictRow) => (
+      normalizeText(clonePnpCellValue(dictRow[dictIndexes.COMMENT_FR])) === sourceComment
+      && normalizeText(clonePnpCellValue(dictRow[dictIndexes.FOOTPRINT_FR])) === sourceFootprint
+    ));
+
+    totalCount += 1;
+
+    if (matchedDictRowIndex < 0) {
+      skippedCount += 1;
+      nextRows.push(nextRow);
+      nextWorksheetRows.push(nextWorksheetRow);
+      return;
+    }
+
+    const rotationDelta = clonePnpCellValue(dictRows[matchedDictRowIndex][dictIndexes.ROTATION_DELTA]);
+    const nextRotation = computeResistorRotationValue(sourceRotation, rotationDelta, sourceLayer);
+
+    if (nextRotation === null) {
+      skippedCount += 1;
+      nextRows.push(nextRow);
+      nextWorksheetRows.push(nextWorksheetRow);
+      return;
+    }
+
+    const currentRotationText = normalizeRotationValue(sourceRotation);
+    const nextRotationText = normalizeRotationValue(nextRotation);
+    if (currentRotationText !== nextRotationText) {
+      changedCount += 1;
+    }
+
+    nextRow[sourceIndexes.ROTATION] = nextRotation;
+    if (Array.isArray(nextWorksheetRow.values)) {
+      nextWorksheetRow.values[sourceIndexes.ROTATION] = nextRotation;
+    }
+
+    processedCount += 1;
+    nextRows.push(nextRow);
+    nextWorksheetRows.push(nextWorksheetRow);
+  });
+
+  return {
+    rawHeaders,
+    rows: nextRows,
+    worksheetRows: nextWorksheetRows,
+    rotationStats: {
+      Stats_Rotation_Total: totalCount,
+      Stats_Rotation_Processed: processedCount,
+      Stats_Rotation_Skipped: skippedCount,
+      Stats_Rotation_Changed: changedCount
+    },
+    sourceColumnIndexes: sourceIndexes,
+    dictColumnIndexes: dictIndexes,
+    sourceRowsCount: rows.length,
+    dictRowsCount: dictRows.length
+  };
+}
+
 function buildTableColumnsXml(headers) {
   return headers.map((header, index) => (
     `<tableColumn id="${index + 1}" name="${escapeXml(String(header || `Column${index + 1}`))}"/>`
@@ -2133,27 +2415,48 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
         rows: [],
         worksheetRows: []
       };
-  const dataSetSheetRows = [
+  const dataCapacitorState = importInfo && importInfo.dataCapacitorTable ? importInfo.dataCapacitorTable : null;
+  const dataCapacitorTable = dataCapacitorState
+    ? {
+        rawHeaders: Array.isArray(dataCapacitorState.rawHeaders) ? dataCapacitorState.rawHeaders : dataHeaders,
+        rows: Array.isArray(dataCapacitorState.rows) ? dataCapacitorState.rows : [],
+        worksheetRows: Array.isArray(dataCapacitorState.worksheetRows) ? dataCapacitorState.worksheetRows : []
+      }
+    : {
+        rawHeaders: dataHeaders,
+        rows: [],
+        worksheetRows: []
+      };
+  const dataOtherState = importInfo && importInfo.dataOtherTable ? importInfo.dataOtherTable : null;
+  const dataOtherTable = dataOtherState
+    ? {
+        rawHeaders: Array.isArray(dataOtherState.rawHeaders) ? dataOtherState.rawHeaders : dataHeaders,
+        rows: Array.isArray(dataOtherState.rows) ? dataOtherState.rows : [],
+        worksheetRows: Array.isArray(dataOtherState.worksheetRows) ? dataOtherState.worksheetRows : []
+      }
+    : {
+        rawHeaders: dataHeaders,
+        rows: [],
+        worksheetRows: []
+      };
+  const buildSheetRows = (tableState) => ([
     workbookHeaders
-  ].concat((Array.isArray(dataSetTable.worksheetRows) && dataSetTable.worksheetRows.length
-    ? dataSetTable.worksheetRows.map((row) => row)
-    : (Array.isArray(dataSetTable.rows) ? dataSetTable.rows : []).map((row) => row.map((value) => String(value)))));
-  const dataSet2SheetRows = [
-    workbookHeaders
-  ].concat((Array.isArray(dataSet2Table.worksheetRows) && dataSet2Table.worksheetRows.length
-    ? dataSet2Table.worksheetRows.map((row) => row)
-    : (Array.isArray(dataSet2Table.rows) ? dataSet2Table.rows : []).map((row) => row.map((value) => String(value)))));
-  const dataResistSheetRows = [
-    workbookHeaders
-  ].concat((Array.isArray(dataResistTable.worksheetRows) && dataResistTable.worksheetRows.length
-    ? dataResistTable.worksheetRows.map((row) => row)
-    : (Array.isArray(dataResistTable.rows) ? dataResistTable.rows : []).map((row) => row.map((value) => String(value)))));
-  // DataResist — копия DataSet2 после очистки TOL, пробелов и запятых.
-  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist'];
+  ].concat((Array.isArray(tableState.worksheetRows) && tableState.worksheetRows.length
+    ? tableState.worksheetRows.map((row) => row)
+    : (Array.isArray(tableState.rows) ? tableState.rows : []).map((row) => row.map((value) => String(value))))));
+  const dataSetSheetRows = buildSheetRows(dataSetTable);
+  const dataSet2SheetRows = buildSheetRows(dataSet2Table);
+  const dataResistSheetRows = buildSheetRows(dataResistTable);
+  const dataCapacitorSheetRows = buildSheetRows(dataCapacitorTable);
+  const dataOtherSheetRows = buildSheetRows(dataOtherTable);
+  // DataCapacitor и DataOther продолжают цепочку после DataResist и тоже должны попасть в xlsx.
+  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
   const dataSet2TableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSet2SheetRows.length, 1)}`;
   const dataResistTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataResistSheetRows.length, 1)}`;
+  const dataCapacitorTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataCapacitorSheetRows.length, 1)}`;
+  const dataOtherTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataOtherSheetRows.length, 1)}`;
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
@@ -2161,7 +2464,7 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     : -1;
 
   return buildZipArchive([
-    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 4) },
+    { path: '[Content_Types].xml', content: buildContentTypesXml(sheetNames.length, 6) },
     { path: '_rels/.rels', content: buildRelsXml() },
     { path: 'docProps/core.xml', content: buildCorePropsXml(importInfo, sourcePath) },
     { path: 'docProps/app.xml', content: buildAppPropsXml(sheetNames) },
@@ -2180,7 +2483,13 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/tables/table3.xml', content: buildTableXml('DataSet2Table', dataSet2TableRange, dataHeaders, 3) },
     { path: 'xl/worksheets/sheet5.xml', content: buildWorksheetXml(dataResistSheetRows, columnKinds, { tableRange: dataResistTableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet5.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table4.xml') },
-    { path: 'xl/tables/table4.xml', content: buildTableXml('DataResistTable', dataResistTableRange, dataHeaders, 4) }
+    { path: 'xl/tables/table4.xml', content: buildTableXml('DataResistTable', dataResistTableRange, dataHeaders, 4) },
+    { path: 'xl/worksheets/sheet6.xml', content: buildWorksheetXml(dataCapacitorSheetRows, columnKinds, { tableRange: dataCapacitorTableRange, columnWidths, highlightColumnIndex }) },
+    { path: 'xl/worksheets/_rels/sheet6.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table5.xml') },
+    { path: 'xl/tables/table5.xml', content: buildTableXml('DataCapacitorTable', dataCapacitorTableRange, dataHeaders, 5) },
+    { path: 'xl/worksheets/sheet7.xml', content: buildWorksheetXml(dataOtherSheetRows, columnKinds, { tableRange: dataOtherTableRange, columnWidths, highlightColumnIndex }) },
+    { path: 'xl/worksheets/_rels/sheet7.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table6.xml') },
+    { path: 'xl/tables/table6.xml', content: buildTableXml('DataOtherTable', dataOtherTableRange, dataHeaders, 6) }
   ]);
 }
 
@@ -2504,7 +2813,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.3.0 Preview</title>
+<title>Pick and Place 3.4.2 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -2515,7 +2824,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.3.0</h1>
+    <h1>Pick and Place 3.4.2</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -2551,7 +2860,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.3.0',
+    ' * Версия: 3.4.2',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -2576,7 +2885,7 @@ async function loadModuleExport(filePath) {
   }
 }
 
-async function loadResistDictXlsxFile(filePath) {
+async function loadDictSheetXlsxFile(filePath, sheetName, description) {
   const resolvedPath = path.resolve(filePath);
   try {
     const fileStat = await fs.stat(resolvedPath);
@@ -2587,13 +2896,13 @@ async function loadResistDictXlsxFile(filePath) {
     throw new Error(`Файл Dict.xlsx не найден по указанному пути: ${resolvedPath}\nУкажите точный путь, включая имя файла.`);
   }
 
-  const resistSheet = await readXlsxSheetRows(resolvedPath, 'Resist');
-  const rawHeaders = Array.isArray(resistSheet.rows) && resistSheet.rows.length ? resistSheet.rows[0].slice() : [];
-  const dataRows = Array.isArray(resistSheet.rows) ? resistSheet.rows.slice(1) : [];
+  const sheetState = await readXlsxSheetRows(resolvedPath, sheetName);
+  const rawHeaders = Array.isArray(sheetState.rows) && sheetState.rows.length ? sheetState.rows[0].slice() : [];
+  const dataRows = Array.isArray(sheetState.rows) ? sheetState.rows.slice(1) : [];
 
   return {
-    description: 'Лист Resist из Dict.xlsx',
-    version: '3.3.0',
+    description: description || `Лист ${sheetName} из Dict.xlsx`,
+    version: '3.4.2',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -2601,9 +2910,9 @@ async function loadResistDictXlsxFile(filePath) {
       sourcePath: resolvedPath,
       sourceFile: path.basename(resolvedPath),
       mode: 'xlsx',
-      sheetName: 'Resist'
+      sheetName: sheetName
     },
-    sheetName: 'Resist',
+    sheetName: sheetName,
     rawHeaders,
     rows: dataRows,
     worksheetRows: dataRows.map((row) => ({
@@ -2611,10 +2920,18 @@ async function loadResistDictXlsxFile(filePath) {
       hidden: false
     })),
     workbook: {
-      sheetName: resistSheet.sheetName,
+      sheetName: sheetState.sheetName,
       rowCount: dataRows.length
     }
   };
+}
+
+async function loadResistDictXlsxFile(filePath) {
+  return loadDictSheetXlsxFile(filePath, 'Resist', 'Лист Resist из Dict.xlsx');
+}
+
+async function loadCapacitorDictXlsxFile(filePath) {
+  return loadDictSheetXlsxFile(filePath, 'Capacitor', 'Лист Capacitor из Dict.xlsx');
 }
 
 async function loadDictFile(filePath) {
@@ -2724,7 +3041,7 @@ async function importCsvFile(filePath) {
       commentColumn: 3,
       footprintColumn: 5,
       textNumberFormatColumns: [2, 3, 5, 6, 7],
-      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'Resist', 'Capacitor', 'Other', 'DataPredExit', 'DataExit'],
+      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'],
       tableName: 'ImportedCSVTable',
       activeSheet: 'DataSet2',
       rowCount: parsed.rows.length,
@@ -2797,8 +3114,11 @@ module.exports = {
   buildDataSet2TableState,
   buildDataResistTableState,
   loadResistDictXlsxFile,
+  loadCapacitorDictXlsxFile,
   buildResistorMatchState,
   buildResistorRotationState,
+  buildCapacitorMatchState,
+  buildCapacitorRotationState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,
