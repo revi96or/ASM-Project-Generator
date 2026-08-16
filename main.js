@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.8
+ * Версия: 3.5.11
  * Автор: Новожилов Артем
  */
 
@@ -1112,7 +1112,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.8',
+    version: '3.5.11',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1229,17 +1229,58 @@ async function exportPnpFiles(payload) {
 
   const targetFolder = path.resolve(String(payload && payload.targetFolder) || getPnpDefaultExportFolder());
   const exportStem = String((payload && payload.exportStem) || 'pnp_export_v300').trim() || 'pnp_export_v300';
+  const txtFolders = dedupeFolderPaths([
+    payload && payload.exportFolder ? payload.exportFolder : '',
+    payload && payload.placerPath ? payload.placerPath : ''
+  ]);
 
   const result = await pnpPipeline.exportFiles(stateDict, targetFolder, {
     exportStem,
     exportXlsxFolder: payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '',
+    txtFolders,
     importInfo: payload && payload.importInfo ? payload.importInfo : null,
     sourcePath: payload && payload.sourcePath ? payload.sourcePath : '',
     sourceFile: payload && payload.sourceFile ? payload.sourceFile : '',
-    infoD3: payload && payload.infoD3 ? payload.infoD3 : ''
+    infoD3: payload && payload.infoD3 ? payload.infoD3 : '',
+    exportTxtStem: payload && payload.importInfo && payload.importInfo.infoD7 ? payload.importInfo.infoD7 : exportStem
   });
   assertOperationNotCancelled();
   return result;
+}
+
+async function exportPnpTxtFiles(payload) {
+  clearOperationCancel();
+  assertOperationNotCancelled();
+
+  const importInfo = payload && payload.importInfo ? payload.importInfo : (payload && payload.state && payload.state.importInfo ? payload.state.importInfo : null);
+  const dataExitTable = importInfo && importInfo.dataExitTable ? importInfo.dataExitTable : null;
+
+  if (!dataExitTable) {
+    throw new Error('Сначала соберите DataExit, чтобы экспортировать TXT.');
+  }
+
+  const exportFolder = String(payload && payload.exportFolder ? payload.exportFolder : '').trim();
+  const placerPath = String(payload && payload.placerPath ? payload.placerPath : '').trim();
+  const targetFolders = dedupeFolderPaths([exportFolder, placerPath]).filter((folder) => String(folder || '').trim() !== '');
+
+  if (!targetFolders.length) {
+    throw new Error('Не заданы пути для TXT-экспорта.');
+  }
+
+  const result = await pnpPipeline.saveDataExitTxtOutputs(
+    targetFolders,
+    dataExitTable,
+    payload && payload.exportTxtStem ? payload.exportTxtStem : (importInfo.infoD7 || importInfo.baseName || 'pnp_export_v300'),
+    payload && payload.sourcePath ? payload.sourcePath : ''
+  );
+
+  assertOperationNotCancelled();
+  return {
+    fileName: result.fileName,
+    saved: result.saved,
+    errors: result.errors,
+    targetFolders
+  };
 }
 
 async function fillPnpSetColumn(payload) {
@@ -1829,6 +1870,10 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:pnp-export-files', async (_event, payload) => {
     return withLoggedErrors('asm:pnp-export-files', () => exportPnpFiles(payload || {}), getPnpErrorDetails)(_event, payload);
+  });
+
+  ipcMain.handle('asm:pnp-export-txt-files', async (_event, payload) => {
+    return withLoggedErrors('asm:pnp-export-txt-files', () => exportPnpTxtFiles(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-fill-set-column', async (_event, payload) => {

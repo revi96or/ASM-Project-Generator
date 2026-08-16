@@ -1,6 +1,6 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.8 для словаря Dict/.
- * Версия: 3.5.8
+ * Описание: Минимальный конвейер Pick and Place 3.5.11 для словаря Dict/.
+ * Версия: 3.5.11
  * Автор: Новожилов Артем
  */
 
@@ -26,7 +26,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.8',
+    version: '3.5.11',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -658,7 +658,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.8',
+    version: '3.5.11',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -847,7 +847,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.8',
+    version: '3.5.11',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -880,7 +880,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.8'),
+    version: String((dictLike && dictLike.version) || '3.5.11'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -3420,7 +3420,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.8 Preview</title>
+<title>Pick and Place 3.5.11 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3431,7 +3431,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.8</h1>
+    <h1>Pick and Place 3.5.11</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3467,7 +3467,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.8',
+    ' * Версия: 3.5.11',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3509,7 +3509,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.8',
+    version: '3.5.11',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -3667,6 +3667,91 @@ async function importCsvFile(filePath) {
   };
 }
 
+function normalizePnpExportStem(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/[<>:"/\\|?*]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\.txt$/i, '')
+    .trim();
+}
+
+function buildDataExitTxtContent(dataExitTable) {
+  const rows = Array.isArray(dataExitTable && dataExitTable.rows) ? dataExitTable.rows : [];
+  const lines = [];
+
+  // Первая и вторая строки идут без дополнительной обработки, а ниже уже повторяем VBA-логику Trim.
+  rows.forEach((row, index) => {
+    const cells = Array.isArray(row) ? row : [];
+    const rawLine = cells.map((cell) => {
+      const cellValue = clonePnpCellValue(cell);
+      return String(cellValue === null || cellValue === undefined ? '' : cellValue);
+    }).join(' ');
+
+    if (index < 2) {
+      lines.push(rawLine);
+      return;
+    }
+
+    const trimmedCells = cells.map((cell) => normalizeText(clonePnpCellValue(cell)));
+    if (!trimmedCells.some((cell) => cell !== '')) {
+      return;
+    }
+
+    lines.push(trimmedCells.join(' ').trim());
+  });
+
+  return lines.join('\r\n');
+}
+
+async function saveDataExitTxtOutputs(targetFolders, dataExitTable, fileStem, sourcePath) {
+  const txtStem = normalizePnpExportStem(fileStem) || 'pnp_export_v300';
+  const fileName = txtStem.toLowerCase().endsWith('.txt') ? txtStem : `${txtStem}.txt`;
+  const content = buildDataExitTxtContent(dataExitTable);
+  const normalizedFolders = [];
+  const seenFolders = new Set();
+
+  for (const folder of Array.isArray(targetFolders) ? targetFolders : []) {
+    const normalizedFolder = String(folder || '').trim();
+    if (!normalizedFolder || seenFolders.has(normalizedFolder)) {
+      continue;
+    }
+    seenFolders.add(normalizedFolder);
+    normalizedFolders.push(normalizedFolder);
+  }
+
+  const result = {
+    fileName,
+    content,
+    saved: [],
+    errors: []
+  };
+
+  for (const targetFolder of normalizedFolders) {
+    const targetPath = path.join(targetFolder, fileName);
+
+    try {
+      if (sourcePath && path.resolve(targetPath) === path.resolve(sourcePath)) {
+        throw new Error(`Отказ от записи в исходный файл: ${targetPath}`);
+      }
+
+      await fs.writeFile(targetPath, content, 'utf8');
+      result.saved.push({
+        folder: targetFolder,
+        path: targetPath,
+        fileName
+      });
+    } catch (error) {
+      result.errors.push({
+        folder: targetFolder,
+        path: targetPath,
+        message: error && error.message ? error.message : String(error || 'Неизвестная ошибка записи TXT.')
+      });
+    }
+  }
+
+  return result;
+}
+
 async function exportFiles(dictLike, targetFolder, options = {}) {
   const prepared = prepareDict(dictLike, {
     sourcePath: options.sourcePath || '',
@@ -3678,9 +3763,11 @@ async function exportFiles(dictLike, targetFolder, options = {}) {
   const exportCsvPath = path.join(targetFolder, `${exportStem}.csv`);
   const exportHtmlPath = path.join(targetFolder, `${exportStem}.html`);
   const exportXlsxFolder = String(options.exportXlsxFolder || '').trim();
+  const txtFolders = Array.isArray(options.txtFolders) ? options.txtFolders : [];
   const importInfo = options.importInfo || prepared.importInfo || null;
   const xlsxBaseName = String((importInfo && (importInfo.infoD7 || importInfo.baseName)) || options.exportXlsxStem || exportStem).trim() || exportStem;
   let exportXlsxResult = null;
+  let txtResult = null;
 
   await fs.mkdir(targetFolder, { recursive: true });
   await fs.writeFile(exportDictPath, buildModuleSource(prepared, 'Экспортированный словарь P&P'), 'utf8');
@@ -3693,6 +3780,15 @@ async function exportFiles(dictLike, targetFolder, options = {}) {
     });
   }
 
+  if (txtFolders.length && importInfo && importInfo.dataExitTable) {
+    txtResult = await saveDataExitTxtOutputs(
+      txtFolders,
+      importInfo.dataExitTable,
+      options.exportTxtStem || (importInfo && importInfo.infoD7 ? importInfo.infoD7 : exportStem),
+      options.sourcePath || ''
+    );
+  }
+
   return {
     targetFolder,
     exportXlsxFolder,
@@ -3701,8 +3797,14 @@ async function exportFiles(dictLike, targetFolder, options = {}) {
       { fileName: path.basename(exportDictPath), path: exportDictPath, kind: 'dict' },
       { fileName: path.basename(exportCsvPath), path: exportCsvPath, kind: 'csv' },
       { fileName: path.basename(exportHtmlPath), path: exportHtmlPath, kind: 'html' },
-      ...(exportXlsxResult ? [{ fileName: exportXlsxResult.fileName, path: exportXlsxResult.path, kind: 'xlsx' }] : [])
+      ...(exportXlsxResult ? [{ fileName: exportXlsxResult.fileName, path: exportXlsxResult.path, kind: 'xlsx' }] : []),
+      ...(txtResult ? txtResult.saved.map((item) => ({
+        fileName: item.fileName,
+        path: item.path,
+        kind: 'txt'
+      })) : [])
     ],
+    txt: txtResult,
     dict: prepared,
     importInfo,
     xlsx: exportXlsxResult
@@ -3722,6 +3824,9 @@ module.exports = {
   getStats,
   buildCsv,
   buildPreviewHtml,
+  normalizePnpExportStem,
+  buildDataExitTxtContent,
+  saveDataExitTxtOutputs,
   buildModuleSource,
   buildDataSetTableState,
   buildDataSet2TableState,

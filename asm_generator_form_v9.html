@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.0
+Версия: 9.27.3
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1445,13 +1445,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.27.0
+// Версия: 9.27.3
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.8",
+    version: "3.5.11",
     versionDate: "2026-08-16"
   }),
   getUserSettings: async () => ({
@@ -1552,8 +1552,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.8",
-    latestVersion: "3.5.8",
+    currentVersion: "3.5.11",
+    latestVersion: "3.5.11",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1587,7 +1587,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.8",
+  version: "3.5.11",
   versionDate: "2026-08-16"
   },
   projectMode: "create",
@@ -2178,7 +2178,6 @@ function applyTooltipTexts(){
     pnpImportCsvBtn: "Импортирует CSV в текущий словарь P&P.",
     pnpLoadStateBtn: "Восстанавливает сохраненное состояние P&P.",
     pnpSaveStateBtn: "Сохраняет текущее состояние P&P в отдельный файл.",
-    pnpExportBtn: "Выгружает файлы P&P в выбранную папку экспорта.",
     similarProjectsList: "Показывает проекты, которые похожи на создаваемый по маске NSFTxxxxxx и находятся по пути \"адрес принтера\".",
     footerVersionInfo: "Программа создавалась мной бескорыстно и единолично для целей автоматизации процесса создания проекта принтера ASM DEC и проекта АОИ Omron. Право на код и использование программы принадлежит автору"
   };
@@ -2548,6 +2547,10 @@ function sanitizePnpFileNamePart(value){
     .trim();
 }
 
+function normalizePnpExportStem(value){
+  return sanitizePnpFileNamePart(value).replace(/\.txt$/i, "").trim();
+}
+
 // Убираем служебные префиксы, чтобы имя файла следовало форме макроса.
 function normalizePnpVariantLabelPart(value){
   return sanitizePnpFileNamePart(value)
@@ -2695,7 +2698,7 @@ function showPnpFileNameDialog(defaultValue = ""){
   return new Promise((resolve) => {
     const inputId = "pnpFileNameInput";
     const errorId = "pnpFileNameError";
-    let currentValue = sanitizePnpFileNamePart(defaultValue) || "НСФТ";
+    let currentValue = sanitizePnpFileNamePart(defaultValue);
 
     const bodyHtml = [
       `<div class="space-y-3">`,
@@ -2727,7 +2730,7 @@ function showPnpFileNameDialog(defaultValue = ""){
         variant: "solid",
         onClick: () => {
           const input = $(inputId);
-          const normalized = sanitizePnpFileNamePart(input ? input.value : "");
+          const normalized = normalizePnpExportStem(input ? input.value : "");
           if (normalized === "") {
             setError("Имя файла не может быть пустым.");
             if (input) {
@@ -3428,12 +3431,14 @@ function buildPnpStatePayload(){
   const exportXlsxPathInput = $("pnpExportXlsxPathInput");
   const exportPathInput = $("pnpExportPathInput");
   const statePathInput = $("pnpStatePathInput");
+  const placerPathInput = $("placerPathInput");
   const localPath = (localPathInput ? localPathInput.value.trim() : "") || state.pnp.localPath || "";
   const dictXlsxPath = (dictXlsxPathInput ? dictXlsxPathInput.value.trim() : "") || state.pnp.dictXlsxPath || "Dict\\Dict.xlsx";
   const dictPath = (dictPathInput ? dictPathInput.value.trim() : "") || state.pnp.dict.path || "Dict\\pnp_dict_v300.js";
   const importCsvPath = (importPathInput ? importPathInput.value.trim() : "") || state.pnp.csv.path || "";
   const exportXlsxFolder = (exportXlsxPathInput ? exportXlsxPathInput.value.trim() : "") || state.pnp.exportXlsx.folder || "";
   const exportFolder = (exportPathInput ? exportPathInput.value.trim() : "") || state.pnp.export.folder || "";
+  const placerPath = placerPathInput ? placerPathInput.value.trim() : "";
   const statePath = (statePathInput ? statePathInput.value.trim() : "") || state.pnp.state.path || (localPath
     ? localPath.replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
     : "C:\\settings\\PickAndPlace\\pnp_state_v300.js");
@@ -3447,6 +3452,8 @@ function buildPnpStatePayload(){
     importCsvPath: importCsvPath,
     exportXlsxFolder: exportXlsxFolder,
     exportFolder: exportFolder,
+    targetFolder: exportFolder,
+    placerPath: placerPath,
     statePath: statePath,
     infoD3: infoD3,
     infoD7: infoD7,
@@ -3456,6 +3463,7 @@ function buildPnpStatePayload(){
       importCsvPath: importCsvPath,
       exportXlsxFolder: exportXlsxFolder,
       exportFolder: exportFolder,
+      placerPath: placerPath,
       dictPath: dictPath,
       statePath: statePath,
       infoD3: infoD3,
@@ -3600,7 +3608,7 @@ async function importPnpCsvFile(options = {}){
       return;
     }
 
-    const nextFileName = sanitizePnpFileNamePart(fileNameValue);
+    const nextFileName = normalizePnpExportStem(fileNameValue);
     if (refreshResult.importInfo) {
       refreshResult.importInfo.infoD7 = nextFileName;
     }
@@ -3628,6 +3636,9 @@ async function importPnpCsvFile(options = {}){
       infoD3: executionValue,
       infoD7: nextFileName
     });
+
+    // Финальный TXT экспорт запускаем сразу после сборки DataExit, без отдельной кнопки и без лишней паузы.
+    await exportPnpFiles();
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось импортировать CSV.\n\n${formatPnpErrorMessage(error)}`);
   }
@@ -3680,16 +3691,48 @@ async function savePnpStateFile(){
 
 async function exportPnpFiles(){
   try {
-    const result = await asmBridge.pnpExportFiles(buildPnpStatePayload());
-    loadPnpPreview(result, {
-      mode: state.pnp.mode,
-      localPath: state.pnp.localPath,
-      exportFolder: result.targetFolder || $("pnpExportPathInput").value.trim() || state.pnp.export.folder,
-      exportXlsxFolder: $("pnpExportXlsxPathInput").value.trim() || state.pnp.exportXlsx.folder,
-      importCsvPath: state.pnp.csv.path,
-      dictPath: state.pnp.dict.path || "Dict\\pnp_dict_v300.js",
-      infoD3: state.pnp.importInfo && state.pnp.importInfo.infoD3 ? state.pnp.importInfo.infoD3 : ""
-    });
+    const currentStem = normalizePnpExportStem(
+      (state.pnp.importInfo && state.pnp.importInfo.infoD7)
+      || (state.pnp.state && state.pnp.state.importInfo && state.pnp.state.importInfo.infoD7)
+      || ""
+    );
+    let exportStem = currentStem;
+
+    if (!exportStem) {
+      const enteredStem = await showPnpFileNameDialog("");
+      if (enteredStem === null) {
+        return;
+      }
+      exportStem = normalizePnpExportStem(enteredStem);
+      if (!exportStem) {
+        return;
+      }
+
+      if (state.pnp.importInfo) {
+        state.pnp.importInfo.infoD7 = exportStem;
+      }
+      if (state.pnp.state && state.pnp.state.importInfo) {
+        state.pnp.state.importInfo.infoD7 = exportStem;
+      }
+      renderPnpVisibleTable();
+    }
+
+    const result = await asmBridge.pnpExportTxtFiles(buildPnpStatePayload());
+
+    if (result && result.errors && result.errors.length) {
+      const errorLines = result.errors.map((item) => {
+        const folder = item && item.folder ? item.folder : "";
+        const pathName = item && item.path ? item.path : "";
+        const message = item && item.message ? item.message : "Не удалось записать TXT.";
+        return `${folder || pathName} — ${message}`;
+      });
+      showAppDialog("Pick and Place", `TXT экспорт выполнен не везде.\n\n${errorLines.join("\n")}`);
+      return;
+    }
+
+    if (result && result.fileName) {
+      showAppDialog("Pick and Place", `TXT файл сохранен.\n\n${result.fileName}`);
+    }
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось экспортировать файлы P&P.\n\n${formatPnpErrorMessage(error)}`);
   }
@@ -3710,7 +3753,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.8",
+    version: "3.5.11",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -4888,6 +4931,7 @@ async function init(){
     event.preventDefault();
     openPnpImportCsvLocation();
   });
+  // Экспорт запускаем отдельной кнопкой, чтобы TXT создавался только после явного подтверждения.
   $("pnpCancelBtn").addEventListener("click", (event) => {
     event.preventDefault();
     cancelPnpOperation();
