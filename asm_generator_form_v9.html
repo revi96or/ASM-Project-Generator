@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.23.0
+Версия: 9.27.0
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -639,6 +639,19 @@
   .pnp-table td.pnp-resist-miss{
     background:rgb(255, 17, 17) !important;
     color:#FFFFFF !important;
+  }
+
+  .pnp-dataexit-preview .pnp-table td{
+    background:transparent;
+    overflow:visible;
+    position:relative;
+  }
+
+  .pnp-dataexit-preview .pnp-table td .pnp-dataexit-text{
+    position:relative;
+    z-index:2;
+    display:inline-block;
+    white-space:nowrap;
   }
 
   .pnp-info-swatch{
@@ -1432,13 +1445,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.23.0
+// Версия: 9.27.0
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "    3.5.4",
+    version: "3.5.8",
     versionDate: "2026-08-16"
   }),
   getUserSettings: async () => ({
@@ -1539,8 +1552,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.4",
-    latestVersion: "3.5.4",
+    currentVersion: "3.5.8",
+    latestVersion: "3.5.8",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1574,7 +1587,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.4",
+  version: "3.5.8",
   versionDate: "2026-08-16"
   },
   projectMode: "create",
@@ -3150,7 +3163,7 @@ function renderPnpVisibleTable(){
   const importInfo = state.pnp.importInfo || (activeSection && activeSection.importInfo) || null;
   const sheetNames = importInfo && Array.isArray(importInfo.sheetNames) && importInfo.sheetNames.length
     ? importInfo.sheetNames
-    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "DataCapacitor", "DataOther", "DataPredExit"];
+    : ["Info", "ImportedCSVTable", "DataSet", "DataSet2", "DataResist", "DataCapacitor", "DataOther", "DataPredExit", "DataExit"];
   const activeSheet = state.pnp.activeSheet || (importInfo && importInfo.activeSheet) || "Info";
 
   if (!placeholder) {
@@ -3182,7 +3195,7 @@ function renderPnpVisibleTable(){
     fileNamePreview.textContent = infoD7;
   }
   const separator = " | ";
-  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther" || visibleSheet === "DataPredExit")
+  const summaryLine = (visibleSheet === "DataSet" || visibleSheet === "DataSet2" || visibleSheet === "DataResist" || visibleSheet === "DataCapacitor" || visibleSheet === "DataOther" || visibleSheet === "DataPredExit" || visibleSheet === "DataExit")
     ? [
         `Всего: ${escapePnpHtml(stats.totalRows || 0)}${separator}Top: ${escapePnpHtml(stats.topRows || 0)}${separator}Bottom: ${escapePnpHtml(stats.bottomRows || 0)}${separator}Rename: ${escapePnpHtml(stats.renamedRows || 0)}${separator}Rotation R: ${escapePnpHtml(stats.rotationR || 0)}${separator}Rotation C: ${escapePnpHtml(stats.rotationC || 0)}${separator}Rotation O: ${escapePnpHtml(stats.rotationO || 0)}${separator}REF: ${escapePnpHtml(stats.refCount || 0)}${separator}Not Fitted + SET=1: ${escapePnpHtml(stats.deletedNotFittedCount || 0)}`
       ].join(separator)
@@ -3247,6 +3260,37 @@ function renderPnpVisibleTable(){
             return `<div class="pnp-workbook-body pnp-sheet-scroll" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
               `<table class="pnp-table" style="width:100%;border-collapse:collapse;">` +
               `<thead><tr>${formattedHeaders.map((header) => `<th>${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
+              `<tbody>${previewRows}</tbody>` +
+              `</table>` +
+              `</div>`;
+          })()
+      : visibleSheet === "DataExit"
+        ? (() => {
+            const exitTable = importInfo && importInfo.dataExitTable ? importInfo.dataExitTable : null;
+            const exitRows = exitTable && Array.isArray(exitTable.rows) ? exitTable.rows : [];
+
+            if (!exitRows.length) {
+              return `<div class="p-4 flex-1" style="display:flex;align-items:center;justify-content:center;color:var(--muted);">Лист DataExit будет сформирован после шага ProcessPickAndPlaceData.</div>`;
+            }
+
+            const normalizedRows = exitRows.map((row) => {
+              const rowValues = row && typeof row === "object" && Array.isArray(row.values) ? row.values : row;
+              return Array.isArray(rowValues) ? rowValues : [];
+            });
+            const maxColumns = normalizedRows.reduce((max, row) => Math.max(max, row.length), 0);
+            const columnLetters = Array.from({ length: maxColumns }, (_, index) => String.fromCharCode(65 + index));
+            const dataColumnWidth = maxColumns > 0 ? `${(100 / maxColumns).toFixed(4)}%` : "auto";
+            const previewRows = normalizedRows.map((row, rowIndex) => {
+              const paddedRow = Array.from({ length: maxColumns }, (_, cellIndex) => (row[cellIndex] !== undefined ? row[cellIndex] : ""));
+              return `<tr><th style="width:48px;min-width:48px;">${rowIndex + 1}</th>` +
+              paddedRow.map((cell) => `<td><span class="pnp-dataexit-text">${escapePnpHtml(cell)}</span></td>`).join("") +
+                `</tr>`;
+            }).join("");
+
+            return `<div class="pnp-workbook-body pnp-sheet-scroll pnp-dataexit-preview" style="flex:1;overflow:auto;--pnp-zoom:${zoom};">` +
+              `<table class="pnp-table" style="width:100%;table-layout:fixed;border-collapse:collapse;">` +
+              `<colgroup><col style="width:48px;" />${columnLetters.map(() => `<col style="width:${dataColumnWidth};" />`).join("")}</colgroup>` +
+              `<thead><tr><th style="width:48px;min-width:48px;">#</th>${columnLetters.map((header) => `<th style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapePnpHtml(header)}</th>`).join("")}</tr></thead>` +
               `<tbody>${previewRows}</tbody>` +
               `</table>` +
               `</div>`;
@@ -3666,7 +3710,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.4",
+    version: "3.5.8",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

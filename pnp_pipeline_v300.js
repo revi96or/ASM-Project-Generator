@@ -1,10 +1,11 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.4 для словаря Dict/.
- * Версия: 3.5.4
+ * Описание: Минимальный конвейер Pick and Place 3.5.8 для словаря Dict/.
+ * Версия: 3.5.8
  * Автор: Новожилов Артем
  */
 
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const path = require('path');
 const { TextDecoder } = require('util');
 const unzipper = require('unzipper');
@@ -25,7 +26,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.4',
+    version: '3.5.8',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -578,10 +579,13 @@ async function readXlsxSheetRows(filePath, sheetName) {
 }
 
 function measureWorkbookColumnWidths(rows) {
-  const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  const normalizedRows = Array.isArray(rows)
+    ? rows.map((row) => (Array.isArray(row) ? row : Array.isArray(row && row.values) ? row.values : []))
+    : [];
+  const columnCount = normalizedRows.reduce((max, row) => Math.max(max, row.length), 0);
   const widths = Array.from({ length: columnCount }, () => 8);
 
-  rows.forEach((row) => {
+  normalizedRows.forEach((row) => {
     row.forEach((value, index) => {
       const length = normalizeText(value).length;
       const nextWidth = Math.max(8, Math.min(60, length + 2));
@@ -654,7 +658,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.4',
+    version: '3.5.8',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -843,7 +847,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.4',
+    version: '3.5.8',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -876,7 +880,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.4'),
+    version: String((dictLike && dictLike.version) || '3.5.8'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -1062,6 +1066,7 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
   const tableRange = String(options.tableRange || '').trim();
   const columnWidths = Array.isArray(options.columnWidths) ? options.columnWidths : [];
   const highlightColumnIndex = Number.isInteger(options.highlightColumnIndex) ? options.highlightColumnIndex : -1;
+  const firstRowAsHeaders = options.firstRowAsHeaders !== false;
   const hasTable = Boolean(tableRange);
   const rowXml = rows.map((rowValues, rowIndex) => {
     const rowModel = rowValues && typeof rowValues === 'object' && Array.isArray(rowValues.values)
@@ -1074,7 +1079,7 @@ function buildWorksheetXml(rows, columnKinds = [], options = {}) {
           ? value
           : { value };
 
-        if (rowIndex === 0) {
+        if (rowIndex === 0 && firstRowAsHeaders) {
           return buildInlineStringCellXml(`${columnIndexToLetters(cellIndex)}${rowIndex + 1}`, normalizeWorkbookHeaderText(cellData.value));
         }
 
@@ -1223,6 +1228,10 @@ function getDeletePcbRowsState(rawTable) {
 
 function clonePnpRawRow(row) {
   return Array.isArray(row) ? row.slice() : [];
+}
+
+function clonePnpCell(cell) {
+  return cell && typeof cell === 'object' ? { ...cell } : cell;
 }
 
 function clonePnpCellValue(cell) {
@@ -1701,16 +1710,124 @@ function cleanPnpTolText(value) {
 function clonePnpWorksheetRow(rowModel) {
   if (Array.isArray(rowModel)) {
     return {
-      values: rowModel.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell)),
+      values: rowModel.map(clonePnpCell),
       hidden: false
     };
   }
 
   return {
     values: Array.isArray(rowModel && rowModel.values)
-      ? rowModel.values.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell))
+      ? rowModel.values.map(clonePnpCell)
       : [],
     hidden: Boolean(rowModel && rowModel.hidden)
+  };
+}
+
+function reorderPnpRowByHeaders(row, sourceHeaders, targetHeaders) {
+  const sourceIndexes = {};
+  const sourceRow = Array.isArray(row) ? row : [];
+
+  targetHeaders.forEach((header) => {
+    sourceIndexes[normalizeWorkbookHeaderText(header)] = findPnpRawHeaderIndex(sourceHeaders, header);
+  });
+
+  return targetHeaders.map((header) => {
+    const sourceIndex = sourceIndexes[normalizeWorkbookHeaderText(header)];
+    return sourceIndex >= 0 ? clonePnpCell(sourceRow[sourceIndex]) : '';
+  });
+}
+
+function readVersionLineFromRoot() {
+  try {
+    const versionPath = path.join(__dirname, 'Version.md');
+    const versionText = fsSync.readFileSync(versionPath, 'utf8');
+    const firstLine = String(versionText || '').split(/\r?\n/)[0];
+    return String(firstLine || '').trimEnd();
+  } catch {
+    return '';
+  }
+}
+
+function buildDataPredExitTableState(dataOtherState) {
+  const rawHeaders = Array.isArray(dataOtherState && dataOtherState.rawHeaders) ? dataOtherState.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataOtherState && dataOtherState.rows) ? dataOtherState.rows : [];
+  const worksheetRows = Array.isArray(dataOtherState && dataOtherState.worksheetRows) ? dataOtherState.worksheetRows : [];
+  const targetHeaders = ['DESIGNATOR', 'FOOTPRINT', 'CENTER-X(MM)', 'CENTER-Y(MM)', 'LAYER', 'ROTATION', 'COMMENT'];
+  const missingColumns = targetHeaders.filter((header) => findPnpRawHeaderIndex(rawHeaders, header) < 0);
+
+  if (missingColumns.length) {
+    throw new Error(`В DataOther не найдены столбцы для DataPredExit: ${missingColumns.join(', ')}`);
+  }
+
+  // Сначала сортируем вход по COMMENT, а потом переставляем колонки в финальный порядок VBA.
+  const sortedEntries = rows.map((row, index) => {
+    const sourceRow = clonePnpRawRow(row);
+    const sourceWorksheetRow = worksheetRows[index] ? clonePnpWorksheetRow(worksheetRows[index]) : { values: clonePnpRawRow(row), hidden: false };
+    return {
+      row: sourceRow,
+      worksheetRow: sourceWorksheetRow,
+      comment: normalizeText(clonePnpCellValue(sourceRow[findPnpRawHeaderIndex(rawHeaders, 'COMMENT')])),
+      index
+    };
+  }).sort((left, right) => {
+    const compare = left.comment.localeCompare(right.comment, 'ru', { sensitivity: 'base' });
+    return compare !== 0 ? compare : left.index - right.index;
+  });
+
+  const nextRows = sortedEntries.map((entry) => reorderPnpRowByHeaders(entry.row, rawHeaders, targetHeaders));
+  const nextWorksheetRows = sortedEntries.map((entry) => ({
+    values: reorderPnpRowByHeaders(entry.worksheetRow.values, rawHeaders, targetHeaders),
+    hidden: Boolean(entry.worksheetRow.hidden)
+  }));
+
+  return {
+    rawHeaders: targetHeaders.slice(),
+    rows: nextRows,
+    worksheetRows: nextWorksheetRows,
+    sourceRowsCount: rows.length,
+    visibleRowsCount: nextRows.length
+  };
+}
+
+function buildDataExitTableState(dataPredExitState, importInfo = {}) {
+  const rawHeaders = Array.isArray(dataPredExitState && dataPredExitState.rawHeaders) ? dataPredExitState.rawHeaders.slice() : [];
+  const rows = Array.isArray(dataPredExitState && dataPredExitState.rows) ? dataPredExitState.rows : [];
+  const worksheetRows = Array.isArray(dataPredExitState && dataPredExitState.worksheetRows) ? dataPredExitState.worksheetRows : [];
+  const versionLine = readVersionLineFromRoot();
+  const sourceWorkbookName = String(
+    importInfo && importInfo.workbookName
+      ? importInfo.workbookName
+      : (importInfo && importInfo.sourcePath ? path.basename(String(importInfo.sourcePath)) : '')
+  ).trim();
+  const fileName = String(
+    importInfo && importInfo.infoD7
+      ? importInfo.infoD7
+      : sourceWorkbookName
+  ).trim();
+  const visibleRows = worksheetRows.filter((rowModel) => !rowModel.hidden);
+  const dataRows = visibleRows.map((rowModel) => (
+    clonePnpRawRow(Array.isArray(rowModel && rowModel.values) ? rowModel.values : [])
+      .map((cell) => {
+        const text = normalizeText(clonePnpCellValue(cell));
+        return text === 'Fiducial' ? '0' : text;
+      })
+  ));
+
+  return {
+    rawHeaders,
+    rows: [
+      [versionLine],
+      [fileName]
+    ].concat(dataRows),
+    worksheetRows: [
+      { values: [versionLine], hidden: false },
+      { values: [fileName], hidden: false }
+    ].concat(dataRows.map((row) => ({
+      values: clonePnpRawRow(row),
+      hidden: false
+    }))),
+    sourceRowsCount: rows.length,
+    visibleRowsCount: dataRows.length
   };
 }
 
@@ -2896,7 +3013,9 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
         rows: [],
         worksheetRows: []
       };
-  const dataPredExitState = importInfo && importInfo.dataPredExitTable ? importInfo.dataPredExitTable : null;
+  const dataPredExitState = importInfo && importInfo.dataPredExitTable
+    ? importInfo.dataPredExitTable
+    : (dataOtherState ? buildDataPredExitTableState(dataOtherState) : null);
   const dataPredExitTable = dataPredExitState
     ? {
         rawHeaders: Array.isArray(dataPredExitState.rawHeaders) ? dataPredExitState.rawHeaders : dataHeaders,
@@ -2908,8 +3027,11 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
         rows: [],
         worksheetRows: []
       };
+  const dataExitState = importInfo && importInfo.dataExitTable
+    ? importInfo.dataExitTable
+    : (dataPredExitState ? buildDataExitTableState(dataPredExitState, importInfo || {}) : null);
   const buildSheetRows = (tableState) => ([
-    workbookHeaders
+    Array.isArray(tableState && tableState.rawHeaders) && tableState.rawHeaders.length ? tableState.rawHeaders : workbookHeaders
   ].concat((Array.isArray(tableState.worksheetRows) && tableState.worksheetRows.length
     ? tableState.worksheetRows.map((row) => row)
     : (Array.isArray(tableState.rows) ? tableState.rows : []).map((row) => row.map((value) => String(value))))));
@@ -2919,15 +3041,24 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
   const dataCapacitorSheetRows = buildSheetRows(dataCapacitorTable);
   const dataOtherSheetRows = buildSheetRows(dataOtherTable);
   const dataPredExitSheetRows = buildSheetRows(dataPredExitTable);
-  // DataCapacitor, DataOther и DataPredExit продолжают цепочку после DataResist и тоже должны попасть в xlsx.
-  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit'];
+  const dataExitSheetRows = dataExitState
+    ? dataExitState.rows
+    : [];
+  // DataCapacitor, DataOther, DataPredExit и DataExit продолжают цепочку после DataResist и тоже должны попасть в xlsx.
+  const sheetNames = ['Лист1', 'Info', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'];
   const tableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(listSheetRows.length, 1)}`;
   const dataSetTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSetSheetRows.length, 1)}`;
   const dataSet2TableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataSet2SheetRows.length, 1)}`;
   const dataResistTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataResistSheetRows.length, 1)}`;
   const dataCapacitorTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataCapacitorSheetRows.length, 1)}`;
   const dataOtherTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataOtherSheetRows.length, 1)}`;
-  const dataPredExitTableRange = `A1:${columnIndexToLetters(Math.max(dataHeaders.length, 1) - 1)}${Math.max(dataPredExitSheetRows.length, 1)}`;
+  const dataPredExitHeaders = Array.isArray(dataPredExitTable.rawHeaders) && dataPredExitTable.rawHeaders.length
+    ? dataPredExitTable.rawHeaders
+    : dataHeaders;
+  const dataPredExitTableRange = `A1:${columnIndexToLetters(Math.max(dataPredExitHeaders.length, 1) - 1)}${Math.max(dataPredExitSheetRows.length, 1)}`;
+  const dataPredExitColumnKinds = dataPredExitHeaders.map((header) => normalizeImportedColumnKind(header));
+  const dataPredExitColumnWidths = measureWorkbookColumnWidths(dataPredExitSheetRows);
+  const dataExitColumnKinds = [];
   const columnWidths = measureWorkbookColumnWidths(listSheetRows);
   const setState = importInfo && importInfo.setColumnState ? importInfo.setColumnState : null;
   const highlightColumnIndex = setState && setState.fillApplied && Number.isInteger(setState.columnIndex)
@@ -2961,9 +3092,10 @@ function buildPnpXlsxBuffer(importInfo, sourcePath) {
     { path: 'xl/worksheets/sheet7.xml', content: buildWorksheetXml(dataOtherSheetRows, columnKinds, { tableRange: dataOtherTableRange, columnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet7.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table6.xml') },
     { path: 'xl/tables/table6.xml', content: buildTableXml('DataOtherTable', dataOtherTableRange, dataHeaders, 6) },
-    { path: 'xl/worksheets/sheet8.xml', content: buildWorksheetXml(dataPredExitSheetRows, columnKinds, { tableRange: dataPredExitTableRange, columnWidths, highlightColumnIndex }) },
+    { path: 'xl/worksheets/sheet8.xml', content: buildWorksheetXml(dataPredExitSheetRows, dataPredExitColumnKinds, { tableRange: dataPredExitTableRange, columnWidths: dataPredExitColumnWidths, highlightColumnIndex }) },
     { path: 'xl/worksheets/_rels/sheet8.xml.rels', content: buildWorksheetRelsXml('/xl/tables/table7.xml') },
-    { path: 'xl/tables/table7.xml', content: buildTableXml('DataPredExitTable', dataPredExitTableRange, dataHeaders, 7) }
+    { path: 'xl/tables/table7.xml', content: buildTableXml('DataPredExitTable', dataPredExitTableRange, dataPredExitTable.rawHeaders, 7) },
+    { path: 'xl/worksheets/sheet9.xml', content: buildWorksheetXml(dataExitSheetRows, dataExitColumnKinds, { firstRowAsHeaders: false, columnWidths: [], highlightColumnIndex: -1 }) }
   ]);
 }
 
@@ -3288,7 +3420,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.4 Preview</title>
+<title>Pick and Place 3.5.8 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3299,7 +3431,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.4</h1>
+    <h1>Pick and Place 3.5.8</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3335,7 +3467,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.4',
+    ' * Версия: 3.5.8',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3377,7 +3509,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.4',
+    version: '3.5.8',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -3522,7 +3654,7 @@ async function importCsvFile(filePath) {
       commentColumn: 3,
       footprintColumn: 5,
       textNumberFormatColumns: [2, 3, 5, 6, 7],
-      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit'],
+      sheetNames: ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'],
       tableName: 'ImportedCSVTable',
       activeSheet: 'DataSet2',
       rowCount: parsed.rows.length,
@@ -3603,6 +3735,8 @@ module.exports = {
   buildCapacitorRotationState,
   buildOtherMatchState,
   buildOtherRotationState,
+  buildDataPredExitTableState,
+  buildDataExitTableState,
   DEFAULT_IMPORT_START_DIR,
   decodeSourceBuffer,
   loadDictFile,

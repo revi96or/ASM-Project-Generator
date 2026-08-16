@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.4
+ * Версия: 3.5.8
  * Автор: Новожилов Артем
  */
 
@@ -1112,7 +1112,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.4',
+    version: '3.5.8',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1392,23 +1392,10 @@ async function fillPnpSetColumn(payload) {
      nextState.importInfo.baseName || 'pnp_export_v300'
     );
 
-    nextState.importInfo.dataPredExitTable = {
-     rawHeaders: Array.isArray(nextState.importInfo.dataOtherTable.rawHeaders) ? nextState.importInfo.dataOtherTable.rawHeaders.slice() : [],
-     rows: Array.isArray(nextState.importInfo.dataOtherTable.rows)
-       ? nextState.importInfo.dataOtherTable.rows.map((row) => (
-           Array.isArray(row)
-             ? row.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell))
-             : row
-         ))
-       : [],
-     worksheetRows: Array.isArray(nextState.importInfo.dataOtherTable.worksheetRows)
-       ? nextState.importInfo.dataOtherTable.worksheetRows.map((row) => ({
-           values: Array.isArray(row && row.values) ? row.values.map((cell) => (cell && typeof cell === 'object' ? { ...cell } : cell)) : [],
-           hidden: Boolean(row && row.hidden)
-         }))
-       : []
-    };
-    nextState.importInfo.activeSheet = 'DataPredExit';
+    nextState.importInfo.dataPredExitTable = pnpPipeline.buildDataPredExitTableState(nextState.importInfo.dataOtherTable);
+    nextState.importInfo.dataExitTable = pnpPipeline.buildDataExitTableState(nextState.importInfo.dataPredExitTable, nextState.importInfo);
+    nextState.importInfo.sheetNames = ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'];
+    nextState.importInfo.activeSheet = 'DataExit';
   }
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
