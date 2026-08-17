@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.26
+ * Версия: 3.5.28
  * Автор: Новожилов Артем
  */
 
@@ -111,6 +111,7 @@ const DEFAULT_USER_SETTINGS = {
 };
 
 let mainWindow = null;
+let pnpStatsWindow = null;
 let userSettings = {
   ...DEFAULT_USER_SETTINGS,
   paths: { ...DEFAULT_PATHS },
@@ -125,6 +126,106 @@ function requestOperationCancel() {
 
 function clearOperationCancel() {
   operationCancelRequested = false;
+}
+
+function buildPnpStatsWindowHtml(payload) {
+  const titleHtml = String(payload && payload.titleHtml ? payload.titleHtml : '<span style="color:#f8fafc;">Итоги</span> <span style="color:#38bdf8;">обработки компонентов</span>');
+  const headerRightHtml = String(payload && payload.headerRightHtml ? payload.headerRightHtml : '');
+  const bodyHtml = String(payload && payload.bodyHtml ? payload.bodyHtml : '');
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Итоги обработки компонентов</title>
+<style>
+  :root{
+    --bg:#0A0E18;
+    --panel:#121A2C;
+    --text:#F2F5FA;
+    --muted:#9AA6BD;
+    --accent:#38bdf8;
+    --success:#86efac;
+    --danger:#fca5a5;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;}
+  body{overflow:auto;}
+  .stats-shell{min-height:100%;box-sizing:border-box;padding:18px;}
+  .stats-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;padding:18px 18px 10px;border-radius:18px;background:linear-gradient(180deg, rgba(18,26,44,.96), rgba(18,26,44,.86));border:1px solid rgba(56,189,248,.18);box-shadow:0 18px 40px rgba(0,0,0,.35);}
+  .stats-title{font-size:30px;font-weight:900;line-height:1.05;margin:0;}
+  .stats-meta{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;text-align:right;padding-top:4px;}
+  .stats-body{padding:0;}
+</style>
+</head>
+<body>
+  <div class="stats-shell">
+    <div class="stats-header">
+      <div class="stats-title">${titleHtml}</div>
+      <div class="stats-meta">${headerRightHtml}</div>
+    </div>
+    <div class="stats-body">${bodyHtml}</div>
+  </div>
+</body>
+</html>`;
+}
+
+function focusPnpStatsWindow() {
+  if (!pnpStatsWindow || pnpStatsWindow.isDestroyed()) {
+    return;
+  }
+
+  if (pnpStatsWindow.isMinimized()) {
+    pnpStatsWindow.restore();
+  }
+
+  pnpStatsWindow.show();
+  pnpStatsWindow.focus();
+}
+
+async function openPnpStatsWindow(payload, toggleMode = false) {
+  const windowExists = pnpStatsWindow && !pnpStatsWindow.isDestroyed();
+
+  // Кнопка работает как переключатель, а экспорт обновляет уже открытое окно без лишнего дубля.
+  if (toggleMode && windowExists) {
+    pnpStatsWindow.close();
+    return { opened: false, closed: true };
+  }
+
+  const windowHtml = buildPnpStatsWindowHtml(payload || {});
+  const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+
+  if (windowExists) {
+    await pnpStatsWindow.loadURL(windowUrl);
+    focusPnpStatsWindow();
+    return { opened: true, updated: true };
+  }
+
+  pnpStatsWindow = new BrowserWindow({
+    width: 1560,
+    height: 980,
+    minWidth: 1200,
+    minHeight: 760,
+    autoHideMenuBar: true,
+    title: 'Итоги обработки компонентов',
+    backgroundColor: '#0A0E18',
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  pnpStatsWindow.on('closed', () => {
+    if (pnpStatsWindow) {
+      pnpStatsWindow = null;
+    }
+  });
+
+  await pnpStatsWindow.loadURL(windowUrl);
+  focusPnpStatsWindow();
+
+  return { opened: true, created: true };
 }
 
 function assertOperationNotCancelled() {
@@ -1112,7 +1213,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.26',
+    version: '3.5.28',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1968,6 +2069,14 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:pnp-export-files', async (_event, payload) => {
     return withLoggedErrors('asm:pnp-export-files', () => exportPnpFiles(payload || {}), getPnpErrorDetails)(_event, payload);
+  });
+
+  ipcMain.handle('asm:pnp-show-stats-window', async (_event, payload) => {
+    return withLoggedErrors('asm:pnp-show-stats-window', () => openPnpStatsWindow(payload || {}, false), getPnpErrorDetails)(_event, payload);
+  });
+
+  ipcMain.handle('asm:pnp-toggle-stats-window', async (_event, payload) => {
+    return withLoggedErrors('asm:pnp-toggle-stats-window', () => openPnpStatsWindow(payload || {}, true), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-export-txt-files', async (_event, payload) => {

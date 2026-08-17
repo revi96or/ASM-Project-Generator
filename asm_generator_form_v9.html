@@ -1518,7 +1518,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.27",
+    version: "3.5.28",
     versionDate: "2026-08-17"
   }),
   getUserSettings: async () => ({
@@ -1619,8 +1619,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.27",
-    latestVersion: "3.5.27",
+    currentVersion: "3.5.28",
+    latestVersion: "3.5.28",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1654,7 +1654,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.27",
+  version: "3.5.28",
   versionDate: "2026-08-17"
   },
   projectMode: "create",
@@ -1694,6 +1694,7 @@ const state = {
       files: []
     },
     importInfo: null,
+    lastStatsSummaryLines: [],
     activeSheet: "Info",
     zoom: 1,
     collections: {
@@ -2048,6 +2049,29 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     `</div>`,
     `</div>`
   ].join('');
+}
+
+function buildPnpStatsWindowPayload(stats, summaryLines){
+  const now = new Date();
+  const statsDateText = `${now.toLocaleDateString('ru-RU')} | ${now.toLocaleTimeString('ru-RU')}`;
+  const titleHtml = '<span style="color:#f8fafc;">Итоги</span> <span style="color:var(--accent);">обработки компонентов</span>';
+  const headerRightHtml = `<div style="text-align:right;font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;">${escapePnpHtml(statsDateText)}</div>`;
+
+  return {
+    title: 'Итоги обработки компонентов',
+    titleHtml,
+    headerRightHtml,
+    bodyHtml: buildPnpStatsDialogHtml(stats, summaryLines)
+  };
+}
+
+async function showPnpStatsWindow(stats, summaryLines){
+  // Статистика живет в отдельном окне, чтобы ее можно было переместить на другой монитор.
+  return asmBridge.pnpShowStatsWindow(buildPnpStatsWindowPayload(stats, summaryLines));
+}
+
+async function togglePnpStatsWindow(stats, summaryLines){
+  return asmBridge.pnpToggleStatsWindow(buildPnpStatsWindowPayload(stats, summaryLines));
 }
 
 function hideAppDialog(){
@@ -2495,7 +2519,7 @@ function applyTooltipTexts(){
     pnpStatePathInput: "Файл состояния P&P, который можно сохранить и восстановить позже.",
     pnpExportFolderInput: "Папка, куда будут выгружены файлы экспорта P&P.",
     pnpCreateProjectBtn: "Открывает путь из поля «Импорт CSV» для запуска работы с P&P.",
-    pnpStatsBtn: "Заглушка для будущей статистики проекта P&P.",
+    pnpStatsBtn: "Открывает и закрывает независимое окно статистики проекта P&P.",
     pnpReserveBtn: "Резервная кнопка для будущих действий P&P.",
     pnpLoadDictBtn: "Загружает корневой Dict/ без изменения потоков PR1 и AOI.",
     pnpImportCsvBtn: "Импортирует CSV в текущий словарь P&P.",
@@ -3288,6 +3312,7 @@ function resetPnpSession(preservePaths = true){
   state.pnp.zoom = 1;
   state.pnp.stats = getPnpEmptyStats();
   state.pnp.collections = getPnpEmptyCollections();
+  state.pnp.lastStatsSummaryLines = [];
 
   const dictInput = $("pnpDictPathInput");
   const csvInput = $("pnpCsvPathInput");
@@ -4265,15 +4290,8 @@ async function exportPnpFiles(){
     const summaryLines = result && result.stats && Array.isArray(result.stats.summaryLines)
       ? result.stats.summaryLines
       : [];
-    const now = new Date();
-    const statsDateText = `${now.toLocaleDateString('ru-RU')} | ${now.toLocaleTimeString('ru-RU')}`;
-    const summaryHtml = buildPnpStatsDialogHtml(statsBeforeExport, summaryLines);
-    const titleHtml = '<span style="color:#f8fafc;">Итоги</span> <span style="color:var(--accent);">обработки компонентов</span>';
-    const headerRightHtml = `<div style="text-align:right;font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;">${escapePnpHtml(statsDateText)}</div>`;
-
-    showAppDialog("Итоги обработки компонентов", { html: summaryHtml }, [
-      { id: "ok", label: "Ok", variant: "solid" }
-    ], { dialogClass: "app-dialog--stats", bodyClass: "app-dialog-body--stats", titleHtml: titleHtml, headerRightHtml: headerRightHtml });
+    state.pnp.lastStatsSummaryLines = Array.isArray(summaryLines) ? summaryLines.slice() : [];
+    await showPnpStatsWindow(statsBeforeExport, summaryLines);
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось экспортировать файлы P&P.\n\n${formatPnpErrorMessage(error)}`);
   }
@@ -4294,7 +4312,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.27",
+    version: "3.5.28",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -5479,7 +5497,11 @@ async function init(){
   });
   $("pnpStatsBtn").addEventListener("click", (event) => {
     event.preventDefault();
-    showPnpPlaceholder("Pick and Place", "Статистика по проекту P&P появится позже.");
+    const stats = state.pnp.stats ? { ...state.pnp.stats } : getPnpEmptyStats();
+    const summaryLines = Array.isArray(state.pnp.lastStatsSummaryLines) ? state.pnp.lastStatsSummaryLines.slice() : [];
+    togglePnpStatsWindow(stats, summaryLines).catch((error) => {
+      showAppDialog("Pick and Place", `Не удалось открыть окно статистики.\n\n${formatPnpErrorMessage(error)}`);
+    });
   });
   $("pnpReserveBtn").addEventListener("click", (event) => {
     event.preventDefault();

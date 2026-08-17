@@ -1,6 +1,6 @@
 /**
  * Описание: Безопасный мост между HTML-страницей и Electron.
- * Версия: 3.5.27
+ * Версия: 3.5.28
  * Автор: Новожилов Артем
  */
 
@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('asmApi', {
   pnpImportCsv: (payload) => ipcRenderer.invoke('asm:pnp-import-csv', payload),
   pnpLoadDict: (payload) => ipcRenderer.invoke('asm:pnp-load-dict', payload),
   pnpExportFiles: (payload) => ipcRenderer.invoke('asm:pnp-export-files', payload),
+  pnpShowStatsWindow: (payload) => ipcRenderer.invoke('asm:pnp-show-stats-window', payload),
+  pnpToggleStatsWindow: (payload) => ipcRenderer.invoke('asm:pnp-toggle-stats-window', payload),
   pnpExportTxtFiles: (payload) => ipcRenderer.invoke('asm:pnp-export-txt-files', payload),
   pnpFillSetColumn: (payload) => ipcRenderer.invoke('asm:pnp-fill-set-column', payload),
   pnpSaveState: (payload) => ipcRenderer.invoke('asm:pnp-save-state', payload),
