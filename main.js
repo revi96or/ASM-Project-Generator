@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.25
+ * Версия: 3.5.26
  * Автор: Новожилов Артем
  */
 
@@ -1112,7 +1112,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.25',
+    version: '3.5.26',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -1164,6 +1164,7 @@ async function importPnpCsv(payload) {
   assertOperationNotCancelled();
   const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
+  const saveXlsxOnImport = Boolean(payload && payload.saveXlsxOnImport);
   let sourcePath = rawPath;
 
   if (!sourcePath) {
@@ -1194,7 +1195,8 @@ async function importPnpCsv(payload) {
     dict.importInfo.dictXlsxPath = dictXlsxPath;
   }
 
-  if (exportXlsxFolder) {
+  // XLSX на этапе импорта сохраняем только по явному флагу, чтобы не плодить промежуточный файл.
+  if (saveXlsxOnImport && exportXlsxFolder) {
     xlsxResult = await pnpPipeline.savePnpXlsxFile(
       path.resolve(exportXlsxFolder),
       dict && dict.importInfo && dict.importInfo.baseName ? dict.importInfo.baseName : path.basename(sourcePath, path.extname(sourcePath)),
