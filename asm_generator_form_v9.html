@@ -1518,7 +1518,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.21",
+    version: "3.5.25",
     versionDate: "2026-08-17"
   }),
   getUserSettings: async () => ({
@@ -1591,36 +1591,36 @@ const asmBridge = window.asmApi || {
     exists: false,
     filePath: "",
     dict: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" },
     previewHtml: ""
   }),
   pnpLoadDict: async () => ({
     exists: false,
     filePath: "",
     dict: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" },
     previewHtml: ""
   }),
   pnpExportFiles: async () => ({
     targetFolder: "",
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 },
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" },
     files: []
   }),
   pnpSaveState: async () => ({
     filePath: "",
     state: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   pnpLoadState: async () => ({
     exists: false,
     filePath: "",
     state: null,
     dict: null,
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.21",
-    latestVersion: "3.5.21",
+    currentVersion: "3.5.25",
+    latestVersion: "3.5.25",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1654,7 +1654,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.21",
+  version: "3.5.25",
   versionDate: "2026-08-17"
   },
   projectMode: "create",
@@ -1702,7 +1702,7 @@ const state = {
       noMatchOther: [],
       deletedNotFitted: []
     },
-    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0 }
+    stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }
 };
 
@@ -3361,16 +3361,72 @@ function buildPnpStatsSheetRows(stats){
     return source.summaryLines.map((line) => [String(line)]);
   }
 
+  const formatPercent = (value, base) => (base > 0 ? (Number(value || 0) / Number(base || 0) * 100).toFixed(1) : "0.0");
+  const inflowCount = Number(source.inflowCount || source.totalRows || 0);
+  const totalCount = Number(source.totalRows || inflowCount || 0);
+  const totalFull = Number(source.totalFull || 0);
+  const totalPartial = Number(source.totalPartial || 0);
+  const totalNoMatch = Number(source.totalNoMatch || Math.max(0, totalCount - totalFull - totalPartial));
+  const resistorTotal = Number(source.resistorTotal || 0);
+  const resistorFull = Number(source.resistorFull || 0);
+  const resistorPartial = Number(source.resistorPartial || 0);
+  const resistorNoMatch = Number(source.resistorNoMatch || Math.max(0, resistorTotal - resistorFull - resistorPartial));
+  const capacitorTotal = Number(source.capacitorTotal || 0);
+  const capacitorFull = Number(source.capacitorFull || 0);
+  const capacitorPartial = Number(source.capacitorPartial || 0);
+  const capacitorNoMatch = Number(source.capacitorNoMatch || Math.max(0, capacitorTotal - capacitorFull - capacitorPartial));
+  const otherTotal = Number(source.otherTotal || 0);
+  const otherFull = Number(source.otherFull || 0);
+  const otherPartial = Number(source.otherPartial || 0);
+  const otherNoMatch = Number(source.otherNoMatch || Math.max(0, otherTotal - otherFull - otherPartial));
+
   return [
     ['ИТОГИ ОБРАБОТКИ КОМПОНЕНТОВ'],
+    [`Дата: ${source.statsDateText || ""}`],
     [''],
-    [`Всего строк: ${source.totalRows || 0}`],
-    [`С верхнего слоя: ${source.topRows || 0}`],
-    [`С нижнего слоя: ${source.bottomRows || 0}`],
-    [`Переименовано: ${source.renamedRows || 0}`],
-    [`Повернуто: ${source.rotatedRows || 0}`],
-    [`С комментариями: ${source.commentedRows || 0}`],
-    [`[*] Удалено Not Fitted + SET=1: ${source.deletedNotFittedCount || 0}`]
+    ['[R] РЕЗИСТОРЫ:'],
+    [`Всего: ${resistorTotal}`],
+    [`Полных совпадений (4/4): ${resistorFull}`],
+    [`Частичных (3/4): ${resistorPartial}`],
+    [`Без совпадений: ${resistorNoMatch}`],
+    [''],
+    ['[C] КОНДЕНСАТОРЫ:'],
+    [`Всего: ${capacitorTotal}`],
+    [`Полных совпадений (3/3): ${capacitorFull}`],
+    [`Частичных (2/3): ${capacitorPartial}`],
+    [`Без совпадений: ${capacitorNoMatch}`],
+    [''],
+    ['[O] ПРОЧИЕ:'],
+    [`Всего: ${otherTotal}`],
+    [`Полных совпадений (2/2): ${otherFull}`],
+    [`Частичных (1/2): ${otherPartial}`],
+    [`Без совпадений: ${otherNoMatch}`],
+    [''],
+    ['[=] ИТОГО:'],
+    [`Входимость элементов: ${inflowCount}`],
+    [`Всего: ${totalCount}`],
+    [`Полных: ${totalFull} (${formatPercent(totalFull, totalCount)}%)`],
+    [`Частичных: ${totalPartial} (${formatPercent(totalPartial, totalCount)}%)`],
+    [`Без совпадений: ${totalNoMatch} (${formatPercent(totalNoMatch, totalCount)}%)`],
+    [''],
+    [`[*] В проекте ${Number(source.refCount || 0)} реперных знаков.`],
+    [''],
+    [`[*] Delete SET=0: ${Number(source.deleteSet0Count || 0)} компонентов.`],
+    [`[*] Удалено Not Fitted + SET=1: ${Number(source.deletedNotFittedCount || 0)} компонентов.`],
+    [''],
+    ['=== СТАТИСТИКА ПЕРЕИМЕНОВАНИЯ И ПОВОРОТА ==='],
+    [`Входимость элементов: ${inflowCount}`],
+    [`Входимость компонентов TOP: ${Number(source.inflowTopCount || 0)}`],
+    [`Входимость компонентов BOT: ${Number(source.inflowBottomCount || 0)}`],
+    [`Выход компонентов TOP: ${Number(source.exitTopCount || 0)}`],
+    [`Выход компонентов BOT: ${Number(source.exitBottomCount || 0)}`],
+    [''],
+    ['=== Rotation ==='],
+    [`Resistor: Changed ${Number(source.rotationR || 0)}`],
+    [`Capacitor: Changed ${Number(source.rotationC || 0)}`],
+    [`Other: Changed ${Number(source.rotationO || 0)}`],
+    [''],
+    ['=== ЧАСТИЧНЫЕ И БЕЗ СОВПАДЕНИЙ ===']
   ];
 }
 
@@ -3437,6 +3493,39 @@ function buildPnpRowStats(dictLike){
     renamedRows,
     commentedRows
   };
+}
+
+function countPnpPreviewTableRows(tableLike, options = {}) {
+  const rawHeaders = Array.isArray(tableLike && tableLike.rawHeaders) ? tableLike.rawHeaders : [];
+  const rows = Array.isArray(tableLike && tableLike.rows) ? tableLike.rows : [];
+  const layerIndex = rawHeaders.findIndex((header) => String(header || "").trim().toUpperCase() === "LAYER");
+  const designatorIndex = rawHeaders.findIndex((header) => String(header || "").trim().toUpperCase() === "DESIGNATOR");
+  const layerFilter = String(options.layer || "").trim().toLowerCase();
+
+  return rows.reduce((count, row) => {
+    const rowValues = Array.isArray(row) ? row : Array.isArray(row && row.values) ? row.values : [];
+    const designator = designatorIndex >= 0 ? String(rowValues[designatorIndex] || "").trim().toUpperCase() : "";
+
+    if (options.includeRefs !== true && designator.indexOf("REF") === 0) {
+      return count;
+    }
+
+    if (layerFilter === "top") {
+      const layerValue = layerIndex >= 0 ? String(rowValues[layerIndex] || "").trim().toLowerCase().replace(/\s+/g, "") : "";
+      if (layerValue !== "toplayer" && layerValue !== "top") {
+        return count;
+      }
+    }
+
+    if (layerFilter === "bottom") {
+      const layerValue = layerIndex >= 0 ? String(rowValues[layerIndex] || "").trim().toLowerCase().replace(/\s+/g, "") : "";
+      if (layerValue !== "bottomlayer" && layerValue !== "bottom" && layerValue !== "bot") {
+        return count;
+      }
+    }
+
+    return count + 1;
+  }, 0);
 }
 
 function updatePnpStats(stats){
@@ -3733,9 +3822,13 @@ function loadPnpPreview(dictLike, meta = {}){
   const baseStats = incomingStats && Number(incomingStats.totalRows || 0) > 0
     ? incomingStats
     : dictStats;
+  const importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : null;
+  const rawTable = importInfo && importInfo.rawTable ? importInfo.rawTable : null;
+  const dataSet2Table = importInfo && importInfo.dataSet2Table ? importInfo.dataSet2Table : null;
+  const dataPredExitTable = importInfo && importInfo.dataPredExitTable ? importInfo.dataPredExitTable : null;
   // Rotation R is a separate P&P counter so we can later add capacitor/other counters without changing the summary shape.
   const rotationR = dictLike && dictLike.importInfo && dictLike.importInfo.rotationStats
-    ? Number(dictLike.importInfo.rotationStats.Stats_Rotation_Processed || 0)
+    ? Number(dictLike.importInfo.rotationStats.Stats_Rotation_Changed || 0)
     : Number(baseStats.rotationR || 0);
   const rotationC = dictLike && dictLike.importInfo && dictLike.importInfo.rotationCapacitorStats
     ? Number(dictLike.importInfo.rotationCapacitorStats.Stats_Rotation_Changed || 0)
@@ -3748,6 +3841,31 @@ function loadPnpPreview(dictLike, meta = {}){
     ? Number(dictLike.importInfo.rReplacementState.replacedRows || 0)
     : Number(baseStats.renamedRows || 0);
   const dataSetSummary = getPnpDataSetSummaryCounts(dictLike && dictLike.importInfo ? dictLike.importInfo : null);
+  const resistorStats = importInfo && importInfo.resistorStats ? importInfo.resistorStats : null;
+  const capacitorStats = importInfo && importInfo.capacitorStats ? importInfo.capacitorStats : null;
+  const otherStats = importInfo && importInfo.otherStats ? importInfo.otherStats : null;
+  const resistorTotal = Number(resistorStats && resistorStats.Stats_Resistors_Total || 0);
+  const resistorFull = Number(resistorStats && resistorStats.Stats_Resistors_Full || 0);
+  const resistorPartial = Number(resistorStats && resistorStats.Stats_Resistors_Partial || 0);
+  const resistorNoMatch = Math.max(0, resistorTotal - resistorFull - resistorPartial);
+  const capacitorTotal = Number(capacitorStats && capacitorStats.Stats_Capacitors_Total || 0);
+  const capacitorFull = Number(capacitorStats && capacitorStats.Stats_Capacitors_Full || 0);
+  const capacitorPartial = Number(capacitorStats && capacitorStats.Stats_Capacitors_Partial || 0);
+  const capacitorNoMatch = Math.max(0, capacitorTotal - capacitorFull - capacitorPartial);
+  const otherTotal = Number(otherStats && otherStats.Stats_Other_Total || 0);
+  const otherFull = Number(otherStats && otherStats.Stats_Other_Full || 0);
+  const otherPartial = Number(otherStats && otherStats.Stats_Other_Partial || 0);
+  const otherNoMatch = Math.max(0, otherTotal - otherFull - otherPartial);
+  const totalFull = resistorFull + capacitorFull + otherFull;
+  const totalPartial = resistorPartial + capacitorPartial + otherPartial;
+  const totalNoMatch = Math.max(0, Number(baseStats.totalRows || 0) - totalFull - totalPartial);
+  const inflowCount = Number(baseStats.totalRows || 0);
+  const inflowTopCount = Number(baseStats.topRows || 0);
+  const inflowBottomCount = Number(baseStats.bottomRows || 0);
+  const exitTopCount = countPnpPreviewTableRows(dataPredExitTable, { layer: "top" });
+  const exitBottomCount = countPnpPreviewTableRows(dataPredExitTable, { layer: "bottom" });
+  const deleteSet0Count = Number(importInfo && importInfo.filteredSetState && Number.isFinite(Number(importInfo.filteredSetState.deletedCount)) ? Number(importInfo.filteredSetState.deletedCount) : 0);
+  const generatedAtText = new Date().toLocaleString("ru-RU");
   const stats = {
     ...baseStats,
     renamedRows: renameR,
@@ -3755,7 +3873,29 @@ function loadPnpPreview(dictLike, meta = {}){
     rotationC: rotationC,
     rotationO: rotationO,
     refCount: dataSetSummary.refCount || Number(baseStats.refCount || 0),
-    deletedNotFittedCount: dataSetSummary.deletedNotFittedCount || Number(baseStats.deletedNotFittedCount || 0)
+    deletedNotFittedCount: dataSetSummary.deletedNotFittedCount || Number(baseStats.deletedNotFittedCount || 0),
+    deleteSet0Count: deleteSet0Count,
+    inflowCount: inflowCount,
+    inflowTopCount: inflowTopCount,
+    inflowBottomCount: inflowBottomCount,
+    exitTopCount: exitTopCount,
+    exitBottomCount: exitBottomCount,
+    resistorTotal: resistorTotal,
+    resistorFull: resistorFull,
+    resistorPartial: resistorPartial,
+    resistorNoMatch: resistorNoMatch,
+    capacitorTotal: capacitorTotal,
+    capacitorFull: capacitorFull,
+    capacitorPartial: capacitorPartial,
+    capacitorNoMatch: capacitorNoMatch,
+    otherTotal: otherTotal,
+    otherFull: otherFull,
+    otherPartial: otherPartial,
+    otherNoMatch: otherNoMatch,
+    totalFull: totalFull,
+    totalPartial: totalPartial,
+    totalNoMatch: totalNoMatch,
+    statsDateText: generatedAtText
   };
   const mode = meta.mode || state.pnp.mode;
   const activeSection = mode === "csv" ? state.pnp.csv : state.pnp.dict;
@@ -4154,7 +4294,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.21",
+    version: "3.5.25",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {

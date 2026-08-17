@@ -1,6 +1,6 @@
 /**
  * Description: Local Tailwind build configuration for the offline Electron interface.
- * Version: 3.5.24
+ * Version: 3.5.25
  * Автор: Новожилов Артем
  */
 
