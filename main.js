@@ -1536,6 +1536,7 @@ async function fillPnpSetColumn(payload) {
   }
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
+  const saveXlsxOnFill = Boolean(payload && payload.saveXlsxOnFill);
   const sourcePath = String(payload && payload.sourcePath ? payload.sourcePath : importInfo.sourcePath || '').trim();
   const baseName = String(
     payload && payload.baseName
@@ -1549,7 +1550,8 @@ async function fillPnpSetColumn(payload) {
     targetFolder = path.dirname(path.resolve(xlsxPath));
   }
 
-  if (targetFolder) {
+  // XLSX на этапе заполнения SET сохраняем только по явному флагу, чтобы не плодить промежуточный файл.
+  if (saveXlsxOnFill && targetFolder) {
     xlsxResult = await pnpPipeline.savePnpXlsxFile(targetFolder, baseName, nextState.importInfo, sourcePath, {
       dictXlsxPath: dictXlsxPath
     });
