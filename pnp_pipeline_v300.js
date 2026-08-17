@@ -1,6 +1,6 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.23 для словаря Dict/.
- * Версия: 3.5.23
+ * Описание: Минимальный конвейер Pick and Place 3.5.24 для словаря Dict/.
+ * Версия: 3.5.24
  * Автор: Новожилов Артем
  */
 
@@ -26,7 +26,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.23',
+    version: '3.5.24',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -664,7 +664,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.23',
+    version: '3.5.24',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -853,7 +853,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.23',
+    version: '3.5.24',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -886,7 +886,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.23'),
+    version: String((dictLike && dictLike.version) || '3.5.24'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -1627,6 +1627,8 @@ function buildDataSetTableState(importInfo, options = {}) {
         filteredCount: copiedTable.rows.length,
         setColumnIndex: setColumnState.columnIndex
       };
+  const deleteSet0Count = Math.max(0, copyRowsState.rows.length - normalizePnpStatsCount(filteredSetState.filteredCount));
+  filteredSetState.deletedCount = deleteSet0Count;
   const deleteNotFittedState = setColumnState.found
     ? getDeleteNotFittedRowsState({
         rawHeaders: copiedTable.rawHeaders,
@@ -2266,6 +2268,7 @@ function buildResistorRotationState(dataResistState, resistorSheetState) {
   let totalCount = 0;
   let processedCount = 0;
   let skippedCount = 0;
+  let changedCount = 0;
 
   rows.forEach((sourceRow, sourceRowIndex) => {
     const nextRow = clonePnpRawRow(sourceRow);
@@ -2306,6 +2309,10 @@ function buildResistorRotationState(dataResistState, resistorSheetState) {
       nextWorksheetRow.values[sourceIndexes.ROTATION] = nextRotation;
     }
 
+    if (normalizeRotationValue(sourceRotation) !== normalizeRotationValue(nextRotation)) {
+      changedCount += 1;
+    }
+
     processedCount += 1;
     nextRows.push(nextRow);
     nextWorksheetRows.push(nextWorksheetRow);
@@ -2318,7 +2325,8 @@ function buildResistorRotationState(dataResistState, resistorSheetState) {
     rotationStats: {
       Stats_Rotation_Total: totalCount,
       Stats_Rotation_Processed: processedCount,
-      Stats_Rotation_Skipped: skippedCount
+      Stats_Rotation_Skipped: skippedCount,
+      Stats_Rotation_Changed: changedCount
     },
     sourceColumnIndexes: sourceIndexes,
     dictColumnIndexes: dictIndexes,
@@ -2948,6 +2956,45 @@ function normalizePnpStatsText(value) {
   return normalizeText(value);
 }
 
+function isPnpTopLayerValue(value) {
+  const normalized = normalizeText(value).toLowerCase().replace(/\s+/g, '');
+  return normalized === 'toplayer' || normalized === 'top';
+}
+
+function isPnpBottomLayerValue(value) {
+  const normalized = normalizeText(value).toLowerCase().replace(/\s+/g, '');
+  return normalized === 'bottomlayer' || normalized === 'bottom' || normalized === 'bot';
+}
+
+function countPnpStatsRows(tableLike, options = {}) {
+  const rawHeaders = Array.isArray(tableLike && tableLike.rawHeaders) ? tableLike.rawHeaders : [];
+  const rows = Array.isArray(tableLike && tableLike.rows) ? tableLike.rows : [];
+  const designatorIndex = findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR');
+  const layerIndex = findPnpRawHeaderIndex(rawHeaders, 'LAYER');
+  const layerFilter = String(options.layer || '').trim().toLowerCase();
+  const includeRefs = Boolean(options.includeRefs);
+
+  return rows.reduce((count, row) => {
+    const rowData = Array.isArray(row) ? row : [];
+    const designatorValue = designatorIndex >= 0 ? normalizeText(clonePnpCellValue(rowData[designatorIndex])) : '';
+    const isRef = designatorValue.toUpperCase().startsWith('REF');
+
+    if (!includeRefs && isRef) {
+      return count;
+    }
+
+    if (layerFilter === 'top' && !isPnpTopLayerValue(layerIndex >= 0 ? rowData[layerIndex] : '')) {
+      return count;
+    }
+
+    if (layerFilter === 'bottom' && !isPnpBottomLayerValue(layerIndex >= 0 ? rowData[layerIndex] : '')) {
+      return count;
+    }
+
+    return count + 1;
+  }, 0);
+}
+
 function joinPnpStatsList(values, limit) {
   const items = Array.isArray(values) ? values : [];
   const maxItems = Number.isInteger(limit) && limit > 0 ? limit : items.length;
@@ -2992,7 +3039,9 @@ function formatPnpStatsMatchDetail(prefix, item) {
 
 function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
   const info = importInfo || {};
-  const dictStats = info.stats || {};
+  const sourceTable = info.rawTable || {};
+  const dataSet2Table = info.dataSet2Table || {};
+  const dataPredExitTable = info.dataPredExitTable || {};
   const resistorStats = info.resistorStats || {};
   const capacitorStats = info.capacitorStats || {};
   const otherStats = info.otherStats || {};
@@ -3002,40 +3051,45 @@ function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
   const noMatchResistors = Array.isArray(info.noMatchResistors) ? info.noMatchResistors : [];
   const noMatchCapacitors = Array.isArray(info.noMatchCapacitors) ? info.noMatchCapacitors : [];
   const noMatchOthers = Array.isArray(info.noMatchOthers) ? info.noMatchOthers : [];
-  // Для отчёта берём именно удалённые строки Not Fitted + SET=1, а не общий счётчик удаления PCB.
+  const inflowCount = countPnpStatsRows(sourceTable, { includeRefs: false });
+  const inflowTopCount = countPnpStatsRows(sourceTable, { includeRefs: false, layer: 'top' });
+  const inflowBottomCount = countPnpStatsRows(sourceTable, { includeRefs: false, layer: 'bottom' });
+  const categoryTotal = countPnpStatsRows(dataSet2Table, { includeRefs: false });
+  const exitTopCount = countPnpStatsRows(dataPredExitTable, { includeRefs: false, layer: 'top' });
+  const exitBottomCount = countPnpStatsRows(dataPredExitTable, { includeRefs: false, layer: 'bottom' });
+  const deleteSet0Count = normalizePnpStatsCount(
+    (info.filteredSetState && info.filteredSetState.deletedCount) ||
+    info.deletedSet0Count ||
+    0
+  );
+  // Для отчёта берём именно удалённые строки Not Fitted + SET=1, а не общий счётчик удаления SET=0.
   const deletedNotFittedCount = normalizePnpStatsCount(
     (info.deleteNotFittedState && info.deleteNotFittedState.deletedCount) ||
     info.deletedNotFittedCount ||
     0
   );
-  const resistorTotal = normalizePnpStatsCount(resistorStats.Stats_Resistors_Total);
   const resistorFull = normalizePnpStatsCount(resistorStats.Stats_Resistors_Full);
   const resistorPartial = normalizePnpStatsCount(resistorStats.Stats_Resistors_Partial);
+  const resistorTotal = categoryTotal;
   const resistorNoMatch = Math.max(0, resistorTotal - resistorFull - resistorPartial);
-  const capacitorTotal = normalizePnpStatsCount(capacitorStats.Stats_Capacitors_Total);
   const capacitorFull = normalizePnpStatsCount(capacitorStats.Stats_Capacitors_Full);
   const capacitorPartial = normalizePnpStatsCount(capacitorStats.Stats_Capacitors_Partial);
+  const capacitorTotal = categoryTotal;
   const capacitorNoMatch = Math.max(0, capacitorTotal - capacitorFull - capacitorPartial);
-  const otherTotal = normalizePnpStatsCount(otherStats.Stats_Other_Total);
   const otherFull = normalizePnpStatsCount(otherStats.Stats_Other_Full);
   const otherPartial = normalizePnpStatsCount(otherStats.Stats_Other_Partial);
+  const otherTotal = categoryTotal;
   const otherNoMatch = Math.max(0, otherTotal - otherFull - otherPartial);
-  const totalProcessed = resistorTotal + capacitorTotal + otherTotal;
   const totalFull = resistorFull + capacitorFull + otherFull;
   const totalPartial = resistorPartial + capacitorPartial + otherPartial;
-  const totalNoMatch = Math.max(0, totalProcessed - totalFull - totalPartial);
+  const totalNoMatch = Math.max(0, categoryTotal - (resistorFull + resistorPartial) - (capacitorFull + capacitorPartial) - (otherFull + otherPartial));
   const refMarksCount = normalizePnpStatsCount(otherStats.Stats_RefMarks_Count || info.refMarksCount || 0);
-  const statsTotals = normalizePnpStatsCount(dictStats.totalRows);
-  const statsTopRows = normalizePnpStatsCount(dictStats.topRows);
-  const statsBottomRows = normalizePnpStatsCount(dictStats.bottomRows);
-  const statsRotatedRows = normalizePnpStatsCount(dictStats.rotatedRows);
-  const statsRenamedRows = normalizePnpStatsCount(dictStats.renamedRows);
-  const statsCommentedRows = normalizePnpStatsCount(dictStats.commentedRows);
   const txtSaved = txtResult && Array.isArray(txtResult.saved) ? txtResult.saved : [];
   const txtErrors = txtResult && Array.isArray(txtResult.errors) ? txtResult.errors : [];
   const xlsxPath = xlsxResult && xlsxResult.path ? normalizePnpStatsText(xlsxResult.path) : '';
   const xlsxFileName = xlsxResult && xlsxResult.fileName ? normalizePnpStatsText(xlsxResult.fileName) : '';
   const nowText = new Date().toLocaleString('ru-RU');
+  const formatPercent = (value, base) => (base > 0 ? (value / base * 100).toFixed(1) : '0.0');
 
   const summaryLines = [
     'ИТОГИ ОБРАБОТКИ КОМПОНЕНТОВ',
@@ -3060,23 +3114,30 @@ function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
     `Без совпадений: ${otherNoMatch}`,
     '',
     '[=] ИТОГО:',
-    `Обработано: ${totalProcessed}`,
-    `Полных: ${totalFull} (${totalProcessed > 0 ? (totalFull / totalProcessed * 100).toFixed(1) : '0.0'}%)`,
-    `Частичных: ${totalPartial} (${totalProcessed > 0 ? (totalPartial / totalProcessed * 100).toFixed(1) : '0.0'}%)`,
-    `Без совпадений: ${totalNoMatch} (${totalProcessed > 0 ? (totalNoMatch / totalProcessed * 100).toFixed(1) : '0.0'}%)`,
+    `Входимость элементов: ${inflowCount}`,
+    `Всего: ${categoryTotal}`,
+    `Полных: ${totalFull} (${formatPercent(totalFull, categoryTotal)}%)`,
+    `Частичных: ${totalPartial} (${formatPercent(totalPartial, categoryTotal)}%)`,
+    `Без совпадений: ${totalNoMatch} (${formatPercent(totalNoMatch, categoryTotal)}%)`,
     '',
     `[*] В проекте ${refMarksCount} реперных знаков.`,
-    `[*] Удалено Not Fitted: ${deletedNotFittedCount} компонентов.`,
+    '',
+    `[*] Delete SET=0: ${deleteSet0Count} компонентов.`,
+    `[*] Удалено Not Fitted + SET=1: ${deletedNotFittedCount} компонентов.`,
     '',
     '=== СТАТИСТИКА ПЕРЕИМЕНОВАНИЯ И ПОВОРОТА ===',
-    `Всего строк: ${statsTotals}`,
-    `С верхнего слоя: ${statsTopRows}`,
-    `С нижнего слоя: ${statsBottomRows}`,
-    `Переименовано: ${statsRenamedRows}`,
-    `Повернуто: ${statsRotatedRows}`,
-    `С комментариями: ${statsCommentedRows}`,
+    `Входимость элементов: ${inflowCount}`,
+    `Входимость компонентов TOP: ${inflowTopCount}`,
+    `Входимость компонентов BOT: ${inflowBottomCount}`,
+    `Выход компонентов TOP: ${exitTopCount}`,
+    `Выход компонентов BOT: ${exitBottomCount}`,
     '',
-    '=== СОХРАНЕНИЕ ФАЙЛОВ ==='
+    '=== Rotation ===',
+    `Resistor: Changed ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Changed)}`,
+    `Capacitor: Changed ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Changed)}`,
+    `Other: Changed ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Changed)}`,
+    '',
+    '=== ЧАСТИЧНЫЕ И БЕЗ СОВПАДЕНИЙ ==='
   ];
 
   if (txtSaved.length) {
@@ -3139,26 +3200,28 @@ function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
   pushLine(`Без совпадений: ${otherNoMatch}`);
   pushBlank();
   pushLine('[=] ИТОГО:', 5);
-  pushLine(`Обработано: ${totalProcessed}`);
-  pushLine(`Полных: ${totalFull} (${totalProcessed > 0 ? (totalFull / totalProcessed * 100).toFixed(1) : '0.0'}%)`);
-  pushLine(`Частичных: ${totalPartial} (${totalProcessed > 0 ? (totalPartial / totalProcessed * 100).toFixed(1) : '0.0'}%)`);
-  pushLine(`Без совпадений: ${totalNoMatch} (${totalProcessed > 0 ? (totalNoMatch / totalProcessed * 100).toFixed(1) : '0.0'}%)`);
+  pushLine(`Входимость элементов: ${inflowCount}`);
+  pushLine(`Всего: ${categoryTotal}`);
+  pushLine(`Полных: ${totalFull} (${formatPercent(totalFull, categoryTotal)}%)`);
+  pushLine(`Частичных: ${totalPartial} (${formatPercent(totalPartial, categoryTotal)}%)`);
+  pushLine(`Без совпадений: ${totalNoMatch} (${formatPercent(totalNoMatch, categoryTotal)}%)`);
   pushBlank();
   pushLine(`[*] В проекте ${refMarksCount} реперных знаков.`, 5);
-  pushLine(`[*] Удалено Not Fitted: ${deletedNotFittedCount} компонентов.`, 4);
+  pushBlank();
+  pushLine(`[*] Delete SET=0: ${deleteSet0Count} компонентов.`, 4);
+  pushLine(`[*] Удалено Not Fitted + SET=1: ${deletedNotFittedCount} компонентов.`, 4);
   pushBlank();
   pushLine('=== СТАТИСТИКА ПЕРЕИМЕНОВАНИЯ И ПОВОРОТА ===', 3);
-  pushLine(`Всего строк: ${statsTotals}`);
-  pushLine(`С верхнего слоя: ${statsTopRows}`);
-  pushLine(`С нижнего слоя: ${statsBottomRows}`);
-  pushLine(`Переименовано: ${statsRenamedRows}`);
-  pushLine(`Повернуто: ${statsRotatedRows}`);
-  pushLine(`С комментариями: ${statsCommentedRows}`);
+  pushLine(`Входимость элементов: ${inflowCount}`);
+  pushLine(`Входимость компонентов TOP: ${inflowTopCount}`);
+  pushLine(`Входимость компонентов BOT: ${inflowBottomCount}`);
+  pushLine(`Выход компонентов TOP: ${exitTopCount}`);
+  pushLine(`Выход компонентов BOT: ${exitBottomCount}`);
   pushBlank();
-  pushLine('=== PNP_ROTATION ===', 3);
-  pushLine(`Resistor: Total ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Total)} | Processed ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Processed)} | Skipped ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Skipped)}`);
-  pushLine(`Capacitor: Total ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Total)} | Processed ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Processed)} | Skipped ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Skipped)} | Changed ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Changed)}`);
-  pushLine(`Other: Total ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Total)} | Processed ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Processed)} | Skipped ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Skipped)} | Changed ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Changed)}`);
+  pushLine('=== Rotation ===', 3);
+  pushLine(`Resistor: Changed ${normalizePnpStatsCount(resistorRotation.Stats_Rotation_Changed)}`);
+  pushLine(`Capacitor: Changed ${normalizePnpStatsCount(capacitorRotation.Stats_Rotation_Changed)}`);
+  pushLine(`Other: Changed ${normalizePnpStatsCount(otherRotation.Stats_Rotation_Changed)}`);
   pushBlank();
   pushLine('=== ЧАСТИЧНЫЕ И БЕЗ СОВПАДЕНИЙ ===', 3);
   if (noMatchResistors.length) {
@@ -3707,7 +3770,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.23 Preview</title>
+<title>Pick and Place 3.5.24 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3718,7 +3781,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.23</h1>
+    <h1>Pick and Place 3.5.24</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3754,7 +3817,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.23',
+    ' * Версия: 3.5.24',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3796,7 +3859,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.23',
+    version: '3.5.24',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
