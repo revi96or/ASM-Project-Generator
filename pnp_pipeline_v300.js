@@ -2956,6 +2956,20 @@ function normalizePnpStatsText(value) {
   return normalizeText(value);
 }
 
+function normalizePnpStatsErrorText(value) {
+  const text = normalizeText(value);
+
+  if (!text) {
+    return '';
+  }
+
+  return text
+    .replace(/,\s*open\s+'[^']+'/ig, '')
+    .replace(/\s*->\s*[^|]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function isPnpTopLayerValue(value) {
   const normalized = normalizeText(value).toLowerCase().replace(/\s+/g, '');
   return normalized === 'toplayer' || normalized === 'top';
@@ -3152,18 +3166,17 @@ function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
     summaryLines.push('Ошибки TXT:');
     txtErrors.forEach((entry) => {
       const targetLabel = entry && entry.label ? entry.label : (entry && entry.folder ? entry.folder : 'TXT');
-      const targetPath = entry && entry.path ? normalizePnpStatsText(entry.path) : '';
-      const message = entry && entry.message ? normalizePnpStatsText(entry.message) : 'Неизвестная ошибка.';
-      summaryLines.push(`${targetLabel}: ${message}${targetPath ? ` -> ${targetPath}` : ''}`);
+      const message = entry && entry.message ? normalizePnpStatsErrorText(entry.message) : 'Неизвестная ошибка.';
+      summaryLines.push(`${targetLabel}: ${message}`);
     });
   }
 
   if (xlsxResult && xlsxPath) {
-    summaryLines.push(`XLSX: УСПЕШНО${xlsxFileName ? ` (${xlsxFileName})` : ''} -> ${xlsxPath}`);
+    summaryLines.push(`Экспорт XLSX: УСПЕШНО${xlsxFileName ? ` (${xlsxFileName})` : ''} -> ${xlsxPath}`);
   } else if (xlsxResult && xlsxResult.errorMessage) {
-    summaryLines.push(`XLSX: ${normalizePnpStatsText(xlsxResult.errorMessage)}`);
+    summaryLines.push(`Экспорт XLSX: ${normalizePnpStatsErrorText(xlsxResult.errorMessage)}`);
   } else {
-    summaryLines.push('XLSX: не сохранен.');
+    summaryLines.push('Экспорт XLSX: не сохранен.');
   }
 
   const sheetRows = [];
@@ -3261,13 +3274,16 @@ function buildPnpStatsSnapshot(importInfo, txtResult, xlsxResult) {
     pushLine('Ошибки TXT:', 4);
     txtErrors.forEach((entry) => {
       const targetLabel = entry && entry.label ? entry.label : (entry && entry.folder ? entry.folder : 'TXT');
-      const targetPath = entry && entry.path ? normalizePnpStatsText(entry.path) : '';
-      const message = entry && entry.message ? normalizePnpStatsText(entry.message) : 'Неизвестная ошибка.';
-      pushLine(`${targetLabel}: ${message}${targetPath ? ` -> ${targetPath}` : ''}`);
+      const message = entry && entry.message ? normalizePnpStatsErrorText(entry.message) : 'Неизвестная ошибка.';
+      pushLine(`${targetLabel}: ${message}`);
     });
   }
   if (xlsxResult && xlsxPath) {
-    pushLine(`XLSX: УСПЕШНО${xlsxFileName ? ` (${xlsxFileName})` : ''} -> ${xlsxPath}`);
+    pushLine(`Экспорт XLSX: УСПЕШНО${xlsxFileName ? ` (${xlsxFileName})` : ''} -> ${xlsxPath}`);
+  } else if (xlsxResult && xlsxResult.errorMessage) {
+    pushLine(`Экспорт XLSX: ${normalizePnpStatsErrorText(xlsxResult.errorMessage)}`);
+  } else {
+    pushLine('Экспорт XLSX: не сохранен.');
   }
 
   return {

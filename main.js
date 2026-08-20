@@ -128,6 +128,20 @@ function clearOperationCancel() {
   operationCancelRequested = false;
 }
 
+function normalizePnpErrorText(value) {
+  const text = String(value === null || value === undefined ? '' : value).trim();
+
+  if (!text) {
+    return '';
+  }
+
+  return text
+    .replace(/,\s*open\s+'[^']+'/ig, '')
+    .replace(/\s*->\s*[^|]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function buildPnpStatsWindowHtml(payload) {
   const titleHtml = String(payload && payload.titleHtml ? payload.titleHtml : '<span style="color:#f8fafc;">Итоги</span> <span style="color:#38bdf8;">обработки компонентов</span>');
   const headerRightHtml = String(payload && payload.headerRightHtml ? payload.headerRightHtml : '');
@@ -1436,6 +1450,7 @@ async function exportPnpTxtFiles(payload) {
   let xlsxResult = null;
   let xlsxErrorMessage = '';
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
+  const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
 
   if (exportXlsxFolder) {
     try {
@@ -1450,7 +1465,21 @@ async function exportPnpTxtFiles(payload) {
         }
       );
     } catch (error) {
-      xlsxErrorMessage = error && error.message ? error.message : String(error || 'Неизвестная ошибка сохранения XLSX.');
+      xlsxErrorMessage = normalizePnpErrorText(error && error.message ? error.message : String(error || 'Неизвестная ошибка сохранения XLSX.'));
+    }
+  }
+
+  // Если отдельный XLSX здесь не сохраняли, но файл уже существует после предыдущего шага,
+  // считаем его сохранённым, чтобы сводка не врала пользователю.
+  if (!xlsxResult && !xlsxErrorMessage && xlsxPath) {
+    try {
+      await fs.access(path.resolve(xlsxPath));
+      xlsxResult = {
+        path: path.resolve(xlsxPath),
+        fileName: path.basename(xlsxPath)
+      };
+    } catch (error) {
+      xlsxErrorMessage = normalizePnpErrorText(error && error.message ? error.message : String(error || 'Неизвестная ошибка проверки XLSX.'));
     }
   }
 

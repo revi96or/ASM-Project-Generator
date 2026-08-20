@@ -1684,6 +1684,7 @@ const state = {
     exportXlsx: {
       folder: ""
     },
+    lastXlsxPath: "",
     state: {
       path: "",
       data: null,
@@ -1986,7 +1987,8 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
   const donutGradient = totalBaseCount > 0
     ? `conic-gradient(#22c55e 0 ${donutFullPercent.toFixed(2)}%, #f59e0b ${donutFullPercent.toFixed(2)}% ${(donutFullPercent + donutPartialPercent).toFixed(2)}%, #fb7185 ${(donutFullPercent + donutPartialPercent).toFixed(2)}% ${(donutFullPercent + donutPartialPercent + donutNoMatchPercent).toFixed(2)}%, #334155 ${(donutFullPercent + donutPartialPercent + donutNoMatchPercent).toFixed(2)}% 100%)`
     : 'conic-gradient(#334155 0 100%)';
-  const saveLines = lines.filter((line) => /^(Экспорт P&P|Адрес расстановщика|XLSX):/i.test(String(line || "")));
+  // Поддерживаем старую метку XLSX и новую "Экспорт XLSX", чтобы не терять карточку после обновления отчёта.
+  const saveLines = lines.filter((line) => /^(Экспорт P&P|Адрес расстановщика|Экспорт XLSX|XLSX):/i.test(String(line || "")));
   const saveEntries = saveLines.map((line) => {
     const text = String(line || "");
     const success = /УСПЕШНО/i.test(text);
@@ -2040,6 +2042,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       safeItem ? (
         success
           ? `<div class="pnp-export-state success">УСПЕШНО</div><div class="pnp-export-path">${escapePnpHtml(safeItem.path || '')}</div>`
+          // Красную ошибку делаем короткой: подробный путь ниже уже показан серым.
           : `<div class="pnp-export-state danger">НЕ УДАЛОСЬ</div><div class="pnp-export-note">${escapePnpHtml(safeItem.detail || 'Папка не прописана в дереве каталогов или недоступна.')}</div><div class="pnp-export-path">${escapePnpHtml(safeItem.path || '')}</div>`
       ) : `<div class="pnp-export-state danger">НЕ УДАЛОСЬ</div><div class="pnp-export-note">Папка не прописана в дереве каталогов или недоступна.</div>`,
       `</section>`
@@ -2384,7 +2387,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     `<section class="pnp-export-grid">`,
     exportCard('Экспорт P&P', '#38bdf8', saveEntries.find((item) => item.head === 'Экспорт P&P')),
     exportCard('Адрес расстановщика', '#38bdf8', saveEntries.find((item) => item.head === 'Адрес расстановщика')),
-    exportCard('Экспорт XLSX', '#38bdf8', saveEntries.find((item) => item.head === 'XLSX')),
+    exportCard('Экспорт XLSX', '#38bdf8', saveEntries.find((item) => item.head === 'Экспорт XLSX' || item.head === 'XLSX')),
     `</section>`,
     `</div>`
   ].join('');
@@ -4272,6 +4275,7 @@ function loadPnpPreview(dictLike, meta = {}){
   const importCsvPath = String(meta.importCsvPath || paths.importCsvPath || meta.csvPath || state.pnp.csv.path || "");
   const exportXlsxFolder = String(meta.exportXlsxFolder || paths.exportXlsxFolder || state.pnp.exportXlsx.folder || "");
   const exportFolder = String(meta.exportFolder || paths.exportFolder || state.pnp.export.folder || "");
+  const xlsxPath = String(meta.xlsxPath || paths.xlsxPath || state.pnp.lastXlsxPath || "");
   const dictXlsxPath = String(meta.dictXlsxPath || paths.dictXlsxPath || state.pnp.dictXlsxPath || "Dict\\Dict.xlsx");
   const dictPath = String(meta.dictPath || paths.dictPath || state.pnp.dict.path || "");
   const statePath = String(meta.statePath || paths.statePath || state.pnp.state.path || "");
@@ -4294,6 +4298,7 @@ function loadPnpPreview(dictLike, meta = {}){
   state.pnp.state.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.state.importInfo || null;
   state.pnp.exportXlsx.folder = exportXlsxFolder;
   state.pnp.export.folder = exportFolder;
+  state.pnp.lastXlsxPath = xlsxPath;
   state.pnp.importInfo = dictLike && dictLike.importInfo ? dictLike.importInfo : state.pnp.importInfo || null;
   if (state.pnp.importInfo && !state.pnp.importInfo.infoD3) {
     state.pnp.importInfo.infoD3 = infoD3;
@@ -4350,6 +4355,7 @@ function buildPnpStatePayload(){
   const exportXlsxFolder = (exportXlsxPathInput ? exportXlsxPathInput.value.trim() : "") || state.pnp.exportXlsx.folder || "";
   const exportFolder = (exportPathInput ? exportPathInput.value.trim() : "") || state.pnp.export.folder || "";
   const placerPath = placerPathInput ? placerPathInput.value.trim() : "";
+  const xlsxPath = state.pnp.lastXlsxPath || "";
   const statePath = (statePathInput ? statePathInput.value.trim() : "") || state.pnp.state.path || (localPath
     ? localPath.replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
     : "C:\\settings\\PickAndPlace\\pnp_state_v300.js");
@@ -4362,6 +4368,7 @@ function buildPnpStatePayload(){
     localPath: localPath,
     importCsvPath: importCsvPath,
     exportXlsxFolder: exportXlsxFolder,
+    xlsxPath: xlsxPath,
     exportFolder: exportFolder,
     targetFolder: exportFolder,
     placerPath: placerPath,
@@ -4440,6 +4447,10 @@ async function importPnpCsvFile(options = {}){
 
     if (result && result.canceled) {
       return;
+    }
+
+    if (result && result.xlsx && result.xlsx.path) {
+      state.pnp.lastXlsxPath = result.xlsx.path;
     }
 
     loadPnpPreview(result, {
@@ -4544,6 +4555,7 @@ async function importPnpCsvFile(options = {}){
       importCsvPath: refreshResult.filePath || result.filePath || csvPath,
       sourcePath: refreshResult.filePath || result.filePath || csvPath,
       exportXlsxFolder: refreshResult.xlsx && refreshResult.xlsx.path ? state.pnp.exportXlsx.folder : (state.pnp.exportXlsx.folder || ($("pnpExportXlsxPathInput") ? $("pnpExportXlsxPathInput").value.trim() : "")),
+      xlsxPath: refreshResult.xlsx && refreshResult.xlsx.path ? refreshResult.xlsx.path : (state.pnp.lastXlsxPath || ""),
       infoD3: executionValue,
       infoD7: nextFileName
     });
@@ -4634,6 +4646,9 @@ async function exportPnpFiles(){
       ? result.stats.summaryLines
       : [];
     state.pnp.lastStatsSummaryLines = Array.isArray(summaryLines) ? summaryLines.slice() : [];
+    if (result && result.xlsx && result.xlsx.path) {
+      state.pnp.lastXlsxPath = result.xlsx.path;
+    }
     await showPnpStatsWindow(statsBeforeExport, summaryLines);
   } catch (error) {
     showAppDialog("Pick and Place", `Не удалось экспортировать файлы P&P.\n\n${formatPnpErrorMessage(error)}`);
