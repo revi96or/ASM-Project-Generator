@@ -1427,6 +1427,21 @@ async function exportPnpTxtFiles(payload) {
 
   assertOperationNotCancelled();
   const statsSource = payload && payload.pnp && payload.pnp.stats ? payload.pnp.stats : (payload && payload.stats ? payload.stats : null);
+  const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
+  const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
+  const isXlsxFilePath = /\.xlsx$/i.test(xlsxPath);
+  const xlsxTargetFolder = isXlsxFilePath
+    ? path.dirname(path.resolve(xlsxPath))
+    : exportXlsxFolder;
+  const xlsxBaseName = isXlsxFilePath
+    ? path.basename(xlsxPath, path.extname(xlsxPath))
+    : txtStem;
+  const xlsxPreviewResult = xlsxTargetFolder
+    ? {
+        path: path.join(path.resolve(xlsxTargetFolder), `${xlsxBaseName}.xlsx`),
+        fileName: `${xlsxBaseName}.xlsx`
+      }
+    : null;
   const statsSnapshot = pnpPipeline.buildPnpStatsSnapshot({
     ...importInfo,
     stats: statsSource && statsSource.stats ? statsSource.stats : (statsSource || importInfo.stats || {})
@@ -1445,18 +1460,16 @@ async function exportPnpTxtFiles(payload) {
         label: matchedEntry ? matchedEntry.label : item.folder
       };
     })
-  }, null);
+  }, xlsxPreviewResult);
 
   let xlsxResult = null;
   let xlsxErrorMessage = '';
-  const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
-  const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
 
-  if (exportXlsxFolder) {
+  if (xlsxTargetFolder) {
     try {
       xlsxResult = await pnpPipeline.savePnpXlsxFile(
-        path.resolve(exportXlsxFolder),
-        txtStem,
+        path.resolve(xlsxTargetFolder),
+        xlsxBaseName,
         importInfo,
         payload && payload.sourcePath ? payload.sourcePath : '',
         {
@@ -1469,14 +1482,17 @@ async function exportPnpTxtFiles(payload) {
     }
   }
 
-  // Если отдельный XLSX здесь не сохраняли, но файл уже существует после предыдущего шага,
-  // считаем его сохранённым, чтобы сводка не врала пользователю.
+  // Если отдельный XLSX здесь не сохраняли, но файл уже существует по ожидаемому пути,
+  // считаем его сохранённым — так же, как TXT-сводка опирается на фактический target path.
   if (!xlsxResult && !xlsxErrorMessage && xlsxPath) {
     try {
-      await fs.access(path.resolve(xlsxPath));
+      const probePath = isXlsxFilePath
+        ? path.resolve(xlsxPath)
+        : path.join(path.resolve(xlsxTargetFolder || exportXlsxFolder), `${txtStem}.xlsx`);
+      await fs.access(probePath);
       xlsxResult = {
-        path: path.resolve(xlsxPath),
-        fileName: path.basename(xlsxPath)
+        path: probePath,
+        fileName: path.basename(probePath)
       };
     } catch (error) {
       xlsxErrorMessage = normalizePnpErrorText(error && error.message ? error.message : String(error || 'Неизвестная ошибка проверки XLSX.'));

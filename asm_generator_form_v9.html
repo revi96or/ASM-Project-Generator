@@ -4355,7 +4355,7 @@ function buildPnpStatePayload(){
   const exportXlsxFolder = (exportXlsxPathInput ? exportXlsxPathInput.value.trim() : "") || state.pnp.exportXlsx.folder || "";
   const exportFolder = (exportPathInput ? exportPathInput.value.trim() : "") || state.pnp.export.folder || "";
   const placerPath = placerPathInput ? placerPathInput.value.trim() : "";
-  const xlsxPath = state.pnp.lastXlsxPath || "";
+  const xlsxPath = exportXlsxPathInput ? exportXlsxPathInput.value.trim() : state.pnp.lastXlsxPath || "";
   const statePath = (statePathInput ? statePathInput.value.trim() : "") || state.pnp.state.path || (localPath
     ? localPath.replace(/[\\/]+$/, "") + "\\pnp_state_v300.js"
     : "C:\\settings\\PickAndPlace\\pnp_state_v300.js");
