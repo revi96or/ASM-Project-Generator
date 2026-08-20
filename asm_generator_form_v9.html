@@ -1993,8 +1993,9 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     };
   });
 
+  // Фиолетовые плитки держим выше по значимости: крупнее значение и заметно ниже подпись.
   const statusItem = (title, value, note, accent) => [
-    `<div class="pnp-status-item" style="--accent:${accent};">`,
+    `<div class="pnp-status-item violet" style="--accent:${accent};">`,
     `<div class="pnp-status-title">${escapePnpHtml(title)}</div>`,
     `<div class="pnp-status-value">${escapePnpHtml(value)}</div>`,
     note ? `<div class="pnp-status-note">${escapePnpHtml(note)}</div>` : '',
@@ -2136,7 +2137,9 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         justify-self: start;
       }
       .pnp-status-item {
-        min-height: 176px;
+        display: flex;
+        flex-direction: column;
+        min-height: 190px;
         border-radius: 28px;
         padding: 12px;
         border: 1px solid var(--accent);
@@ -2155,6 +2158,16 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         border-radius: 50%;
         border: 1px solid rgba(255,255,255,.08);
       }
+      .pnp-status-item .pnp-status-title {
+        display: block;
+        margin: -12px -12px 0;
+        padding: 12px 12px 8px;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+      }
+      .pnp-status-item.violet .pnp-status-title {
+        background: linear-gradient(180deg, rgba(167,139,250,.24), rgba(255,255,255,.03));
+      }
       .pnp-status-title {
         font-size: 11px;
         letter-spacing: .10em;
@@ -2163,13 +2176,14 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         font-weight: 900;
       }
       .pnp-status-value {
-        margin-top: 8px;
-        font-size: 42px;
+        margin-top: 10px;
+        font-size: 64px;
         font-weight: 900;
         line-height: 1;
       }
       .pnp-status-note {
-        margin-top: 10px;
+        margin-top: auto;
+        padding-top: 34px;
         color: rgba(255,255,255,.92);
         font-size: 12px;
         line-height: 1.25;
@@ -2221,7 +2235,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         overflow: hidden;
       }
       .pnp-detail-head {
-        padding: 12px 14px 10px;
+        padding: 10px 12px 8px;
         font-size: 16px;
         font-weight: 900;
         color: #fff;
@@ -2240,7 +2254,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         background: linear-gradient(180deg, rgba(251,146,60,.30), rgba(255,255,255,.03));
       }
       .pnp-detail-body {
-        padding: 2px 0 8px;
+        padding: 0 0 6px;
       }
       .pnp-export-grid {
         display: grid;
@@ -2346,10 +2360,10 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     `</div>`,
     `</section>`,
     `<section class="pnp-right">`,
-    statusItem('Переименовано', currentStats.renamedRows || 0, 'R_COMMENT / R_DESIGNATOR / R_TOL', '#a78bfa'),
-    statusItem('Not Fitted + SET=1', currentStats.deletedNotFittedCount || 0, 'Удалено из P&P перед экспортом', '#a78bfa'),
-    statusItem('Повернуто', currentStats.rotatedRows || 0, 'Итог по поворотам', '#a78bfa'),
-    statusItem('Реперные знаки', currentStats.refCount || 0, 'Базовая привязка проекта', '#a78bfa'),
+    statusItem('ПЕРЕИМЕНОВАНО', currentStats.renamedRows || 0, 'R_COMMENT / R_DESIGNATOR / R_TOL', '#a78bfa'),
+    statusItem('NOT FITTED + SET=1', currentStats.deletedNotFittedCount || 0, 'УДАЛЕНО ИЗ P&P ПЕРЕД ЭКСПОРТОМ', '#a78bfa'),
+    statusItem('ПОВЕРНУТО', currentStats.rotatedRows || 0, 'ИТОГ ПО ПОВОРОТАМ', '#a78bfa'),
+    statusItem('РЕПЕРНЫЕ ЗНАКИ', currentStats.refCount || 0, 'БАЗОВАЯ ПРИВЯЗКА ПРОЕКТА', '#a78bfa'),
     `</section>`,
     `</div>`,
     `<section class="pnp-detail-grid">`,
