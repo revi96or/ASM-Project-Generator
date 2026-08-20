@@ -223,6 +223,7 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
     minHeight: 780,
     autoHideMenuBar: true,
     title: 'Итоги обработки компонентов',
+    icon: path.join(__dirname, 'assets', 'stats-icon.png'),
     backgroundColor: '#0A0E18',
     show: false,
     webPreferences: {
