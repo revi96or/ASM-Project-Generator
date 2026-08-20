@@ -2046,9 +2046,12 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       }
       .pnp-stats-top {
         display: grid;
-        grid-template-columns: 360px minmax(0, 1fr);
+        grid-template-columns: 360px 580px;
         gap: 12px;
         align-items: stretch;
+        width: 952px;
+        max-width: 100%;
+        margin: 0 auto;
       }
       .pnp-panel {
         border: 1px solid rgba(56, 189, 248, .36);
@@ -2126,6 +2129,8 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
+        width: min(100%, 580px);
+        justify-self: start;
       }
       .pnp-status-item {
         min-height: 176px;
