@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.13
+Версия: 9.27.14
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1894,6 +1894,7 @@ function formatPnpErrorMessage(error) {
 function buildPnpStatsDialogHtml(stats, summaryLines) {
   const currentStats = stats || getPnpEmptyStats();
   const lines = Array.isArray(summaryLines) ? summaryLines : [];
+  // Сводку из лога разбираем отдельно, чтобы визуал опирался на те же итоги, что и экспорт.
   const parsed = {
     resistorTotal: 0,
     resistorFull: 0,
@@ -1992,61 +1993,316 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     };
   });
 
-  const card = (title, value, note, tone, accent) => [
-    `<div style="padding:14px 16px;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));border:1px solid ${accent};box-shadow:inset 0 1px 0 rgba(255,255,255,.04);">`,
-    `<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${accent};font-weight:700;">${escapePnpHtml(title)}</div>`,
-    `<div style="margin-top:8px;font-size:26px;line-height:1;font-weight:900;color:${tone};">${escapePnpHtml(value)}</div>`,
-    note ? `<div style="margin-top:6px;font-size:12px;line-height:1.25;color:var(--muted);">${escapePnpHtml(note)}</div>` : '',
+  const statusItem = (title, value, note, accent) => [
+    `<div class="pnp-status-item" style="--accent:${accent};">`,
+    `<div class="pnp-status-title">${escapePnpHtml(title)}</div>`,
+    `<div class="pnp-status-value">${escapePnpHtml(value)}</div>`,
+    note ? `<div class="pnp-status-note">${escapePnpHtml(note)}</div>` : '',
     `</div>`
   ].join('');
 
-  const section = (title, accent, bodyHtml) => [
-    `<section style="border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;background:rgba(15,23,42,.38);">`,
-    `<div style="padding:10px 14px;background:linear-gradient(90deg, ${accent}22, transparent);border-bottom:1px solid rgba(255,255,255,.06);font-weight:800;">${escapePnpHtml(title)}</div>`,
-    `<div style="padding:12px 14px;">${bodyHtml}</div>`,
+  const summaryLine = (label, value, accent) => [
+    `<div class="pnp-summary-line">`,
+    `<div class="pnp-summary-label">${escapePnpHtml(label)}</div>`,
+    `<div class="pnp-summary-value" style="color:${accent};">${escapePnpHtml(value)}</div>`,
+    `</div>`
+  ].join('');
+
+  const detailCard = (title, accent, totalValue, rows) => [
+    `<section class="pnp-detail-card" style="--accent:${accent};">`,
+    `<div class="pnp-detail-head">${escapePnpHtml(title)}</div>`,
+    `<div class="pnp-detail-body">`,
+    summaryLine('Всего', totalValue, accent),
+    summaryLine('Полных совпадений', rows.full, accent),
+    summaryLine('Частично', rows.partial, accent),
+    summaryLine('Без совпадений', rows.noMatch, accent),
+    `</div>`,
     `</section>`
   ].join('');
 
-  const row = (label, value, tone) => [
-    `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.08);">`,
-    `<div style="color:var(--muted);">${escapePnpHtml(label)}</div>`,
-    `<div style="font-weight:800;color:${tone};white-space:nowrap;">${escapePnpHtml(value)}</div>`,
-    `</div>`
-  ].join('');
-
-  const saveCard = (label, accent, item) => [
-    `<div style="padding:14px 16px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015));border:1px solid ${accent};min-height:108px;">`,
-    `<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${accent};font-weight:800;">${escapePnpHtml(label)}</div>`,
-    item ? [
-      item.tone === 'success'
-        ? `<div style="margin-top:10px;font-size:13px;font-weight:800;color:#86efac;">УСПЕШНО</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:var(--text);word-break:break-word;overflow-wrap:anywhere;">${escapePnpHtml(item.path || '')}</div>`
-        : `<div style="margin-top:10px;font-size:13px;font-weight:800;color:#fca5a5;">НЕ УДАЛОСЬ</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:#fca5a5;word-break:break-word;overflow-wrap:anywhere;">${escapePnpHtml(item.detail || 'Папка не прописана в дереве каталогов или недоступна.')}</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:var(--text);word-break:break-word;overflow-wrap:anywhere;">${escapePnpHtml(item.path || '')}</div>`
-    ].join('') : `<div style="margin-top:10px;color:#fca5a5;font-size:12px;font-weight:800;">НЕ УДАЛОСЬ</div><div style="margin-top:8px;font-size:12px;line-height:1.35;color:#fca5a5;">Папка не прописана в дереве каталогов или недоступна.</div>`,
-    `</div>`
-  ].join('');
+  const exportCard = (label, accent, item) => {
+    const safeItem = item || null;
+    const success = safeItem && safeItem.tone === 'success';
+    return [
+      `<section class="pnp-export-card" style="--accent:${accent};">`,
+      `<div class="pnp-export-title">${escapePnpHtml(label)}</div>`,
+      safeItem ? (
+        success
+          ? `<div class="pnp-export-state success">УСПЕШНО</div><div class="pnp-export-path">${escapePnpHtml(safeItem.path || '')}</div>`
+          : `<div class="pnp-export-state danger">НЕ УДАЛОСЬ</div><div class="pnp-export-note">${escapePnpHtml(safeItem.detail || 'Папка не прописана в дереве каталогов или недоступна.')}</div><div class="pnp-export-path">${escapePnpHtml(safeItem.path || '')}</div>`
+      ) : `<div class="pnp-export-state danger">НЕ УДАЛОСЬ</div><div class="pnp-export-note">Папка не прописана в дереве каталогов или недоступна.</div>`,
+      `</section>`
+    ].join('');
+  };
 
   return [
-    `<div style="display:flex;flex-direction:column;gap:14px;color:var(--text);">`,
-    `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">`,
-    card('Обработано', parsed.totalProcessed, 'Всего строк после классификации', '#f8fafc', '#38bdf8'),
-    card('Полных', `${parsed.totalFull} (${fullPercent}%)`, 'Совпадения по словарю', '#e0f2fe', '#22c55e'),
-    card('Частичных', `${parsed.totalPartial} (${partialPercent}%)`, 'Нужны ручные проверки', '#f5f3ff', '#a78bfa'),
-    card('Без совпадений', `${parsed.totalNoMatch} (${noMatchPercent}%)`, 'Не найдено в словаре', '#fee2e2', '#fb7185'),
-    card('Not Fitted + SET=1', currentStats.deletedNotFittedCount || 0, 'Удалено из P&P перед экспортом', '#ffedd5', '#f97316'),
-    card('Реперные знаки', currentStats.refCount || 0, 'Базовая привязка проекта', '#ecfccb', '#84cc16'),
-    card('Переименовано', currentStats.renamedRows || 0, 'R_COMMENT / R_DESIGNATOR / R_TOL', '#f5f3ff', '#c084fc'),
-    card('Повернуто', currentStats.rotatedRows || 0, 'Итог по поворотам', '#dbeafe', '#60a5fa'),
+    `<style>
+      .pnp-stats-v2 {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        color: var(--text);
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+      }
+      .pnp-stats-top {
+        display: grid;
+        grid-template-columns: 420px minmax(0, 1fr);
+        gap: 16px;
+        align-items: stretch;
+      }
+      .pnp-panel {
+        border: 1px solid rgba(56, 189, 248, .36);
+        border-radius: 24px;
+        padding: 18px;
+        background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+        box-shadow: 0 20px 60px rgba(0,0,0,.30);
+      }
+      .pnp-donut {
+        width: 272px;
+        height: 272px;
+        margin: 2px auto 0;
+        border-radius: 50%;
+        background: conic-gradient(#22c55e 0 41.8%, #f59e0b 41.8% 43.7%, #fb7185 43.7% 44.6%, #334155 44.6% 100%);
+        position: relative;
+      }
+      .pnp-donut::after {
+        content: "";
+        position: absolute;
+        inset: 52px;
+        border-radius: 50%;
+        background: rgba(16, 24, 42, .98);
+        border: 1px solid rgba(255,255,255,.06);
+      }
+      .pnp-center {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+      }
+      .pnp-center strong {
+        font-size: 42px;
+        line-height: 1;
+      }
+      .pnp-center span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .pnp-legend {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .pnp-legend-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.02);
+      }
+      .pnp-legend-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .pnp-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+      }
+      .pnp-right {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .pnp-status-item {
+        min-height: 100%;
+        border-radius: 18px;
+        padding: 14px;
+        border: 2px solid var(--accent);
+        background: rgba(255,255,255,.012);
+        position: relative;
+        overflow: hidden;
+      }
+      .pnp-status-item::after {
+        content: "";
+        position: absolute;
+        right: -30px;
+        bottom: -30px;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,.08);
+      }
+      .pnp-status-title {
+        font-size: 12px;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+        color: #fff;
+        font-weight: 900;
+      }
+      .pnp-status-value {
+        margin-top: 8px;
+        font-size: 54px;
+        font-weight: 900;
+        line-height: 1;
+      }
+      .pnp-status-note {
+        margin-top: 10px;
+        color: rgba(255,255,255,.92);
+        font-size: 14px;
+        line-height: 1.25;
+      }
+      .pnp-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .pnp-summary-chip {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+        border: 1px solid rgba(255,255,255,.08);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+      }
+      .pnp-summary-label {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.15;
+      }
+      .pnp-summary-value {
+        margin-top: 8px;
+        font-size: 17px;
+        font-weight: 900;
+        line-height: 1.15;
+      }
+      .pnp-summary-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 16px;
+        border-top: 1px solid rgba(255,255,255,.07);
+      }
+      .pnp-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
+      }
+      .pnp-detail-card {
+        border-radius: 18px;
+        border: 2px solid var(--accent);
+        background: rgba(255,255,255,.012);
+        overflow: hidden;
+      }
+      .pnp-detail-head {
+        padding: 14px 16px 12px;
+        font-size: 18px;
+        font-weight: 900;
+        color: #fff;
+        line-height: 1;
+        text-transform: uppercase;
+        background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+        box-shadow: inset 0 3px 0 var(--accent);
+        border-bottom: 1px solid rgba(255,255,255,.08);
+      }
+      .pnp-detail-body {
+        padding: 2px 0 8px;
+      }
+      .pnp-export-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .pnp-export-card {
+        min-height: 162px;
+        border-radius: 18px;
+        padding: 14px 16px;
+        border: 2px solid var(--accent);
+        background: rgba(255,255,255,.012);
+      }
+      .pnp-export-title {
+        color: #fff;
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .pnp-export-state {
+        margin-top: 10px;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      .pnp-export-state.success { color: #86efac; }
+      .pnp-export-state.danger { color: #fca5a5; }
+      .pnp-export-note {
+        margin-top: 8px;
+        color: #fca5a5;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .pnp-export-path {
+        margin-top: 8px;
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1.35;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 1280px) {
+        .pnp-stats-top,
+        .pnp-detail-grid,
+        .pnp-export-grid,
+        .pnp-summary {
+          grid-template-columns: 1fr;
+        }
+        .pnp-right {
+          grid-template-rows: auto;
+        }
+      }
+    </style>`,
+    `<div class="pnp-stats-v2">`,
+    `<div class="pnp-stats-top">`,
+    `<section class="pnp-panel">`,
+    `<div class="pnp-donut">`,
+    `<div class="pnp-center"><strong>${escapePnpHtml(parsed.totalProcessed)}</strong><span>Обработано</span></div>`,
     `</div>`,
-    `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;">`,
-    section('Резисторы', '#22c55e', row('Всего', parsed.resistorTotal, '#86efac') + row('Полных совпадений', parsed.resistorFull, '#86efac') + row('Частичных', parsed.resistorPartial, '#86efac') + row('Без совпадений', parsed.resistorNoMatch, '#86efac')),
-    section('Конденсаторы', '#38bdf8', row('Всего', parsed.capacitorTotal, '#93c5fd') + row('Полных совпадений', parsed.capacitorFull, '#93c5fd') + row('Частичных', parsed.capacitorPartial, '#93c5fd') + row('Без совпадений', parsed.capacitorNoMatch, '#93c5fd')),
-    section('Прочие', '#f97316', row('Всего', parsed.otherTotal, '#fdba74') + row('Полных совпадений', parsed.otherFull, '#fdba74') + row('Частичных', parsed.otherPartial, '#fdba74') + row('Без совпадений', parsed.otherNoMatch, '#fdba74')),
+    `<div class="pnp-legend">`,
+    `<div class="pnp-legend-item"><div class="pnp-legend-left"><span class="pnp-dot" style="background:#22c55e;"></span>Совпало</div><div style="font-weight:900;color:#22c55e;">${escapePnpHtml(`${parsed.totalFull} (${fullPercent}%)`)}</div></div>`,
+    `<div class="pnp-legend-item"><div class="pnp-legend-left"><span class="pnp-dot" style="background:#f59e0b;"></span>Частично</div><div style="font-weight:900;color:#f59e0b;">${escapePnpHtml(`${parsed.totalPartial} (${partialPercent}%)`)}</div></div>`,
+    `<div class="pnp-legend-item"><div class="pnp-legend-left"><span class="pnp-dot" style="background:#fb7185;"></span>Без совпадений</div><div style="font-weight:900;color:#fb7185;">${escapePnpHtml(`${parsed.totalNoMatch} (${noMatchPercent}%)`)}</div></div>`,
     `</div>`,
-    `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;">`,
-    saveCard('Экспорт P&P', '#38bdf8', saveEntries.find((item) => item.head === 'Экспорт P&P')),
-    saveCard('Адрес расстановщика', '#38bdf8', saveEntries.find((item) => item.head === 'Адрес расстановщика')),
-    saveCard('XLSX', '#38bdf8', saveEntries.find((item) => item.head === 'XLSX')),
+    `</section>`,
+    `<section class="pnp-right">`,
+    statusItem('Переименовано', currentStats.renamedRows || 0, 'R_COMMENT / R_DESIGNATOR / R_TOL', '#a78bfa'),
+    statusItem('Not Fitted + SET=1', currentStats.deletedNotFittedCount || 0, 'Удалено из P&P перед экспортом', '#a78bfa'),
+    statusItem('Повернуто', currentStats.rotatedRows || 0, 'Итог по поворотам', '#a78bfa'),
+    statusItem('Реперные знаки', currentStats.refCount || 0, 'Базовая привязка проекта', '#a78bfa'),
+    `</section>`,
     `</div>`,
+    `<section class="pnp-detail-grid">`,
+    detailCard('Резисторы', '#22c55e', parsed.resistorTotal, { full: parsed.resistorFull, partial: parsed.resistorPartial, noMatch: parsed.resistorNoMatch }),
+    detailCard('Конденсаторы', '#38bdf8', parsed.capacitorTotal, { full: parsed.capacitorFull, partial: parsed.capacitorPartial, noMatch: parsed.capacitorNoMatch }),
+    detailCard('Прочие', '#f97316', parsed.otherTotal, { full: parsed.otherFull, partial: parsed.otherPartial, noMatch: parsed.otherNoMatch }),
+    `</section>`,
+    `<section class="pnp-export-grid">`,
+    exportCard('Экспорт P&P', '#38bdf8', saveEntries.find((item) => item.head === 'Экспорт P&P')),
+    exportCard('Адрес расстановщика', '#38bdf8', saveEntries.find((item) => item.head === 'Адрес расстановщика')),
+    exportCard('Экспорт XLSX', '#38bdf8', saveEntries.find((item) => item.head === 'XLSX')),
+    `</section>`,
     `</div>`
   ].join('');
 }
