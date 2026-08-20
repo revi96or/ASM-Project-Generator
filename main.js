@@ -229,6 +229,22 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
   return { opened: true, created: true };
 }
 
+async function refreshPnpStatsWindow(payload) {
+  const windowExists = pnpStatsWindow && !pnpStatsWindow.isDestroyed();
+
+  // Обновляем только уже открытое окно, чтобы отмена не открывала статистику сама.
+  if (!windowExists) {
+    return { opened: false, updated: false, skipped: true };
+  }
+
+  const windowHtml = buildPnpStatsWindowHtml(payload || {});
+  const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+
+  await pnpStatsWindow.loadURL(windowUrl);
+  focusPnpStatsWindow();
+  return { opened: true, updated: true };
+}
+
 function assertOperationNotCancelled() {
   if (!operationCancelRequested) {
     return;
@@ -2078,6 +2094,10 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:pnp-toggle-stats-window', async (_event, payload) => {
     return withLoggedErrors('asm:pnp-toggle-stats-window', () => openPnpStatsWindow(payload || {}, true), getPnpErrorDetails)(_event, payload);
+  });
+
+  ipcMain.handle('asm:pnp-refresh-stats-window', async (_event, payload) => {
+    return withLoggedErrors('asm:pnp-refresh-stats-window', () => refreshPnpStatsWindow(payload || {}), getPnpErrorDetails)(_event, payload);
   });
 
   ipcMain.handle('asm:pnp-export-txt-files', async (_event, payload) => {

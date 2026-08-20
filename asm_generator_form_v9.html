@@ -3548,6 +3548,8 @@ async function cancelPnpOperation(){
   // Сбрасываем P&P-контекст и возвращаемся к стартовому Dict, чтобы следующий запуск шёл с чистого состояния.
   resetPnpSession(true);
   setPnpMode("dict");
+  // Если окно статистики уже открыто, просто перерисовываем его пустым состоянием.
+  await asmBridge.pnpRefreshStatsWindow(buildPnpStatsWindowPayload(state.pnp.stats, state.pnp.lastStatsSummaryLines));
 
   if (state.navPreviewActive !== "placer") {
     setNavPreviewActive("placer");
@@ -4223,6 +4225,8 @@ function loadPnpPreview(dictLike, meta = {}){
   const stats = {
     ...baseStats,
     renamedRows: renameR,
+    // Общий счетчик поворотов считаем из реально обработанных категорий, а не из устаревшего rotationOffset.
+    rotatedRows: rotationR + rotationC + rotationO,
     rotationR: rotationR,
     rotationC: rotationC,
     rotationO: rotationO,

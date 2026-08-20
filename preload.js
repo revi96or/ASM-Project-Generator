@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('asmApi', {
   pnpExportFiles: (payload) => ipcRenderer.invoke('asm:pnp-export-files', payload),
   pnpShowStatsWindow: (payload) => ipcRenderer.invoke('asm:pnp-show-stats-window', payload),
   pnpToggleStatsWindow: (payload) => ipcRenderer.invoke('asm:pnp-toggle-stats-window', payload),
+  pnpRefreshStatsWindow: (payload) => ipcRenderer.invoke('asm:pnp-refresh-stats-window', payload),
   pnpExportTxtFiles: (payload) => ipcRenderer.invoke('asm:pnp-export-txt-files', payload),
   pnpFillSetColumn: (payload) => ipcRenderer.invoke('asm:pnp-fill-set-column', payload),
   pnpSaveState: (payload) => ipcRenderer.invoke('asm:pnp-save-state', payload),
