@@ -202,10 +202,10 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
   }
 
   pnpStatsWindow = new BrowserWindow({
-    width: 1560,
-    height: 980,
-    minWidth: 1200,
-    minHeight: 760,
+    width: 992,
+    height: 1000,
+    minWidth: 992,
+    minHeight: 780,
     autoHideMenuBar: true,
     title: 'Итоги обработки компонентов',
     backgroundColor: '#0A0E18',
