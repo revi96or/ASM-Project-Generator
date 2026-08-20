@@ -2043,6 +2043,9 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         gap: 12px;
         color: var(--text);
         font-family: Inter, "Segoe UI", Arial, sans-serif;
+        width: 952px;
+        max-width: 100%;
+        margin: 0 auto;
       }
       .pnp-stats-top {
         display: grid;
@@ -2203,9 +2206,12 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       }
       .pnp-detail-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
         align-items: stretch;
+        width: 952px;
+        max-width: 100%;
+        margin: 0 auto;
       }
       .pnp-detail-card {
         border-radius: 28px;
@@ -2238,8 +2244,11 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       }
       .pnp-export-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
+        width: 952px;
+        max-width: 100%;
+        margin: 0 auto;
       }
       .pnp-export-card {
         min-height: 138px;
