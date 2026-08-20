@@ -1973,9 +1973,19 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     }
   });
 
-  const fullPercent = parsed.totalProcessed > 0 ? (parsed.totalFull / parsed.totalProcessed * 100).toFixed(1) : "0.0";
-  const partialPercent = parsed.totalProcessed > 0 ? (parsed.totalPartial / parsed.totalProcessed * 100).toFixed(1) : "0.0";
-  const noMatchPercent = parsed.totalProcessed > 0 ? (parsed.totalNoMatch / parsed.totalProcessed * 100).toFixed(1) : "0.0";
+  // Берем один из "Всего" по категориям — это тот же базовый счетчик, который нужен в круге.
+  parsed.totalProcessed = parsed.resistorTotal || parsed.capacitorTotal || parsed.otherTotal || Number(currentStats.totalRows || 0);
+  // Круг опирается на один общий счетчик "Обработано", а не на сумму по категориям.
+  const totalBaseCount = parsed.totalProcessed;
+  const fullPercent = totalBaseCount > 0 ? (parsed.totalFull / totalBaseCount * 100).toFixed(1) : "0.0";
+  const partialPercent = totalBaseCount > 0 ? (parsed.totalPartial / totalBaseCount * 100).toFixed(1) : "0.0";
+  const noMatchPercent = totalBaseCount > 0 ? (parsed.totalNoMatch / totalBaseCount * 100).toFixed(1) : "0.0";
+  const donutFullPercent = totalBaseCount > 0 ? (parsed.totalFull / totalBaseCount * 100) : 0;
+  const donutPartialPercent = totalBaseCount > 0 ? (parsed.totalPartial / totalBaseCount * 100) : 0;
+  const donutNoMatchPercent = totalBaseCount > 0 ? (parsed.totalNoMatch / totalBaseCount * 100) : 0;
+  const donutGradient = totalBaseCount > 0
+    ? `conic-gradient(#22c55e 0 ${donutFullPercent.toFixed(2)}%, #f59e0b ${donutFullPercent.toFixed(2)}% ${(donutFullPercent + donutPartialPercent).toFixed(2)}%, #fb7185 ${(donutFullPercent + donutPartialPercent).toFixed(2)}% ${(donutFullPercent + donutPartialPercent + donutNoMatchPercent).toFixed(2)}%, #334155 ${(donutFullPercent + donutPartialPercent + donutNoMatchPercent).toFixed(2)}% 100%)`
+    : 'conic-gradient(#334155 0 100%)';
   const saveLines = lines.filter((line) => /^(Экспорт P&P|Адрес расстановщика|XLSX):/i.test(String(line || "")));
   const saveEntries = saveLines.map((line) => {
     const text = String(line || "");
@@ -2350,8 +2360,8 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     `<div class="pnp-stats-v2">`,
     `<div class="pnp-stats-top">`,
     `<section class="pnp-panel">`,
-    `<div class="pnp-donut">`,
-    `<div class="pnp-center"><strong>${escapePnpHtml(parsed.totalProcessed)}</strong><span>Обработано</span></div>`,
+    `<div class="pnp-donut" style="background:${escapePnpHtml(donutGradient)};">`,
+    `<div class="pnp-center"><strong>${escapePnpHtml(totalBaseCount)}</strong><span>Обработано</span></div>`,
     `</div>`,
     `<div class="pnp-legend">`,
     `<div class="pnp-legend-item"><div class="pnp-legend-left"><span class="pnp-dot" style="background:#22c55e;"></span>Совпало</div><div style="font-weight:900;color:#22c55e;">${escapePnpHtml(`${parsed.totalFull} (${fullPercent}%)`)}</div></div>`,
