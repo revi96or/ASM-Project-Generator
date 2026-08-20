@@ -152,7 +152,7 @@ function buildPnpStatsWindowHtml(payload) {
   html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;}
   body{overflow:auto;}
   .stats-shell{min-height:100%;box-sizing:border-box;padding:18px;}
-  .stats-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 auto 16px;padding:18px 18px 10px;box-sizing:border-box;border-radius:18px;background:linear-gradient(180deg, rgba(18,26,44,.96), rgba(18,26,44,.86));border:1px solid rgba(56,189,248,.18);box-shadow:0 18px 40px rgba(0,0,0,.35);width:952px;max-width:100%;}
+  .stats-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 auto 16px;padding:18px 18px 10px;box-sizing:border-box;border-radius:18px;background:linear-gradient(180deg, rgba(18,26,44,.96), rgba(18,26,44,.86));border:1px solid rgba(56,189,248,.18);box-shadow:0 18px 40px rgba(0,0,0,.35);width:932px;max-width:100%;}
   .stats-title{font-size:30px;font-weight:900;line-height:1.05;margin:0;}
   .stats-meta{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;text-align:right;padding-top:4px;}
   .stats-body{padding:0;}
