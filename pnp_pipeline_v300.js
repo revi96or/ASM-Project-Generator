@@ -1,11 +1,15 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.29 для словаря Dict/.
- * Версия: 3.5.29
+ * Описание: Минимальный конвейер Pick and Place 3.5.30 для словаря Dict/.
+ * Версия: 3.5.30
  * Автор: Новожилов Артем
- * Изменения 3.5.29: в buildOtherMatchState (лист Other) добавлена проверка
- * на пустое значение COMMENT_FR/FOOTPRINT_FR перед заменой — раньше пустая
- * ячейка в словаре Other затирала исходный COMMENT (например у
- * AM1LS-0505SH30-NZ, где в словаре задан только FOOTPRINT_FR).
+ * Изменения 3.5.30: исправлен баг парсера XLSX (parseWorksheetXmlRows) —
+ * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
+ * значение следующей ячейки (лениво искали ближайший </c>, которым
+ * оказывался закрывающий тег соседней ячейки). Из-за этого терялись
+ * значения COMMENT_FR/ROTATION_DELTA и других колонок в словарях
+ * Resist/Capacitor/Other, если перед ними была пустая ячейка
+ * (пример: AM1LS-0505SH30-NZ — угол не пересчитывался, т.к. COMMENT_FR
+ * читался как пустой из-за пустой ячейки "Столбец2" перед ним).
  */
 
 const fs = require('fs/promises');
@@ -30,7 +34,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.29',
+    version: '3.5.30',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -506,11 +510,20 @@ function parseWorksheetXmlRows(sheetXml, sharedStrings) {
     const rowXml = rowMatch[2];
     const cells = [];
     let lastIndex = -1;
-    const cellMatches = rowXml.matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g);
+    // Важно: ячейка без значения Excel часто записывает как самозакрывающийся
+    // тег <c r="F1" s="1"/> (без </c>). Старый regex /<c\b([^>]*)>([\s\S]*?)<\/c>/g
+    // не распознавал такой тег отдельно: ленивая группа "проглатывала" всё
+    // вперёд до ближайшего </c>, которым оказывался закрывающий тег СЛЕДУЮЩЕЙ
+    // ячейки. Из-за этого значение соседней ячейки приписывалось пустой,
+    // а сама следующая колонка терялась (пример: COMMENT_FR у AM1LS-0505SH30-NZ
+    // в словаре Other пропадал из-за пустой ячейки Столбец2 перед ним).
+    // Теперь самозакрывающиеся и обычные ячейки разбираются раздельно через |.
+    const cellMatches = rowXml.matchAll(/<c\b([^>]*?)\/>|<c\b([^>]*?)>([\s\S]*?)<\/c>/g);
 
     for (const cellMatch of cellMatches) {
-      const cellAttrs = cellMatch[1];
-      const cellXml = cellMatch[2];
+      const isSelfClosed = cellMatch[1] !== undefined;
+      const cellAttrs = isSelfClosed ? cellMatch[1] : cellMatch[2];
+      const cellXml = isSelfClosed ? '' : cellMatch[3];
       const cellRef = extractXmlAttrValue(cellAttrs, 'r');
       const cellIndex = columnLettersToIndex(cellRef);
       const cellType = extractXmlAttrValue(cellAttrs, 't');
