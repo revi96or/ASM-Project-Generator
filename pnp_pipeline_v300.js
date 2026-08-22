@@ -1,7 +1,11 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.28 для словаря Dict/.
- * Версия: 3.5.28
+ * Описание: Минимальный конвейер Pick and Place 3.5.29 для словаря Dict/.
+ * Версия: 3.5.29
  * Автор: Новожилов Артем
+ * Изменения 3.5.29: в buildOtherMatchState (лист Other) добавлена проверка
+ * на пустое значение COMMENT_FR/FOOTPRINT_FR перед заменой — раньше пустая
+ * ячейка в словаре Other затирала исходный COMMENT (например у
+ * AM1LS-0505SH30-NZ, где в словаре задан только FOOTPRINT_FR).
  */
 
 const fs = require('fs/promises');
@@ -26,7 +30,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.28',
+    version: '3.5.29',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -45,6 +49,13 @@ function normalizeText(value) {
 
 function normalizeDecimalText(value) {
   return normalizeText(value).replace(',', '.');
+}
+
+function parseLooseNumericValue(value) {
+  const text = normalizeDecimalText(value);
+  const match = text.match(/[-+]?\d+(?:\.\d+)?/);
+
+  return match ? Number(match[0]) : NaN;
 }
 
 function normalizeHeaderName(value) {
@@ -335,7 +346,7 @@ function toNumberText(rawValue) {
 }
 
 function normalizeRotationValue(rawValue) {
-  const numericValue = Number(normalizeDecimalText(rawValue));
+  const numericValue = parseLooseNumericValue(rawValue);
 
   if (!Number.isFinite(numericValue)) {
     return '0';
@@ -937,7 +948,7 @@ function rotationDict(dictLike) {
   return {
     ...dictLike,
     rows: sourceRows.map((row) => {
-      const baseRotation = Number(row.rotation);
+      const baseRotation = parseLooseNumericValue(row.rotation);
       const nextRotation = Number.isFinite(baseRotation) ? baseRotation : 0;
       // Нижнюю сторону больше не поворачиваем автоматически — сохраняем исходный угол как есть.
       let normalizedRotation = nextRotation % 360;
@@ -2202,8 +2213,8 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
 
 function computeResistorRotationValue(currentRotation, rotationDelta, layerValue) {
   const layerText = normalizeText(layerValue).toLowerCase();
-  const currentValue = Number(normalizeDecimalText(currentRotation));
-  const deltaValue = Number(normalizeDecimalText(rotationDelta));
+  const currentValue = parseLooseNumericValue(currentRotation);
+  const deltaValue = parseLooseNumericValue(rotationDelta);
   const safeCurrent = Number.isFinite(currentValue) ? currentValue : 0;
   const safeDelta = Number.isFinite(deltaValue) ? deltaValue : 0;
   let nextRotation = null;
@@ -2779,14 +2790,23 @@ function buildOtherMatchState(dataOtherState, otherSheetState) {
       const replacementComment = normalizeText(bestMatch.dictRow[dictIndexes.COMMENT_FR]);
       const replacementFootprint = normalizeText(bestMatch.dictRow[dictIndexes.FOOTPRINT_FR]);
 
-      nextRow[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
-      if (Array.isArray(nextWorksheetRow.values)) {
-        nextWorksheetRow.values[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+      // Пустое значение в словаре (COMMENT_FR/FOOTPRINT_FR) означает "не менять",
+      // поэтому затираем ячейку только если замена реально задана. Раньше здесь
+      // не было такой проверки (в отличие от Resist/Capacitor), из-за чего
+      // COMMENT терялся, если в словаре Other для этой строки FR-колонка пустая
+      // (например AM1LS-0505SH30-NZ, где COMMENT_FR не задан, а FOOTPRINT_FR есть).
+      if (replacementComment) {
+        nextRow[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+        if (Array.isArray(nextWorksheetRow.values)) {
+          nextWorksheetRow.values[sourceIndexes.COMMENT] = buildResistorCellValue(replacementComment, 'full', 4);
+        }
       }
 
-      nextRow[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
-      if (Array.isArray(nextWorksheetRow.values)) {
-        nextWorksheetRow.values[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+      if (replacementFootprint) {
+        nextRow[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+        if (Array.isArray(nextWorksheetRow.values)) {
+          nextWorksheetRow.values[sourceIndexes.FOOTPRINT] = buildResistorCellValue(replacementFootprint, 'full', 4);
+        }
       }
 
       fullMatchCount += 1;

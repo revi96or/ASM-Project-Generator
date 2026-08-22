@@ -1518,7 +1518,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.28",
+    version: "3.5.29",
     versionDate: "2026-08-17"
   }),
   getUserSettings: async () => ({
@@ -1619,8 +1619,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.28",
-    latestVersion: "3.5.28",
+    currentVersion: "3.5.29",
+    latestVersion: "3.5.29",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1654,7 +1654,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.28",
+  version: "3.5.29",
   versionDate: "2026-08-17"
   },
   projectMode: "create",
@@ -4670,7 +4670,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.28",
+    version: "3.5.29",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
