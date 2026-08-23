@@ -5380,6 +5380,13 @@ async function saveProjectState(){
 }
 
 function resetForm(){
+  // Перед reload запоминаем текущую левую вкладку, чтобы форма после сброса
+  // вернулась туда же, где пользователь был до нажатия кнопки.
+  if (state.navPreviewActive) {
+    sessionStorage.setItem("asm-nav-preview-active", state.navPreviewActive);
+  } else {
+    sessionStorage.removeItem("asm-nav-preview-active");
+  }
   saveCurrentPaths();
   window.location.reload();
 }
@@ -5965,7 +5972,12 @@ async function init(){
   setToday();
   updateFooterMeta();
   updateProjectModeUi();
-  setNavPreviewActive("placer");
+  const storedNavPreview = sessionStorage.getItem("asm-nav-preview-active");
+  if (storedNavPreview) {
+    setNavPreviewActive(storedNavPreview);
+  } else {
+    setNavPreviewActive("placer");
+  }
 
   $("themeToggle").addEventListener("click", (event) => {
     event.preventDefault();

@@ -62,7 +62,8 @@
       }
    },
    "dependencies": {
-      "electron-updater": "^6.5.0"
+      "electron-updater": "^6.5.0",
+      "unzipper": "^0.12.5"
    },
    "devDependencies": {
       "@fontsource/inter": "^5.1.1",
