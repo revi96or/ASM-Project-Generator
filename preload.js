@@ -20,6 +20,15 @@ contextBridge.exposeInMainWorld('asmApi', {
   openGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:open-generated-files-history', payload),
   getGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:get-generated-files-history', payload),
   clearGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:clear-generated-files-history', payload),
+  updateGeneratedFilesHistoryTheme: (payload) => ipcRenderer.invoke('asm:update-generated-files-history-theme', payload),
+  onGeneratedFilesHistoryThemeChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('asm:generated-files-history-theme-changed', listener);
+
+    return () => {
+      ipcRenderer.removeListener('asm:generated-files-history-theme-changed', listener);
+    };
+  },
   saveProjectJson: (payload) => ipcRenderer.invoke('asm:save-project-json', payload),
   saveProjectState: (payload) => ipcRenderer.invoke('asm:save-project-state', payload),
   saveAoiFile: (payload) => ipcRenderer.invoke('asm:save-aoi-file', payload),

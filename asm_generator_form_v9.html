@@ -1651,6 +1651,9 @@ const asmBridge = window.asmApi || {
   clearGeneratedFilesHistory: async () => {
     throw new Error("Очистка истории доступна только в Electron.");
   },
+  updateGeneratedFilesHistoryTheme: async () => {
+    throw new Error("Смена темы истории доступна только в Electron.");
+  },
   saveProjectJson: async () => {
     throw new Error("Сохранение JSON доступно только в Electron.");
   },
@@ -2551,6 +2554,16 @@ function refreshPnpStatsWindowTheme(){
   const stats = state.pnp.stats ? { ...state.pnp.stats } : getPnpEmptyStats();
   const summaryLines = Array.isArray(state.pnp.lastStatsSummaryLines) ? state.pnp.lastStatsSummaryLines.slice() : [];
   asmBridge.pnpRefreshStatsWindow(buildPnpStatsWindowPayload(stats, summaryLines)).catch(() => {});
+}
+
+function refreshGeneratedFilesHistoryWindowTheme(){
+  if (typeof asmBridge.updateGeneratedFilesHistoryTheme !== "function") {
+    return;
+  }
+
+  asmBridge.updateGeneratedFilesHistoryTheme({
+    theme: state.theme === "light" ? "light" : "dark"
+  }).catch(() => {});
 }
 
 async function showPnpStatsWindow(stats, summaryLines){
@@ -5379,6 +5392,7 @@ function applyTheme(mode){
   } else {
     persistUserSettings();
     refreshPnpStatsWindowTheme();
+    refreshGeneratedFilesHistoryWindowTheme();
   }
   setTimeout(fitProjectText, 30);
 }
@@ -5472,7 +5486,8 @@ async function openGeneratedFilesHistory(sortBy = "createdAt", sortDirection = "
     await asmBridge.openGeneratedFilesHistory({
       sortBy,
       sortDirection,
-      limit: 200
+      limit: 200,
+      theme: state.theme
     });
   } catch (error) {
     showAppDialog("История файлов", `Не удалось загрузить историю файлов.\n\n${formatPnpErrorMessage(error)}`);

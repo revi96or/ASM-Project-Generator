@@ -268,6 +268,7 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
   const initialSortBy = normalizeHistorySortBy(payload && payload.sortBy);
   const initialSortDirection = normalizeHistorySortDirection(payload && payload.sortDirection).toLowerCase();
   const initialLimit = Math.max(1, Math.min(500, Number(payload && payload.limit) || 200));
+  const initialTheme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
 
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -286,6 +287,15 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     --border:rgba(148,178,220,.16);
   }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;overflow:hidden;}
+  body.light{
+    --bg:#E5DCCB;
+    --panel:#F5EFE2;
+    --surface:#FBF7EE;
+    --text:#1A1A1A;
+    --muted:#5D5D5D;
+    --accent:#0EA5E9;
+    --border:rgba(90,90,90,.18);
+  }
   body{display:flex;flex-direction:column;}
   .history-shell{flex:1;display:flex;flex-direction:column;min-height:0;padding:16px;box-sizing:border-box;}
   .history-window{
@@ -314,6 +324,12 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
   .history-title{ font-size:22px; font-weight:900; white-space:nowrap; }
   .history-meta{ color:var(--muted); font-size:13px; white-space:nowrap; }
   .history-toolbar{ display:flex; flex-wrap:wrap; gap:8px; padding:14px 16px 10px; }
+  .history-footer{
+    display:flex;
+    justify-content:flex-end;
+    padding:0 16px 16px;
+    margin-top:auto;
+  }
   .btn{ border:1px solid var(--border); border-radius:12px; padding:8px 12px; font-size:13px; font-weight:800; color:var(--text); background:var(--surface); cursor:pointer; }
   .btn.primary{background:color-mix(in srgb, var(--accent) 22%, var(--surface));}
   .btn.danger{background:rgba(224,85,79,.18);}
@@ -333,7 +349,7 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
   .empty{ padding:18px; color:var(--muted); }
 </style>
 </head>
-<body>
+<body class="${initialTheme}">
   <div class="history-shell">
     <div class="history-window">
       <div class="history-header">
@@ -363,6 +379,10 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
           <tbody id="historyBody"></tbody>
         </table>
       </div>
+      <div class="history-footer">
+        <!-- Кнопка закрывает отдельное окно истории без влияния на основное окно программы. -->
+        <button type="button" class="btn primary" id="closeBtn">Закрыть</button>
+      </div>
     </div>
   </div>
 <script>
@@ -371,6 +391,7 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     sortBy: ${JSON.stringify(initialSortBy)},
     sortDirection: ${JSON.stringify(initialSortDirection)},
     limit: ${initialLimit},
+    theme: ${JSON.stringify(initialTheme)},
     totalCount: 0,
     items: []
   };
@@ -396,6 +417,10 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     document.getElementById('directionBtn').textContent = state.sortDirection === 'asc' ? 'Сначала старые' : 'Сначала новые';
     document.getElementById('historyMeta').textContent = 'Записей: ' + state.totalCount;
     document.getElementById('historyNote').textContent = 'Сортировка: ' + (state.sortBy === 'fileName' ? 'имя файла' : 'дата') + ', ' + (state.sortDirection === 'asc' ? 'по возрастанию' : 'по убыванию');
+  }
+
+  function applyTheme() {
+    document.body.className = state.theme === 'light' ? 'light' : 'dark';
   }
 
   function renderRows(items){
@@ -450,6 +475,8 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     state.items = Array.isArray(response && response.items) ? response.items : [];
     state.sortBy = response && response.sortBy === 'fileName' ? 'fileName' : 'createdAt';
     state.sortDirection = String(response && response.sortDirection || state.sortDirection).toLowerCase() === 'asc' ? 'asc' : 'desc';
+    state.theme = String(response && response.theme === 'light' ? 'light' : state.theme);
+    applyTheme();
     updateButtons();
     renderRows(state.items);
   }
@@ -479,6 +506,14 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
   });
   document.getElementById('refreshBtn').addEventListener('click', loadHistory);
   document.getElementById('clearBtn').addEventListener('click', clearHistory);
+  document.getElementById('closeBtn').addEventListener('click', () => window.close());
+
+  if (api.onGeneratedFilesHistoryThemeChanged) {
+    api.onGeneratedFilesHistoryThemeChanged((payload) => {
+      state.theme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
+      applyTheme();
+    });
+  }
 
   loadHistory().catch((error) => {
     document.getElementById('historyBody').innerHTML = '<tr><td class="empty" colspan="6">Не удалось загрузить историю: ' + esc(error && error.message ? error.message : String(error || 'ошибка')) + '</td></tr>';
@@ -566,8 +601,13 @@ async function openGeneratedFilesHistoryWindow(payload = {}) {
   const windowExists = generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed();
   const windowHtml = buildGeneratedFilesHistoryWindowHtml(payload || {});
   const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+  const windowTheme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
 
   if (windowExists) {
+    if (typeof generatedFilesHistoryWindow.setBackgroundColor === 'function') {
+      generatedFilesHistoryWindow.setBackgroundColor(windowTheme === 'light' ? '#E5DCCB' : '#0A0E18');
+    }
+    await generatedFilesHistoryWindow.loadURL(windowUrl);
     focusGeneratedFilesHistoryWindow();
     return {
       opened: true,
@@ -587,7 +627,7 @@ async function openGeneratedFilesHistoryWindow(payload = {}) {
     frame: false,
     title: 'История файлов',
     icon: path.join(__dirname, 'assets', 'asm-icon.ico'),
-    backgroundColor: '#0A0E18',
+    backgroundColor: windowTheme === 'light' ? '#E5DCCB' : '#0A0E18',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -2735,6 +2775,16 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     return clearGeneratedFilesHistory(payload || {}, senderWindow);
   });
 
+  ipcMain.handle('asm:update-generated-files-history-theme', async (_event, payload) => {
+    if (!generatedFilesHistoryWindow || generatedFilesHistoryWindow.isDestroyed()) {
+      return { updated: false, skipped: true };
+    }
+
+    const theme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
+    generatedFilesHistoryWindow.webContents.send('asm:generated-files-history-theme-changed', { theme });
+    return { updated: true, theme };
+  });
+
   ipcMain.handle('asm:get-user-settings', async () => {
     return loadUserSettings();
   });
@@ -2958,6 +3008,9 @@ function createWindow() {
     if (pnpStatsWindow && !pnpStatsWindow.isDestroyed()) {
       pnpStatsWindow.close();
     }
+    if (generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed()) {
+      generatedFilesHistoryWindow.close();
+    }
     if (mainWindow === windowRef) {
       mainWindow = null;
     }
@@ -3021,4 +3074,3 @@ module.exports = {
   sanitizeCommentValue,
   ensureTargetFolder
 };
-
