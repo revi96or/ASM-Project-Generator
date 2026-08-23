@@ -910,6 +910,83 @@
     justify-content:center;
   }
 
+  .history-toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:12px;
+  }
+
+  .history-toolbar .solid-btn,
+  .history-toolbar .ghost-btn{
+    min-width:0;
+    padding:8px 12px;
+    font-size:13px;
+  }
+
+  .history-note{
+    margin:0 0 12px;
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.45;
+  }
+
+  .history-table-wrap{
+    max-height:min(60vh, 560px);
+    overflow:auto;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--surface-alt);
+  }
+
+  .history-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+
+  .history-table th,
+  .history-table td{
+    padding:8px 10px;
+    border-bottom:1px solid var(--border);
+    vertical-align:top;
+    text-align:left;
+  }
+
+  .history-table th{
+    position:sticky;
+    top:0;
+    z-index:1;
+    background:var(--surface);
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  .history-table td:nth-child(1),
+  .history-table td:nth-child(3),
+  .history-table td:nth-child(4){
+    white-space:nowrap;
+  }
+
+  .history-table td:nth-child(2),
+  .history-table td:nth-child(5){
+    word-break:break-word;
+  }
+
+  .history-open-btn{
+    min-width:88px;
+    padding:7px 12px;
+    font-size:13px;
+  }
+
+  .history-empty{
+    padding:16px;
+    color:var(--muted);
+    font-size:14px;
+  }
+
   .settings-panel{
     margin-top:10px;
     border:1px solid var(--border);
@@ -1155,6 +1232,11 @@
             Сохранить размеры для АОИ
           </button>
         </div>
+
+        <button type="button" class="nav-main-btn" id="historyBtn">
+          <span class="nav-title"><i data-lucide="history" class="w-4 h-4"></i><span>История</span></span>
+          <i data-lucide="chevron-right" class="w-4 h-4 opacity-0"></i>
+        </button>
 
         <button type="button" class="nav-main-btn" data-nav-preview-btn="settings">
           <span class="nav-title"><i data-lucide="settings" class="w-4 h-4"></i><span>Настройки</span></span>
@@ -1559,6 +1641,15 @@ const asmBridge = window.asmApi || {
   },
   openFile: async () => {
     throw new Error("Открытие файлов доступно только в Electron.");
+  },
+  openGeneratedFilesHistory: async () => {
+    throw new Error("История доступна только в Electron.");
+  },
+  getGeneratedFilesHistory: async () => {
+    throw new Error("Просмотр истории доступен только в Electron.");
+  },
+  clearGeneratedFilesHistory: async () => {
+    throw new Error("Очистка истории доступна только в Electron.");
   },
   saveProjectJson: async () => {
     throw new Error("Сохранение JSON доступно только в Electron.");
@@ -2904,6 +2995,7 @@ function applyTooltipTexts(){
     createAoiProjectBtn: "Создает проект на основе txt файла Pick&Place",
     openPrinterFilesBtn: "Открывает окно проводника по пути \"адрес принтера\".",
     resetFormBtn: "Сбрасывает все заполненные поля.",
+    historyBtn: "Открывает журнал всех файлов, созданных программой.",
     catalogTreeBtn: "Открывает или скрывает дерево каталогов с адресами рабочих папок.",
     settingsBtn: "Открывает или скрывает конфигурацию приложения.",
     tipsToggle: "Включает или выключает всплывающие подсказки.",
@@ -5304,6 +5396,89 @@ async function openHelpPdf(){
   }
 }
 
+function formatGeneratedFilesHistoryDate(value){
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value || "");
+  }
+
+  return date.toLocaleString("ru-RU");
+}
+
+function buildGeneratedFilesHistoryHtml(items, options = {}){
+  const rows = Array.isArray(items) ? items : [];
+  const sortBy = options.sortBy === "fileName" ? "fileName" : "createdAt";
+  const sortDirection = String(options.sortDirection || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+  const totalCount = Number(options.totalCount || rows.length || 0);
+  const summaryText = `Показано ${rows.length} из ${totalCount}`;
+  const sortLabel = sortBy === "fileName" ? "имя файла" : "дата";
+  const directionLabel = sortDirection === "asc" ? "сначала старые" : "сначала новые";
+  const tableRows = rows.length ? rows.map((item) => {
+    const filePath = String(item && item.filePath ? item.filePath : "");
+    const fileName = String(item && item.fileName ? item.fileName : "");
+    const section = String(item && item.section ? item.section : "—");
+    const fileType = String(item && item.fileType ? item.fileType : "—");
+    const createdAt = formatGeneratedFilesHistoryDate(item && item.createdAt ? item.createdAt : "");
+
+    return [
+      `<tr>`,
+      `<td>${escapePnpHtml(createdAt)}</td>`,
+      `<td title="${escapePnpHtml(filePath)}">${escapePnpHtml(fileName)}</td>`,
+      `<td>${escapePnpHtml(section)}</td>`,
+      `<td>${escapePnpHtml(fileType)}</td>`,
+      `<td title="${escapePnpHtml(filePath)}">${escapePnpHtml(filePath)}</td>`,
+      `<td><button type="button" class="ghost-btn history-open-btn" data-history-open-path="${escapePnpHtml(filePath)}">Открыть</button></td>`,
+      `</tr>`
+    ].join("");
+  }).join("") : `
+    <tr>
+      <td colspan="6" class="history-empty">Журнал пока пуст.</td>
+    </tr>
+  `;
+
+  return `
+    <div class="history-toolbar">
+      <button type="button" class="${sortBy === "createdAt" ? "solid-btn" : "ghost-btn"}" id="historySortDateBtn">По дате</button>
+      <button type="button" class="${sortBy === "fileName" ? "solid-btn" : "ghost-btn"}" id="historySortNameBtn">По имени</button>
+      <button type="button" class="ghost-btn" id="historyDirectionBtn">Порядок: ${escapePnpHtml(directionLabel)}</button>
+      <button type="button" class="ghost-btn" id="historyRefreshBtn">Обновить</button>
+    </div>
+    <div class="history-note">${escapePnpHtml(summaryText)} · Сортировка: ${escapePnpHtml(sortLabel)}</div>
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Дата и время</th>
+            <th>Файл</th>
+            <th>Раздел</th>
+            <th>Тип</th>
+            <th>Путь</th>
+            <th>Действие</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openGeneratedFilesHistory(sortBy = "createdAt", sortDirection = "desc"){
+  try {
+    if (!window.asmApi || typeof window.asmApi.openGeneratedFilesHistory !== "function") {
+      showAppDialog("История файлов", "Открытие истории доступно только в Electron.");
+      return;
+    }
+
+    await asmBridge.openGeneratedFilesHistory({
+      sortBy,
+      sortDirection,
+      limit: 200
+    });
+  } catch (error) {
+    showAppDialog("История файлов", `Не удалось загрузить историю файлов.\n\n${formatPnpErrorMessage(error)}`);
+  }
+}
+
 async function openPnpLastXlsxFile(){
   const xlsxPath = String(state.pnp.lastXlsxPath || "").trim();
 
@@ -5884,6 +6059,10 @@ async function init(){
   $("settingsBtn").addEventListener("click", (event) => {
     event.preventDefault();
     toggleSettingsPanel();
+  });
+  $("historyBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    openGeneratedFilesHistory();
   });
   $("catalogTreeBtn").addEventListener("click", (event) => {
     event.preventDefault();

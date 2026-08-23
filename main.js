@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
  * Версия: 3.5.34
  * Автор: Новожилов Артем
@@ -8,6 +8,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs/promises');
 const { constants: fsConstants } = require('fs');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const packageJson = require('./package.json');
 const pnpPipeline = require('./pnp_pipeline_v300');
@@ -32,6 +33,7 @@ const DEFAULT_PATHS = {
 };
 const USER_SETTINGS_FILE = 'asm-user-settings.json';
 const USER_SNAPSHOT_DIR = 'snapshots';
+const GENERATED_FILES_HISTORY_DB_FILE = 'generated-files-history.sqlite';
 const TEMPLATE_GENERATION_FILES = [
   { templateName: 'template.PR1', outputExtension: '.PR1' },
   { templateName: 'template.ISD', outputExtension: '.ISD' },
@@ -112,12 +114,14 @@ const DEFAULT_USER_SETTINGS = {
 
 let mainWindow = null;
 let pnpStatsWindow = null;
+let generatedFilesHistoryWindow = null;
 let userSettings = {
   ...DEFAULT_USER_SETTINGS,
   paths: { ...DEFAULT_PATHS },
   pnpPaths: { ...DEFAULT_USER_SETTINGS.pnpPaths }
 };
 let operationCancelRequested = false;
+let generatedFilesHistoryDb = null;
 
 function requestOperationCancel() {
   operationCancelRequested = true;
@@ -202,6 +206,8 @@ function buildPnpStatsWindowHtml(payload) {
     --stats-card-text:#ffffff;
     --stats-note-text:rgba(255,255,255,.92);
   }
+
+
   html.light{
     --bg:#E5DCCB;
     --panel:#F2EADF;
@@ -258,6 +264,231 @@ function buildPnpStatsWindowHtml(payload) {
 </html>`;
 }
 
+function buildGeneratedFilesHistoryWindowHtml(payload) {
+  const initialSortBy = normalizeHistorySortBy(payload && payload.sortBy);
+  const initialSortDirection = normalizeHistorySortDirection(payload && payload.sortDirection).toLowerCase();
+  const initialLimit = Math.max(1, Math.min(500, Number(payload && payload.limit) || 200));
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>История файлов</title>
+<style>
+  :root{
+    --bg:#0A0E18;
+    --panel:#121A2C;
+    --surface:#161F34;
+    --text:#F2F5FA;
+    --muted:#9AA6BD;
+    --accent:#38bdf8;
+    --border:rgba(148,178,220,.16);
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;overflow:hidden;}
+  body{display:flex;flex-direction:column;}
+  .history-shell{flex:1;display:flex;flex-direction:column;min-height:0;padding:16px;box-sizing:border-box;}
+  .history-window{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    border:1px solid var(--border);
+    border-radius:18px;
+    overflow:hidden;
+    background:var(--panel);
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+  }
+  .history-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--panel), color-mix(in srgb, var(--panel) 88%, black));
+    cursor:move;
+    -webkit-app-region:drag;
+  }
+  .history-header *{ -webkit-app-region:no-drag; }
+  .history-title{ font-size:22px; font-weight:900; white-space:nowrap; }
+  .history-meta{ color:var(--muted); font-size:13px; white-space:nowrap; }
+  .history-toolbar{ display:flex; flex-wrap:wrap; gap:8px; padding:14px 16px 10px; }
+  .btn{ border:1px solid var(--border); border-radius:12px; padding:8px 12px; font-size:13px; font-weight:800; color:var(--text); background:var(--surface); cursor:pointer; }
+  .btn.primary{background:color-mix(in srgb, var(--accent) 22%, var(--surface));}
+  .btn.danger{background:rgba(224,85,79,.18);}
+  .btn.active{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);}
+  .history-note{ padding:0 16px 12px; color:var(--muted); font-size:13px; }
+  .history-table-wrap{ flex:1; min-height:0; margin:0 16px 16px; border:1px solid var(--border); border-radius:14px; overflow:auto; background:var(--surface); }
+  .history-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  .history-table th,
+  .history-table td{ padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; text-align:left; }
+  .history-table th{ position:sticky; top:0; z-index:1; background:var(--panel); color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+  .history-table td:nth-child(1),
+  .history-table td:nth-child(3),
+  .history-table td:nth-child(4){ white-space:nowrap; }
+  .history-table td:nth-child(2),
+  .history-table td:nth-child(5){ word-break:break-word; }
+  .open-btn{ min-width:88px; padding:7px 12px; }
+  .empty{ padding:18px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="history-shell">
+    <div class="history-window">
+      <div class="history-header">
+        <div class="history-title">История файлов</div>
+        <div class="history-meta" id="historyMeta">Загрузка...</div>
+      </div>
+      <div class="history-toolbar">
+        <button type="button" class="btn" id="sortDateBtn">По дате</button>
+        <button type="button" class="btn" id="sortNameBtn">По имени</button>
+        <button type="button" class="btn" id="directionBtn">Порядок</button>
+        <button type="button" class="btn primary" id="refreshBtn">Обновить</button>
+        <button type="button" class="btn danger" id="clearBtn">Очистить историю</button>
+      </div>
+      <div class="history-note" id="historyNote"></div>
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Дата и время</th>
+              <th>Файл</th>
+              <th>Раздел</th>
+              <th>Тип</th>
+              <th>Путь</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+<script>
+(() => {
+  const state = {
+    sortBy: ${JSON.stringify(initialSortBy)},
+    sortDirection: ${JSON.stringify(initialSortDirection)},
+    limit: ${initialLimit},
+    totalCount: 0,
+    items: []
+  };
+  const api = window.asmApi || {};
+
+  function esc(value){
+    return String(value === null || value === undefined ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatDate(value){
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleString('ru-RU');
+  }
+
+  function updateButtons(){
+    document.getElementById('sortDateBtn').className = state.sortBy === 'createdAt' ? 'btn primary active' : 'btn';
+    document.getElementById('sortNameBtn').className = state.sortBy === 'fileName' ? 'btn primary active' : 'btn';
+    document.getElementById('directionBtn').textContent = state.sortDirection === 'asc' ? 'Сначала старые' : 'Сначала новые';
+    document.getElementById('historyMeta').textContent = 'Записей: ' + state.totalCount;
+    document.getElementById('historyNote').textContent = 'Сортировка: ' + (state.sortBy === 'fileName' ? 'имя файла' : 'дата') + ', ' + (state.sortDirection === 'asc' ? 'по возрастанию' : 'по убыванию');
+  }
+
+  function renderRows(items){
+    const body = document.getElementById('historyBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td class="empty" colspan="6">Журнал пока пуст.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = items.map((item) => {
+      const filePath = String(item && item.filePath ? item.filePath : '');
+      const fileName = String(item && item.fileName ? item.fileName : '');
+      const section = String(item && item.section ? item.section : '—');
+      const fileType = String(item && item.fileType ? item.fileType : '—');
+      const createdAt = formatDate(item && item.createdAt ? item.createdAt : '');
+      return [
+        '<tr>',
+        '<td>' + esc(createdAt) + '</td>',
+        '<td title="' + esc(filePath) + '">' + esc(fileName) + '</td>',
+        '<td>' + esc(section) + '</td>',
+        '<td>' + esc(fileType) + '</td>',
+        '<td title="' + esc(filePath) + '">' + esc(filePath) + '</td>',
+        '<td><button type="button" class="btn open-btn" data-open-path="' + esc(filePath) + '">Открыть</button></td>',
+        '</tr>'
+      ].join('');
+    }).join('');
+
+    body.querySelectorAll('[data-open-path]').forEach((button) => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const filePath = String(button.getAttribute('data-open-path') || '').trim();
+        if (!filePath || !api.openFile) {
+          return;
+        }
+        await api.openFile(filePath);
+      });
+    });
+  }
+
+  async function loadHistory(){
+    if (!api.getGeneratedFilesHistory) {
+      document.getElementById('historyBody').innerHTML = '<tr><td class="empty" colspan="6">История доступна только в Electron.</td></tr>';
+      return;
+    }
+
+    const response = await api.getGeneratedFilesHistory({
+      sortBy: state.sortBy,
+      sortDirection: state.sortDirection,
+      limit: state.limit
+    });
+    state.totalCount = Number(response && response.totalCount ? response.totalCount : 0);
+    state.items = Array.isArray(response && response.items) ? response.items : [];
+    state.sortBy = response && response.sortBy === 'fileName' ? 'fileName' : 'createdAt';
+    state.sortDirection = String(response && response.sortDirection || state.sortDirection).toLowerCase() === 'asc' ? 'asc' : 'desc';
+    updateButtons();
+    renderRows(state.items);
+  }
+
+  async function clearHistory(){
+    if (!api.clearGeneratedFilesHistory) {
+      return;
+    }
+
+    const result = await api.clearGeneratedFilesHistory();
+    if (result && result.cleared) {
+      await loadHistory();
+    }
+  }
+
+  document.getElementById('sortDateBtn').addEventListener('click', () => {
+    state.sortBy = 'createdAt';
+    loadHistory();
+  });
+  document.getElementById('sortNameBtn').addEventListener('click', () => {
+    state.sortBy = 'fileName';
+    loadHistory();
+  });
+  document.getElementById('directionBtn').addEventListener('click', () => {
+    state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+    loadHistory();
+  });
+  document.getElementById('refreshBtn').addEventListener('click', loadHistory);
+  document.getElementById('clearBtn').addEventListener('click', clearHistory);
+
+  loadHistory().catch((error) => {
+    document.getElementById('historyBody').innerHTML = '<tr><td class="empty" colspan="6">Не удалось загрузить историю: ' + esc(error && error.message ? error.message : String(error || 'ошибка')) + '</td></tr>';
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
 function focusPnpStatsWindow() {
   if (!pnpStatsWindow || pnpStatsWindow.isDestroyed()) {
     return;
@@ -280,6 +511,198 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
     pnpStatsWindow.close();
     return { opened: false, closed: true };
   }
+
+  const windowHtml = buildPnpStatsWindowHtml(payload || {});
+  const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+
+  if (windowExists) {
+    await pnpStatsWindow.loadURL(windowUrl);
+    focusPnpStatsWindow();
+    return { opened: true, updated: true };
+  }
+
+  pnpStatsWindow = new BrowserWindow({
+    width: 992,
+    height: 1120,
+    minWidth: 992,
+    minHeight: 860,
+    autoHideMenuBar: true,
+    title: 'Итоги обработки компонентов',
+    icon: path.join(__dirname, 'assets', 'stats-icon.png'),
+    backgroundColor: windowTheme === 'light' ? '#E5DCCB' : '#0A0E18',
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  pnpStatsWindow.on('closed', () => {
+    if (pnpStatsWindow) {
+      pnpStatsWindow = null;
+    }
+  });
+
+  await pnpStatsWindow.loadURL(windowUrl);
+  focusPnpStatsWindow();
+
+  return { opened: true, created: true };
+}
+
+function focusGeneratedFilesHistoryWindow() {
+  if (!generatedFilesHistoryWindow || generatedFilesHistoryWindow.isDestroyed()) {
+    return;
+  }
+
+  if (generatedFilesHistoryWindow.isMinimized()) {
+    generatedFilesHistoryWindow.restore();
+  }
+
+  generatedFilesHistoryWindow.show();
+  generatedFilesHistoryWindow.focus();
+}
+
+async function openGeneratedFilesHistoryWindow(payload = {}) {
+  const windowExists = generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed();
+  const windowHtml = buildGeneratedFilesHistoryWindowHtml(payload || {});
+  const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+
+  if (windowExists) {
+    focusGeneratedFilesHistoryWindow();
+    return {
+      opened: true,
+      focused: true
+    };
+  }
+
+  generatedFilesHistoryWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1120,
+    minHeight: 680,
+    maxHeight: 980,
+    resizable: true,
+    movable: true,
+    autoHideMenuBar: true,
+    frame: false,
+    title: 'История файлов',
+    icon: path.join(__dirname, 'assets', 'asm-icon.ico'),
+    backgroundColor: '#0A0E18',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  generatedFilesHistoryWindow.on('closed', () => {
+    if (generatedFilesHistoryWindow) {
+      generatedFilesHistoryWindow = null;
+    }
+  });
+
+  await generatedFilesHistoryWindow.loadURL(windowUrl);
+  focusGeneratedFilesHistoryWindow();
+
+  return {
+    opened: true,
+    created: true
+  };
+}
+
+async function clearGeneratedFilesHistory(payload = {}, senderWindow = null) {
+  const parentWindow = senderWindow && !senderWindow.isDestroyed()
+    ? senderWindow
+    : (generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed() ? generatedFilesHistoryWindow : mainWindow);
+  const result = await dialog.showMessageBox(parentWindow || undefined, {
+    type: 'warning',
+    buttons: ['Очистить историю', 'Отмена'],
+    defaultId: 1,
+    cancelId: 1,
+    noLinkButtons: true,
+    title: 'Очистить историю',
+    message: 'Полностью очистить историю созданных файлов?',
+    detail: 'Действие удалит все записи журнала без возможности восстановления.'
+  });
+
+  if (result.response !== 0) {
+    return {
+      cleared: false,
+      cancelled: true
+    };
+  }
+
+  const db = getGeneratedFilesHistoryDb();
+  db.exec('DELETE FROM generated_files_history;');
+
+  return {
+    cleared: true,
+    totalCount: 0
+  };
+}
+
+function refreshPnpStatsWindow(payload) {
+  const windowExists = pnpStatsWindow && !pnpStatsWindow.isDestroyed();
+  const windowTheme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
+
+  // Обновляем только уже открытое окно, чтобы отмена не открывала статистику сама.
+  if (!windowExists) {
+    return { opened: false, updated: false, skipped: true };
+  }
+
+  const windowHtml = buildPnpStatsWindowHtml(payload || {});
+  const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+  if (typeof pnpStatsWindow.setBackgroundColor === 'function') {
+    pnpStatsWindow.setBackgroundColor(windowTheme === 'light' ? '#E5DCCB' : '#0A0E18');
+  }
+
+  return pnpStatsWindow.loadURL(windowUrl).then(() => {
+    focusPnpStatsWindow();
+    return { opened: true, updated: true };
+  });
+}
+
+function assertOperationNotCancelled() {
+  if (!operationCancelRequested) {
+    return;
+  }
+
+  const error = new Error('Операция отменена пользователем.');
+  error.code = 'ERR_OPERATION_CANCELLED';
+  throw error;
+}
+
+function getUserSettingsPath() {
+  return path.join(app.getPath('userData'), USER_SETTINGS_FILE);
+}
+
+function getUserSnapshotDir() {
+  return path.join(app.getPath('userData'), USER_SNAPSHOT_DIR);
+}
+function focusPnpStatsWindow() {
+  if (!pnpStatsWindow || pnpStatsWindow.isDestroyed()) {
+    return;
+  }
+
+  if (pnpStatsWindow.isMinimized()) {
+    pnpStatsWindow.restore();
+  }
+
+  pnpStatsWindow.show();
+  pnpStatsWindow.focus();
+}
+
+async function openPnpStatsWindow(payload, toggleMode = false) {
+  const windowExists = pnpStatsWindow && !pnpStatsWindow.isDestroyed();
+  const windowTheme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
+
+  // Кнопка работает как переключатель, а экспорт обновляет уже открытое окно без лишнего дубля.
+  if (toggleMode && windowExists) {
+    pnpStatsWindow.close();
+    return { opened: false, closed: true };
+  }
+
 
   const windowHtml = buildPnpStatsWindowHtml(payload || {});
   const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
@@ -632,6 +1055,14 @@ async function savePlacementTxtOutputs(targetFolders, outputs, sourcePath) {
       files: savedFiles
     });
   }
+
+  safeRecordGeneratedFilesHistory(
+    saved.flatMap((folderInfo) => folderInfo.files),
+    {
+      section: 'АОИ',
+      action: 'savePlacementTxtOutputs'
+    }
+  );
 
   return saved;
 }
@@ -1133,6 +1564,17 @@ async function saveProjectSnapshotData(payload) {
     );
   }
 
+  safeRecordGeneratedFilesHistory(
+    saved.map((item) => ({
+      fileName,
+      path: item.path
+    })),
+    {
+      section: 'Проект ASM',
+      action: 'saveProjectSnapshotData'
+    }
+  );
+
   return {
     path: saved[0].path,
     fileName,
@@ -1207,6 +1649,14 @@ async function saveGeneratedProjectFiles(payload) {
     );
   }
 
+  safeRecordGeneratedFilesHistory(
+    saveReports.flatMap((item) => item.files),
+    {
+      section: 'Проект ASM',
+      action: 'saveGeneratedProjectFiles'
+    }
+  );
+
   return {
     sourceFolder: sourceResolution.sourceFolder,
     targetFolder,
@@ -1253,6 +1703,165 @@ function getErrorsLogPath() {
   } catch {
     return path.join(__dirname, PNP_ERRORS_LOG_FILE_NAME);
   }
+}
+
+function getGeneratedFilesHistoryDbPath() {
+  return path.join(app.getPath('userData'), GENERATED_FILES_HISTORY_DB_FILE);
+}
+
+function getGeneratedFilesHistoryDb() {
+  if (generatedFilesHistoryDb) {
+    return generatedFilesHistoryDb;
+  }
+
+  const dbPath = getGeneratedFilesHistoryDbPath();
+  const db = new DatabaseSync(dbPath);
+
+  // Журнал истории держим в одной локальной SQLite-базе, чтобы сортировка и выборка не зависели от файловой системы.
+  db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    CREATE TABLE IF NOT EXISTS generated_files_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      section TEXT NOT NULL,
+      action TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_generated_files_history_created_at
+      ON generated_files_history(created_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_generated_files_history_file_name
+      ON generated_files_history(file_name COLLATE NOCASE, id DESC);
+  `);
+
+  generatedFilesHistoryDb = db;
+  return generatedFilesHistoryDb;
+}
+
+function closeGeneratedFilesHistoryDb() {
+  if (!generatedFilesHistoryDb) {
+    return;
+  }
+
+  try {
+    generatedFilesHistoryDb.close();
+  } finally {
+    generatedFilesHistoryDb = null;
+  }
+}
+
+function normalizeHistorySortBy(sortBy) {
+  return String(sortBy || 'createdAt').toLowerCase() === 'filename' ? 'fileName' : 'createdAt';
+}
+
+function normalizeHistorySortDirection(sortDirection) {
+  return String(sortDirection || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+}
+
+function getGeneratedFileType(fileName, fallbackKind) {
+  const ext = path.extname(String(fileName || '')).replace(/^\./, '').trim().toLowerCase();
+  return ext || String(fallbackKind || '').trim().toLowerCase() || 'file';
+}
+
+function buildGeneratedFileHistoryRecords(files, metadata = {}) {
+  const createdAt = String(metadata.createdAt || new Date().toISOString());
+  const section = String(metadata.section || 'Общее').trim() || 'Общее';
+  const action = String(metadata.action || 'save').trim() || 'save';
+  const rows = [];
+
+  Array.isArray(files) && files.forEach((fileInfo) => {
+    const filePath = String(fileInfo && fileInfo.path ? fileInfo.path : '').trim();
+    const fileName = String(fileInfo && fileInfo.fileName ? fileInfo.fileName : path.basename(filePath)).trim();
+
+    if (!filePath || !fileName) {
+      return;
+    }
+
+    rows.push({
+      section,
+      action,
+      fileName,
+      filePath,
+      fileType: getGeneratedFileType(fileName, fileInfo && fileInfo.kind ? fileInfo.kind : '')
+    });
+  });
+
+  return rows;
+}
+
+function recordGeneratedFilesHistory(files, metadata = {}) {
+  const rows = buildGeneratedFileHistoryRecords(files, metadata);
+  const createdAt = String(metadata.createdAt || new Date().toISOString());
+
+  if (!rows.length) {
+    return {
+      recordedCount: 0
+    };
+  }
+
+  const db = getGeneratedFilesHistoryDb();
+  const insertStmt = db.prepare(`
+    INSERT INTO generated_files_history (section, action, file_name, file_path, file_type, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+
+  try {
+    db.exec('BEGIN IMMEDIATE');
+    rows.forEach((row) => {
+      insertStmt.run(row.section, row.action, row.fileName, row.filePath, row.fileType, createdAt);
+    });
+    db.exec('COMMIT');
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // Если откат не удался, дальше нам уже некуда безопасно падать.
+    }
+    throw error;
+  }
+
+  return {
+    recordedCount: rows.length
+  };
+}
+
+function safeRecordGeneratedFilesHistory(files, metadata = {}) {
+  try {
+    return recordGeneratedFilesHistory(files, metadata);
+  } catch (error) {
+    void appendErrorsLog('generated-files-history', error);
+    return {
+      recordedCount: 0,
+      errorMessage: error && error.message ? error.message : 'Не удалось записать историю файлов.'
+    };
+  }
+}
+
+function queryGeneratedFilesHistory(payload = {}) {
+  const db = getGeneratedFilesHistoryDb();
+  const sortBy = normalizeHistorySortBy(payload.sortBy);
+  const sortDirection = normalizeHistorySortDirection(payload.sortDirection);
+  const limit = Math.max(1, Math.min(1000, Number(payload.limit) || 200));
+  const totalCountRow = db.prepare('SELECT COUNT(*) AS totalCount FROM generated_files_history').get();
+  const orderClause = sortBy === 'fileName'
+    ? `file_name COLLATE NOCASE ${sortDirection}, created_at DESC, id DESC`
+    : `created_at ${sortDirection}, file_name COLLATE NOCASE ASC, id DESC`;
+  const rows = db.prepare(`
+    SELECT id, section, action, file_name AS fileName, file_path AS filePath, file_type AS fileType, created_at AS createdAt
+    FROM generated_files_history
+    ORDER BY ${orderClause}
+    LIMIT ?
+  `).all(limit);
+
+  return {
+    totalCount: Number(totalCountRow && totalCountRow.totalCount ? totalCountRow.totalCount : 0),
+    items: rows,
+    sortBy,
+    sortDirection,
+    limit
+  };
 }
 
 function serializeErrorForLog(context, error, details = {}) {
@@ -1424,6 +2033,13 @@ async function importPnpCsv(payload) {
         dictXlsxPath: dictXlsxPath
       }
     );
+
+    if (xlsxResult && xlsxResult.path) {
+      safeRecordGeneratedFilesHistory([xlsxResult], {
+        section: 'P&P',
+        action: 'savePnpXlsxFile'
+      });
+    }
   }
 
   return {
@@ -1465,6 +2081,14 @@ async function exportPnpFiles(payload) {
     exportTxtStem: payload && payload.importInfo && payload.importInfo.infoD7 ? payload.importInfo.infoD7 : exportStem
   });
   assertOperationNotCancelled();
+
+  if (Array.isArray(result.files) && result.files.length) {
+    safeRecordGeneratedFilesHistory(result.files, {
+      section: 'P&P',
+      action: 'exportFiles'
+    });
+  }
+
   return result;
 }
 
@@ -1510,6 +2134,11 @@ async function exportPnpTxtFiles(payload) {
     txtStem,
     payload && payload.sourcePath ? payload.sourcePath : ''
   );
+
+  safeRecordGeneratedFilesHistory(txtResult.saved, {
+    section: 'P&P',
+    action: 'saveDataExitTxtOutputs'
+  });
 
   assertOperationNotCancelled();
   const statsSource = payload && payload.pnp && payload.pnp.stats ? payload.pnp.stats : (payload && payload.stats ? payload.stats : null);
@@ -1563,6 +2192,13 @@ async function exportPnpTxtFiles(payload) {
           statsRows: statsSnapshot.sheetRows
         }
       );
+
+      if (xlsxResult && xlsxResult.path) {
+        safeRecordGeneratedFilesHistory([xlsxResult], {
+          section: 'P&P',
+          action: 'savePnpXlsxFile'
+        });
+      }
     } catch (error) {
       xlsxErrorMessage = normalizePnpErrorText(error && error.message ? error.message : String(error || 'Неизвестная ошибка сохранения XLSX.'));
     }
@@ -1804,6 +2440,13 @@ async function fillPnpSetColumn(payload) {
     xlsxResult = await pnpPipeline.savePnpXlsxFile(targetFolder, baseName, nextState.importInfo, sourcePath, {
       dictXlsxPath: dictXlsxPath
     });
+
+    if (xlsxResult && xlsxResult.path) {
+      safeRecordGeneratedFilesHistory([xlsxResult], {
+        section: 'P&P',
+        action: 'savePnpXlsxFile'
+      });
+    }
   }
 
   assertOperationNotCancelled();
@@ -1848,6 +2491,13 @@ async function savePnpState(payload) {
   });
 
   await pnpPipeline.saveStateFile(filePath, nextState);
+  safeRecordGeneratedFilesHistory([{
+    fileName: path.basename(filePath),
+    path: filePath
+  }], {
+    section: 'P&P',
+    action: 'savePnpState'
+  });
   assertOperationNotCancelled();
   return {
     filePath,
@@ -2072,6 +2722,19 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     return APP_META;
   });
 
+  ipcMain.handle('asm:get-generated-files-history', async (_event, payload) => {
+    return queryGeneratedFilesHistory(payload || {});
+  });
+
+  ipcMain.handle('asm:open-generated-files-history', async (_event, payload) => {
+    return openGeneratedFilesHistoryWindow(payload || {});
+  });
+
+  ipcMain.handle('asm:clear-generated-files-history', async (event, payload) => {
+    const senderWindow = event && event.sender ? BrowserWindow.fromWebContents(event.sender) : null;
+    return clearGeneratedFilesHistory(payload || {}, senderWindow);
+  });
+
   ipcMain.handle('asm:get-user-settings', async () => {
     return loadUserSettings();
   });
@@ -2154,6 +2817,14 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     const fileName = `${boardName}_описание.txt`;
     const targetPath = path.join(targetFolder, fileName);
     await fs.writeFile(targetPath, content, 'utf8');
+
+    safeRecordGeneratedFilesHistory([{
+      fileName,
+      path: targetPath
+    }], {
+      section: 'АОИ',
+      action: 'saveAoiFile'
+    });
 
     return {
       fileName,
@@ -2333,6 +3004,13 @@ if (app && typeof app.whenReady === 'function') {
       app.quit();
     }
   });
+
+  app.on('before-quit', () => {
+    if (generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed()) {
+      generatedFilesHistoryWindow.close();
+    }
+    closeGeneratedFilesHistoryDb();
+  });
 }
 
 module.exports = {
@@ -2343,3 +3021,4 @@ module.exports = {
   sanitizeCommentValue,
   ensureTargetFolder
 };
+
