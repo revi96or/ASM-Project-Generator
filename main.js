@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.33
+ * Версия: 3.5.34
  * Автор: Новожилов Артем
  */
 
@@ -140,6 +140,37 @@ function normalizePnpErrorText(value) {
     .replace(/\s*->\s*[^|]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+function resolveAppPath(targetPath) {
+  const normalizedPath = String(targetPath || '').trim();
+
+  if (!normalizedPath) {
+    return '';
+  }
+
+  // Для относительных путей опираемся на корень приложения, чтобы одинаково работало в dev и в сборке.
+  return path.isAbsolute(normalizedPath)
+    ? normalizedPath
+    : path.resolve(app.getAppPath(), normalizedPath);
+}
+
+async function openFileInDefaultApp(filePath) {
+  const resolvedPath = resolveAppPath(filePath);
+
+  if (!resolvedPath) {
+    throw new Error('Путь к файлу не задан.');
+  }
+
+  await fs.access(resolvedPath);
+
+  const result = await shell.openPath(resolvedPath);
+
+  if (result) {
+    throw new Error(result);
+  }
+
+  return { path: resolvedPath, opened: true };
 }
 
 function buildPnpStatsWindowHtml(payload) {
@@ -1299,7 +1330,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.33',
+    version: '3.5.34',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -2096,18 +2127,12 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     return { path: resolvedPath, opened: true };
   });
 
+  ipcMain.handle('asm:open-file', async (_event, filePath) => {
+    return openFileInDefaultApp(filePath);
+  });
+
   ipcMain.handle('asm:open-help-pdf', async () => {
-    const helpPdfPath = getHelpPdfPath();
-
-    await fs.access(helpPdfPath);
-
-    const result = await shell.openPath(helpPdfPath);
-
-    if (result) {
-      throw new Error(result);
-    }
-
-    return { path: helpPdfPath, opened: true };
+    return openFileInDefaultApp(getHelpPdfPath());
   });
 
   ipcMain.handle('asm:save-project-json', async (_event, payload) => {

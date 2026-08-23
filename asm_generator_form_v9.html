@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.17
+Версия: 9.27.18
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1102,7 +1102,11 @@
           </button>
           <button id="pnpReserveBtn" type="button" class="nav-sub-btn">
             <i data-lucide="square-dashed" class="w-4 h-4"></i>
-            Пока резерв
+            Файл XLSX
+          </button>
+          <button id="pnpDictionaryBtn" type="button" class="nav-sub-btn" style="margin-top:8px">
+            <i data-lucide="book-open" class="w-4 h-4"></i>
+            Словарь
           </button>
         </div>
 
@@ -1518,13 +1522,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.27.17
+// Версия: 9.27.18
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.33",
+    version: "3.5.34",
     versionDate: "2026-08-17"
   }),
   getUserSettings: async () => ({
@@ -1552,6 +1556,9 @@ const asmBridge = window.asmApi || {
   }),
   openFolder: async () => {
     throw new Error("Открытие папки доступно только в Electron.");
+  },
+  openFile: async () => {
+    throw new Error("Открытие файлов доступно только в Electron.");
   },
   saveProjectJson: async () => {
     throw new Error("Сохранение JSON доступно только в Electron.");
@@ -1625,8 +1632,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.33",
-    latestVersion: "3.5.33",
+    currentVersion: "3.5.34",
+    latestVersion: "3.5.34",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1660,7 +1667,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.33",
+  version: "3.5.34",
   versionDate: "2026-08-17"
   },
   projectMode: "create",
@@ -2910,7 +2917,8 @@ function applyTooltipTexts(){
     pnpExportFolderInput: "Папка, куда будут выгружены файлы экспорта P&P.",
     pnpCreateProjectBtn: "Открывает путь из поля «Импорт CSV» для запуска работы с P&P.",
     pnpStatsBtn: "Открывает и закрывает независимое окно статистики проекта P&P.",
-    pnpReserveBtn: "Резервная кнопка для будущих действий P&P.",
+    pnpReserveBtn: "Открывает последний созданный файл XLSX в Excel.",
+    pnpDictionaryBtn: "Открывает файл словаря из дерева каталогов в Excel.",
     pnpLoadDictBtn: "Загружает корневой Dict/ без изменения потоков PR1 и AOI.",
     pnpImportCsvBtn: "Импортирует CSV в текущий словарь P&P.",
     pnpLoadStateBtn: "Восстанавливает сохраненное состояние P&P.",
@@ -4718,7 +4726,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.5.30",
+    version: "3.5.34",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -5293,6 +5301,47 @@ async function openHelpPdf(){
     await window.asmApi.openHelpPdf();
   } catch (error) {
     showAppDialog("Help", `Не удалось открыть Help\\Help.pdf.\n\n${error && error.message ? error.message : String(error || "")}`);
+  }
+}
+
+async function openPnpLastXlsxFile(){
+  const xlsxPath = String(state.pnp.lastXlsxPath || "").trim();
+
+  if (!xlsxPath) {
+    showAppDialog("Pick and Place", "Сначала создайте проект P&P");
+    return;
+  }
+
+  if (!window.asmApi || typeof window.asmApi.openFile !== "function") {
+    showAppDialog("Pick and Place", "Открытие файлов доступно только в Electron.");
+    return;
+  }
+
+  try {
+    await asmBridge.openFile(xlsxPath);
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось открыть файл XLSX.\n\n${formatPnpErrorMessage(error)}`);
+  }
+}
+
+async function openPnpDictionaryFile(){
+  const dictPathInput = $("pnpDictXlsxPathInput");
+  const dictPath = String((dictPathInput && dictPathInput.value) || state.pnp.dictXlsxPath || "").trim();
+
+  if (!dictPath) {
+    showAppDialog("Pick and Place", "Не задан путь к словарю.");
+    return;
+  }
+
+  if (!window.asmApi || typeof window.asmApi.openFile !== "function") {
+    showAppDialog("Pick and Place", "Открытие файлов доступно только в Electron.");
+    return;
+  }
+
+  try {
+    await asmBridge.openFile(dictPath);
+  } catch (error) {
+    showAppDialog("Pick and Place", `Не удалось открыть словарь.\n\n${formatPnpErrorMessage(error)}`);
   }
 }
 
@@ -5929,7 +5978,11 @@ async function init(){
   });
   $("pnpReserveBtn").addEventListener("click", (event) => {
     event.preventDefault();
-    showPnpPlaceholder("Pick and Place", "Эта кнопка пока зарезервирована.");
+    openPnpLastXlsxFile();
+  });
+  $("pnpDictionaryBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    openPnpDictionaryFile();
   });
   loadPnpDictFromRoot().catch((error) => {
     showAppDialog("Pick and Place", `Не удалось загрузить корневой Dict.\n\n${formatPnpErrorMessage(error)}`);

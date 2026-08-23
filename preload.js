@@ -1,6 +1,6 @@
 /**
  * Описание: Безопасный мост между HTML-страницей и Electron.
- * Версия: 3.5.33
+ * Версия: 3.5.34
  * Автор: Новожилов Артем
  */
 
@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('asmApi', {
   inspectFolder: (folderPath) => ipcRenderer.invoke('asm:inspect-folder', folderPath),
   checkFolderWritable: (folderPath) => ipcRenderer.invoke('asm:check-folder-writable', folderPath),
   openFolder: (folderPath) => ipcRenderer.invoke('asm:open-folder', folderPath),
+  openFile: (filePath) => ipcRenderer.invoke('asm:open-file', filePath),
   openHelpPdf: () => ipcRenderer.invoke('asm:open-help-pdf'),
   saveProjectJson: (payload) => ipcRenderer.invoke('asm:save-project-json', payload),
   saveProjectState: (payload) => ipcRenderer.invoke('asm:save-project-state', payload),

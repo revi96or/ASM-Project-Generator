@@ -1,8 +1,8 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.31 для словаря Dict/.
- * Версия: 3.5.31
+ * Описание: Минимальный конвейер Pick and Place 3.5.34 для словаря Dict/.
+ * Версия: 3.5.34
  * Автор: Новожилов Артем
- * Изменения 3.5.31: исправлен баг парсера XLSX (parseWorksheetXmlRows) —
+ * Изменения 3.5.34: исправлен баг парсера XLSX (parseWorksheetXmlRows) —
  * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
  * значение следующей ячейки (лениво искали ближайший </c>, которым
  * оказывался закрывающий тег соседней ячейки). Из-за этого терялись
@@ -17,11 +17,14 @@ const fsSync = require('fs');
 const path = require('path');
 const { TextDecoder } = require('util');
 const unzipper = require('unzipper');
+const packageJson = require('./package.json');
 
 const DEFAULT_DICT_FILE = 'pnp_dict_v300.js';
 const DEFAULT_STATE_FILE = 'pnp_state_v300.js';
 const DEFAULT_EXPORT_STEM = 'pnp_export_v300';
 const DEFAULT_IMPORT_START_DIR = 'C:\\settings\\Pick Place\\Test\\';
+// Источник версии один: пакетный манифест, чтобы экспорт и подписи не расходились.
+const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.5.34');
 const INFO_LEGEND_ROWS = [
   { row: 10, fillStyleIndex: 4, text: 'Данные, которые заменились из словаря.' },
   { row: 11, fillStyleIndex: 5, text: 'Данные, которые совпали в словаре, но не по всем ячейкам. Требуется проверить, смотри еще красный цвет.' },
@@ -34,7 +37,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.31',
+    version: APP_VERSION,
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -688,7 +691,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.31',
+    version: APP_VERSION,
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -877,7 +880,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.31',
+    version: APP_VERSION,
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -910,7 +913,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.31'),
+    version: String((dictLike && dictLike.version) || APP_VERSION),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -1776,7 +1779,7 @@ function readVersionLineFromRoot() {
     const firstLine = String(versionText || '').split(/\r?\n/)[0];
     return String(firstLine || '').trimEnd();
   } catch {
-    return '';
+    return `Создано SMT Pro Gen ${APP_VERSION} | Обязательна внимательная проверка первой платы на ошибки!`;
   }
 }
 
@@ -3819,7 +3822,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.31 Preview</title>
+<title>Pick and Place ${APP_VERSION} Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3830,7 +3833,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.31</h1>
+    <h1>Pick and Place ${APP_VERSION}</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3866,7 +3869,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.31',
+    ` * Версия: ${APP_VERSION}`,
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3908,7 +3911,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.31',
+    version: APP_VERSION,
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
