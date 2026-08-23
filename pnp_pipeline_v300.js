@@ -2022,6 +2022,18 @@ function normalizeResistorCellText(value, headerName) {
   return text.replace(/\s+/g, ' ').toUpperCase();
 }
 
+function isResistorFieldMatch(sourceValue, dictValue, columnName) {
+  const normalizedColumn = normalizeWorkbookHeaderText(columnName);
+
+  // Для TOL пустое значение в CSV и в словаре считается совпадением,
+  // чтобы такие строки не проваливались в "частично совпавшие".
+  if (normalizedColumn === 'TOL' && sourceValue === '' && dictValue === '') {
+    return true;
+  }
+
+  return sourceValue !== '' && dictValue !== '' && sourceValue === dictValue;
+}
+
 function findResistorColumnIndex(rawHeaders, columnName) {
   return Array.isArray(rawHeaders)
     ? rawHeaders.findIndex((header) => normalizeWorkbookHeaderText(header) === normalizeWorkbookHeaderText(columnName))
@@ -2127,7 +2139,7 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
         const sourceValue = sourceValues[columnName];
         const dictValue = dictValues[columnName];
 
-        if (sourceValue !== '' && dictValue !== '' && sourceValue === dictValue) {
+        if (isResistorFieldMatch(sourceValue, dictValue, columnName)) {
           matchedFields.push(columnName);
         } else if (sourceValue !== '' || dictValue !== '') {
           mismatchedFields.push(columnName);
