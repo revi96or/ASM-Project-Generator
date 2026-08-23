@@ -1,0 +1,661 @@
+<!--
+Description: TXT file comparison page for ASM outputs
+Version: 1.0.9
+Author: Новожилов Артем
+Изменения 1.0.8: полностью пустые строки (например хвостовой перевод строки
+в конце файла) теперь игнорируются при сравнении и не создают фантомный
+ключ "добавлено/удалено". Строки с частично отсутствующими данными
+по-прежнему участвуют в сравнении и подсвечиваются как различие.
+Изменения 1.0.9: строки без десигнатора (или со сдвинутыми из-за
+отсутствующего поля колонками) больше не используют по ошибке соседнее
+значение как ключ сравнения. Такая строка получает уникальный ключ,
+не совпадает с чужими строками и отдельно подсвечивается с меткой
+"Ошибка формата строки" (счётчик в статистике).
+-->
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASM TXT Compare</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a2d;
+      --panel-2:#0f1729;
+      --text:#e5eefc;
+      --muted:#9aa7bd;
+      --border:#2a3550;
+      --good:#86efac;
+      --bad:#fca5a5;
+      --accent:#38bdf8;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Segoe UI, Arial, sans-serif;
+      background:linear-gradient(180deg, #07101f 0%, #0b1020 100%);
+      color:var(--text);
+    }
+    .wrap{
+      max-width:1600px;
+      margin:0 auto;
+      padding:20px;
+    }
+    .header{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:flex-end;
+      padding:16px 18px;
+      border:1px solid rgba(56,189,248,.25);
+      background:rgba(18,26,45,.92);
+      border-radius:18px;
+      margin-bottom:16px;
+    }
+    h1{
+      margin:0;
+      font-size:22px;
+      line-height:1.2;
+    }
+    .hint{
+      color:var(--muted);
+      font-size:13px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+    .card{
+      border:1px solid var(--border);
+      background:rgba(18,26,45,.88);
+      border-radius:18px;
+      padding:16px;
+      min-height:220px;
+    }
+    .card h2{
+      margin:0 0 12px;
+      font-size:16px;
+    }
+    .field{
+      display:block;
+      width:100%;
+      margin:10px 0;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      background:var(--panel-2);
+      color:var(--text);
+      border-radius:12px;
+    }
+    textarea.field{
+      min-height:180px;
+      resize:vertical;
+      font-family:Consolas, "Courier New", monospace;
+      white-space:pre;
+    }
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:16px 0;
+    }
+    button{
+      border:0;
+      border-radius:12px;
+      padding:10px 14px;
+      background:var(--accent);
+      color:#04111f;
+      font-weight:700;
+      cursor:pointer;
+    }
+    button.secondary{
+      background:#263248;
+      color:var(--text);
+      border:1px solid var(--border);
+    }
+    .summary{
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0, 1fr));
+      gap:10px;
+      margin:16px 0;
+    }
+    .stat{
+      padding:12px 14px;
+      border:1px solid var(--border);
+      background:rgba(18,26,45,.88);
+      border-radius:14px;
+    }
+    .stat .label{color:var(--muted);font-size:12px}
+    .stat .value{font-size:22px;font-weight:800;margin-top:4px}
+    .ok{color:var(--good)}
+    .err{color:var(--bad)}
+    .table-wrap{
+      overflow:auto;
+      border:1px solid var(--border);
+      border-radius:18px;
+      background:rgba(18,26,45,.88);
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:13px;
+    }
+    th, td{
+      border-bottom:1px solid rgba(42,53,80,.75);
+      padding:8px 10px;
+      text-align:left;
+      vertical-align:top;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    th{
+      position:sticky;
+      top:0;
+      background:#17213a;
+      z-index:1;
+    }
+    tr.same td{color:#b8c4d8}
+    tr.diff td{
+      background:rgba(252,165,165,.06);
+    }
+    tr.add td{
+      background:rgba(134,239,172,.14);
+    }
+    tr.remove td{
+      background:rgba(252,165,165,.14);
+    }
+    tr.format-error td{
+      background:rgba(250,204,21,.16);
+      color:#fef08a;
+    }
+    td.left-add, td.right-remove{
+      background:rgba(134,239,172,.20) !important;
+      color:#dcfce7;
+    }
+    td.left-remove, td.right-add{
+      background:rgba(252,165,165,.20) !important;
+      color:#fee2e2;
+    }
+    .token-diff-left{
+      background:rgba(252,165,165,.30);
+      color:#fecaca;
+      border-radius:6px;
+      padding:0 3px;
+      margin:0 -1px;
+    }
+    .token-diff-right{
+      background:rgba(134,239,172,.28);
+      color:#dcfce7;
+      border-radius:6px;
+      padding:0 3px;
+      margin:0 -1px;
+    }
+    .token-missing-left{
+      background:rgba(252,165,165,.26);
+      color:#fecaca;
+      border-radius:6px;
+      padding:0 3px;
+      margin:0 -1px;
+    }
+    .token-missing-right{
+      background:rgba(134,239,172,.22);
+      color:#dcfce7;
+      border-radius:6px;
+      padding:0 3px;
+      margin:0 -1px;
+    }
+    .small{font-size:12px;color:var(--muted)}
+    .path-line{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .path-line code{
+      color:#dbeafe;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:999px;
+      padding:2px 8px;
+      word-break:break-all;
+    }
+    .footer-note{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    @media (max-width: 1100px){
+      .grid,.summary{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width: 760px){
+      .grid,.summary{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h1>Сравнение TXT-файлов ASM</h1>
+        <div class="hint">Сравнение начинается с 3-й строки. Первые 2 строки считаются комментариями и игнорируются. После этого строки сортируются по первому столбцу и сравниваются.</div>
+      </div>
+      <div class="hint">Версия 1.0.9</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Файл 1</h2>
+        <input id="file1" class="field" type="file" accept=".txt,text/plain" />
+        <div class="path-line">
+          <button id="file1OpenBtn" class="secondary" type="button">Открыть снова</button>
+          <code id="file1Info">Файл не выбран</code>
+        </div>
+        <textarea id="text1" class="field" placeholder="Или вставьте текст сюда..."></textarea>
+      </div>
+      <div class="card">
+        <h2>Файл 2</h2>
+        <input id="file2" class="field" type="file" accept=".txt,text/plain" />
+        <div class="path-line">
+          <button id="file2OpenBtn" class="secondary" type="button">Открыть снова</button>
+          <code id="file2Info">Файл не выбран</code>
+        </div>
+        <textarea id="text2" class="field" placeholder="Или вставьте текст сюда..."></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="compareBtn">Сравнить</button>
+      <button id="swapBtn" class="secondary">Поменять местами</button>
+      <button id="clearBtn" class="secondary">Очистить</button>
+    </div>
+
+    <div class="summary">
+      <div class="stat"><div class="label">Строк в сравнении</div><div id="rowsCount" class="value">0</div></div>
+      <div class="stat"><div class="label">Совпадений</div><div id="sameCount" class="value ok">0</div></div>
+      <div class="stat"><div class="label">Различий</div><div id="diffCount" class="value err">0</div></div>
+      <div class="stat"><div class="label">Добавлено / удалено</div><div id="addRemoveCount" class="value">0</div></div>
+      <div class="stat"><div class="label">Ошибки формата строки</div><div id="formatErrorCount" class="value">0</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:110px;">Ключ</th>
+            <th style="width:40%;">Файл 1</th>
+            <th style="width:40%;">Файл 2</th>
+            <th style="width:120px;">Статус</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+          <tr class="same"><td colspan="4" class="small">Загрузите оба TXT-файла и нажмите «Сравнить».</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-note">
+      Примечание: сравнение идёт после удаления первых двух строк. Затем обе таблицы сортируются по первому столбцу и сравниваются по ключу.
+    </div>
+  </div>
+
+  <script>
+    // Сравнение делаем строго после первых двух строк, чтобы не учитывать комментарии.
+    const els = {
+      file1: document.getElementById('file1'),
+      file2: document.getElementById('file2'),
+      text1: document.getElementById('text1'),
+      text2: document.getElementById('text2'),
+      compareBtn: document.getElementById('compareBtn'),
+      swapBtn: document.getElementById('swapBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      resultBody: document.getElementById('resultBody'),
+      rowsCount: document.getElementById('rowsCount'),
+      sameCount: document.getElementById('sameCount'),
+      diffCount: document.getElementById('diffCount'),
+      addRemoveCount: document.getElementById('addRemoveCount'),
+      formatErrorCount: document.getElementById('formatErrorCount'),
+      file1OpenBtn: document.getElementById('file1OpenBtn'),
+      file2OpenBtn: document.getElementById('file2OpenBtn'),
+      file1Info: document.getElementById('file1Info'),
+      file2Info: document.getElementById('file2Info')
+    };
+
+    const DB_NAME = 'asm-txt-compare';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'open-files';
+
+    function splitLines(text) {
+      return String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    }
+
+    function canUseFilePicker() {
+      return typeof window.showOpenFilePicker === 'function';
+    }
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = () => {
+          request.result.createObjectStore(STORE_NAME);
+        };
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+      });
+    }
+
+    async function saveOpenFileSlot(slot, data) {
+      const db = await openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(data, slot);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    }
+
+    async function loadOpenFileSlot(slot) {
+      const db = await openDb();
+      const value = await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const request = tx.objectStore(STORE_NAME).get(slot);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return value;
+    }
+
+    async function readHandleAsText(handle) {
+      const file = await handle.getFile();
+      const text = await file.text();
+      return {
+        text: text,
+        name: file.name || handle.name || ''
+      };
+    }
+
+    async function chooseAndLoadFile(slot, targetText, targetInfo, fallbackInput) {
+      if (canUseFilePicker()) {
+        const previous = await loadOpenFileSlot(slot).catch(() => null);
+        const pickerOptions = {
+          multiple: false,
+          types: [{ description: 'TXT files', accept: { 'text/plain': ['.txt'] } }]
+        };
+        if (previous && previous.handle) {
+          pickerOptions.startIn = previous.handle;
+        }
+        const handles = await window.showOpenFilePicker(pickerOptions);
+        if (!handles || !handles.length) {
+          return;
+        }
+        const handle = handles[0];
+        const payload = await readHandleAsText(handle);
+        targetText.value = payload.text;
+        targetInfo.textContent = payload.name;
+        await saveOpenFileSlot(slot, { handle: handle, name: payload.name });
+        return;
+      }
+      if (fallbackInput) {
+        fallbackInput.click();
+      }
+    }
+
+    function readFileAsText(file, target) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { target.value = String(reader.result || ''); };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    // Проверяет структуру строки P&P: Десигнатор Посадочное X Y Слой Угол [Комментарий].
+    // Слой ("TopLayer"/"BottomLayer") в корректной строке — пятый токен (индекс 4).
+    // Если он не найден или стоит не на своём месте — колонки сдвинуты, скорее
+    // всего в строке отсутствует десигнатор (или другое поле перед слоем).
+    function detectFormatIssue(tokens) {
+      if (!tokens.length) {
+        return null;
+      }
+      const layerIdx = tokens.findIndex((t) => t === 'TopLayer' || t === 'BottomLayer');
+      if (layerIdx === -1) {
+        return 'Не найден слой (TopLayer/BottomLayer) — строка повреждена';
+      }
+      if (layerIdx !== 4) {
+        return 'Десигнатор отсутствует или сдвинуты колонки';
+      }
+      if (tokens.length < 6) {
+        return 'Недостаточно данных в строке';
+      }
+      return null;
+    }
+
+    function parseRows(text) {
+      // Берём строки только после первых двух комментариев и сортируем их по первому столбцу.
+      return splitLines(text)
+        .slice(2)
+        .map((line, index) => {
+          const trimmed = String(line || '').trim();
+          const tokens = trimmed ? trimmed.split(/\s+/).filter((t) => t !== '') : [];
+          const firstColumn = tokens.length ? tokens[0] : '';
+          const formatIssue = detectFormatIssue(tokens);
+          return {
+            original: String(line || ''),
+            // Строки с нарушенной структурой (например, без десигнатора) получают
+            // уникальный ключ, чтобы не "слипаться" по ошибке с чужим значением
+            // колонки и не подменять собой реальную строку с таким же токеном.
+            firstColumn: formatIssue ? ('__ERR__' + index + '__' + firstColumn) : firstColumn,
+            displayKey: firstColumn,
+            formatIssue: formatIssue,
+            index: index
+          };
+        })
+        // Полностью пустая строка (например хвостовой перевод строки в конце
+        // файла) не является данными и не должна попадать в сравнение — иначе
+        // она создаёт "фантомный" ключ '' и показывается как добавлено/удалено.
+        // Строки с частично отсутствующими данными (первый столбец есть, но
+        // часть значений в строке пустая) в этот фильтр не попадают и, как и
+        // раньше, участвуют в сравнении и подсвечиваются как различие.
+        .filter((row) => row.original.trim() !== '')
+        .sort((a, b) => {
+          const aKey = a.firstColumn || '';
+          const bKey = b.firstColumn || '';
+          const cmp = aKey.localeCompare(bKey, 'ru', { numeric: true, sensitivity: 'base' });
+          return cmp !== 0 ? cmp : a.index - b.index;
+        });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function tokenizeLine(line) {
+      return String(line || '').trim().split(/\s+/).filter((token) => token !== '');
+    }
+
+    function renderTokenDiff(leftLine, rightLine) {
+      const leftTokens = tokenizeLine(leftLine);
+      const rightTokens = tokenizeLine(rightLine);
+      const max = Math.max(leftTokens.length, rightTokens.length);
+      const leftParts = [];
+      const rightParts = [];
+
+      for (let i = 0; i < max; i += 1) {
+        const leftToken = i < leftTokens.length ? leftTokens[i] : '';
+        const rightToken = i < rightTokens.length ? rightTokens[i] : '';
+        const joinedLeft = leftParts.length ? ' ' : '';
+        const joinedRight = rightParts.length ? ' ' : '';
+
+        if (!leftToken && rightToken) {
+          rightParts.push(`${joinedRight}<span class="token-missing-right">${escapeHtml(rightToken)}</span>`);
+          continue;
+        }
+        if (leftToken && !rightToken) {
+          leftParts.push(`${joinedLeft}<span class="token-missing-left">${escapeHtml(leftToken)}</span>`);
+          continue;
+        }
+        if (leftToken === rightToken) {
+          leftParts.push(`${joinedLeft}${escapeHtml(leftToken)}`);
+          rightParts.push(`${joinedRight}${escapeHtml(rightToken)}`);
+        } else {
+          leftParts.push(`${joinedLeft}<span class="token-diff-left">${escapeHtml(leftToken)}</span>`);
+          rightParts.push(`${joinedRight}<span class="token-diff-right">${escapeHtml(rightToken)}</span>`);
+        }
+      }
+
+      return {
+        leftHtml: leftParts.join(''),
+        rightHtml: rightParts.join('')
+      };
+    }
+
+    function renderRows(rows) {
+      if (!rows.length) {
+        els.resultBody.innerHTML = '<tr class="same"><td colspan="4" class="small">Различий не найдено.</td></tr>';
+        return;
+      }
+
+      els.resultBody.innerHTML = rows.map((row) => {
+        const cls = row.status;
+        const leftClass = cls === 'remove' ? 'left-remove' : (cls === 'add' ? 'left-add' : '');
+        const rightClass = cls === 'add' ? 'right-add' : (cls === 'remove' ? 'right-remove' : '');
+        const diffMarkup = cls === 'diff' ? renderTokenDiff(row.left, row.right) : null;
+        return [
+          '<tr class="' + cls + '">',
+          '<td>' + escapeHtml(row.lineNo) + '</td>',
+          '<td class="' + leftClass + '">' + (diffMarkup ? diffMarkup.leftHtml : escapeHtml(row.left)) + '</td>',
+          '<td class="' + rightClass + '">' + (diffMarkup ? diffMarkup.rightHtml : escapeHtml(row.right)) + '</td>',
+          '<td>' + escapeHtml(row.label) + '</td>',
+          '</tr>'
+        ].join('');
+      }).join('');
+    }
+
+    function compareTexts() {
+      const left = parseRows(els.text1.value);
+      const right = parseRows(els.text2.value);
+      const leftMap = new Map(left.map((row) => [row.firstColumn, row]));
+      const rightMap = new Map(right.map((row) => [row.firstColumn, row]));
+      const keys = Array.from(new Set(left.map((row) => row.firstColumn).concat(right.map((row) => row.firstColumn))))
+        .sort((a, b) => a.localeCompare(b, 'ru', { numeric: true, sensitivity: 'base' }));
+      const rows = [];
+      let same = 0;
+      let diff = 0;
+      let addRemove = 0;
+      let formatErrors = 0;
+
+      for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        const aRow = leftMap.get(key) || null;
+        const bRow = rightMap.get(key) || null;
+        const a = aRow ? aRow.original : '';
+        const b = bRow ? bRow.original : '';
+        // Уникальный ключ (см. parseRows) означает, что строка сама по себе
+        // повреждена — её нельзя корректно сопоставить со второй строкой,
+        // поэтому такие строки всегда показываются поштучно с меткой ошибки.
+        const issueRow = (aRow && aRow.formatIssue) ? aRow : ((bRow && bRow.formatIssue) ? bRow : null);
+        const lineNo = (aRow && aRow.displayKey) || (bRow && bRow.displayKey) || key;
+
+        if (issueRow) {
+          formatErrors += 1;
+          rows.push({
+            lineNo: lineNo,
+            left: a,
+            right: b,
+            label: 'Ошибка формата: ' + issueRow.formatIssue,
+            status: 'format-error'
+          });
+          continue;
+        }
+
+        if (!aRow && bRow) {
+          rows.push({ lineNo: lineNo, left: '', right: b, label: 'Добавлено', status: 'add' });
+          addRemove += 1;
+          continue;
+        }
+        if (aRow && !bRow) {
+          rows.push({ lineNo: lineNo, left: a, right: '', label: 'Удалено', status: 'remove' });
+          addRemove += 1;
+          continue;
+        }
+        if (a === b) {
+          same += 1;
+          rows.push({ lineNo: lineNo, left: a, right: b, label: lineNo || 'Совпадает', status: 'same' });
+        } else {
+          diff += 1;
+          rows.push({
+            lineNo: lineNo,
+            left: a,
+            right: b,
+            label: lineNo || 'Различие',
+            status: 'diff'
+          });
+        }
+      }
+
+      els.rowsCount.textContent = String(keys.length);
+      els.sameCount.textContent = String(same);
+      els.diffCount.textContent = String(diff);
+      els.addRemoveCount.textContent = String(addRemove);
+      els.formatErrorCount.textContent = String(formatErrors);
+      renderRows(rows);
+    }
+
+    els.file1.addEventListener('change', async () => {
+      const file = els.file1.files[0];
+      if (!file) return;
+      readFileAsText(file, els.text1);
+      els.file1Info.textContent = file.name;
+      await saveOpenFileSlot('file1', { name: file.name }).catch(() => {});
+    });
+    els.file2.addEventListener('change', async () => {
+      const file = els.file2.files[0];
+      if (!file) return;
+      readFileAsText(file, els.text2);
+      els.file2Info.textContent = file.name;
+      await saveOpenFileSlot('file2', { name: file.name }).catch(() => {});
+    });
+    els.file1OpenBtn.addEventListener('click', () => chooseAndLoadFile('file1', els.text1, els.file1Info, els.file1).catch(() => {}));
+    els.file2OpenBtn.addEventListener('click', () => chooseAndLoadFile('file2', els.text2, els.file2Info, els.file2).catch(() => {}));
+    els.compareBtn.addEventListener('click', compareTexts);
+    els.swapBtn.addEventListener('click', () => {
+      const a = els.text1.value;
+      els.text1.value = els.text2.value;
+      els.text2.value = a;
+      compareTexts();
+    });
+    els.clearBtn.addEventListener('click', () => {
+      els.file1.value = '';
+      els.file2.value = '';
+      els.text1.value = '';
+      els.text2.value = '';
+      els.rowsCount.textContent = '0';
+      els.sameCount.textContent = '0';
+      els.diffCount.textContent = '0';
+      els.addRemoveCount.textContent = '0';
+      els.formatErrorCount.textContent = '0';
+      els.resultBody.innerHTML = '<tr class="same"><td colspan="4" class="small">Загрузите оба TXT-файла и нажмите «Сравнить».</td></tr>';
+    });
+
+    (async () => {
+      const slot1 = await loadOpenFileSlot('file1').catch(() => null);
+      const slot2 = await loadOpenFileSlot('file2').catch(() => null);
+      if (slot1 && slot1.name) {
+        els.file1Info.textContent = slot1.name;
+      }
+      if (slot2 && slot2.name) {
+        els.file2Info.textContent = slot2.name;
+      }
+    })();
+  </script>
+</body>
+</html>
