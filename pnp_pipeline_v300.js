@@ -1,8 +1,8 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.5.30 для словаря Dict/.
- * Версия: 3.5.30
+ * Описание: Минимальный конвейер Pick and Place 3.5.31 для словаря Dict/.
+ * Версия: 3.5.31
  * Автор: Новожилов Артем
- * Изменения 3.5.30: исправлен баг парсера XLSX (parseWorksheetXmlRows) —
+ * Изменения 3.5.31: исправлен баг парсера XLSX (parseWorksheetXmlRows) —
  * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
  * значение следующей ячейки (лениво искали ближайший </c>, которым
  * оказывался закрывающий тег соседней ячейки). Из-за этого терялись
@@ -34,7 +34,7 @@ const INFO_LEGEND_ROWS = [
 function createEmptyDict(sourceMeta = {}) {
   return {
     description: 'Корневой словарь P&P',
-    version: '3.5.30',
+    version: '3.5.31',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -688,7 +688,7 @@ function parseImportedCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный CSV P&P',
-    version: '3.5.28',
+    version: '3.5.31',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -877,7 +877,7 @@ function parseCsv(sourceText, sourceMeta = {}) {
 
   return {
     description: 'Импортированный словарь P&P',
-    version: '3.5.28',
+    version: '3.5.31',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -910,7 +910,7 @@ function normalizeDict(dictLike, sourceMeta = {}) {
 
   return {
     description: String((dictLike && dictLike.description) || 'Корневой словарь P&P'),
-    version: String((dictLike && dictLike.version) || '3.5.28'),
+    version: String((dictLike && dictLike.version) || '3.5.31'),
     author: String((dictLike && dictLike.author) || 'Новожилов Артем'),
     createdAt: String((dictLike && dictLike.createdAt) || new Date().toISOString()),
     updatedAt: new Date().toISOString(),
@@ -3819,7 +3819,7 @@ function buildPreviewHtml(dictLike) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pick and Place 3.5.28 Preview</title>
+<title>Pick and Place 3.5.31 Preview</title>
 <style>
   body{font-family:Inter,sans-serif;background:#0A0E18;color:#F2F5FA;margin:0;padding:24px}
   .card{background:#121A2C;border:1px solid rgba(148,178,220,.14);border-radius:14px;padding:16px;margin-bottom:16px}
@@ -3830,7 +3830,7 @@ function buildPreviewHtml(dictLike) {
 </head>
 <body>
   <div class="card">
-    <h1>Pick and Place 3.5.28</h1>
+    <h1>Pick and Place 3.5.31</h1>
     <div>Всего: ${stats.totalRows} | Top: ${stats.topRows} | Bottom: ${stats.bottomRows} | Переименовано: ${stats.renamedRows}</div>
   </div>
   <div class="card">
@@ -3866,7 +3866,7 @@ function buildModuleSource(value, description) {
   const header = [
     '/**',
     ` * Описание: ${description}`,
-    ' * Версия: 3.5.28',
+    ' * Версия: 3.5.31',
     ' * Автор: Новожилов Артем',
     ' */',
     ''
@@ -3908,7 +3908,7 @@ async function loadDictSheetXlsxFile(filePath, sheetName, description) {
 
   return {
     description: description || `Лист ${sheetName} из Dict.xlsx`,
-    version: '3.5.28',
+    version: '3.5.31',
     author: 'Новожилов Артем',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

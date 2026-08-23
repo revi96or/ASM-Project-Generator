@@ -1,6 +1,6 @@
 /**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.5.30
+ * Версия: 3.5.33
  * Автор: Новожилов Артем
  */
 
@@ -143,12 +143,13 @@ function normalizePnpErrorText(value) {
 }
 
 function buildPnpStatsWindowHtml(payload) {
-  const titleHtml = String(payload && payload.titleHtml ? payload.titleHtml : '<span style="color:#f8fafc;">Итоги</span> <span style="color:#38bdf8;">обработки компонентов</span>');
+  const themeMode = String(payload && payload.theme === 'light' ? 'light' : 'dark');
+  const titleHtml = String(payload && payload.titleHtml ? payload.titleHtml : '<span style="color:var(--stats-title-main);">Итоги</span> <span style="color:var(--accent);">обработки компонентов</span>');
   const headerRightHtml = String(payload && payload.headerRightHtml ? payload.headerRightHtml : '');
   const bodyHtml = String(payload && payload.bodyHtml ? payload.bodyHtml : '');
 
   return `<!DOCTYPE html>
-<html lang="ru">
+<html lang="ru"${themeMode === 'light' ? ' class="light"' : ''}>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -162,11 +163,34 @@ function buildPnpStatsWindowHtml(payload) {
     --accent:#38bdf8;
     --success:#86efac;
     --danger:#fca5a5;
+    --stats-title-main:#f8fafc;
+    --stats-panel-border:rgba(56,189,248,.18);
+    --stats-surface-a:rgba(255,255,255,.04);
+    --stats-surface-b:rgba(255,255,255,.01);
+    --stats-border-soft:rgba(255,255,255,.08);
+    --stats-card-text:#ffffff;
+    --stats-note-text:rgba(255,255,255,.92);
+  }
+  html.light{
+    --bg:#E5DCCB;
+    --panel:#F2EADF;
+    --text:#17120D;
+    --muted:#554A3F;
+    --accent:#0EA5C4;
+    --success:#1E9B53;
+    --danger:#C84945;
+    --stats-title-main:#17120D;
+    --stats-panel-border:rgba(14,165,196,.18);
+    --stats-surface-a:rgba(15,23,42,.045);
+    --stats-surface-b:rgba(15,23,42,.015);
+    --stats-border-soft:rgba(15,23,42,.10);
+    --stats-card-text:#17120D;
+    --stats-note-text:#334155;
   }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;}
   body{overflow:auto;}
   .stats-shell{min-height:100%;box-sizing:border-box;padding:18px;}
-  .stats-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 auto 16px;padding:18px 18px 10px;box-sizing:border-box;border-radius:18px;background:linear-gradient(180deg, rgba(18,26,44,.96), rgba(18,26,44,.86));border:1px solid rgba(56,189,248,.18);box-shadow:0 18px 40px rgba(0,0,0,.35);width:932px;max-width:100%;}
+  .stats-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 auto 16px;padding:18px 18px 10px;box-sizing:border-box;border-radius:18px;background:linear-gradient(180deg, var(--panel), color-mix(in srgb, var(--panel) 88%, black));border:1px solid var(--stats-panel-border);box-shadow:0 18px 40px rgba(0,0,0,.35);width:932px;max-width:100%;}
   /* Держим пробел между частями заголовка даже при flex-раскладке. */
   .stats-title{display:flex;align-items:center;gap:10px;font-size:30px;font-weight:900;line-height:1;margin:0;transform:translateY(-2px);white-space:nowrap;}
   .stats-meta{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;text-align:right;padding-top:0;}
@@ -218,6 +242,7 @@ function focusPnpStatsWindow() {
 
 async function openPnpStatsWindow(payload, toggleMode = false) {
   const windowExists = pnpStatsWindow && !pnpStatsWindow.isDestroyed();
+  const windowTheme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
 
   // Кнопка работает как переключатель, а экспорт обновляет уже открытое окно без лишнего дубля.
   if (toggleMode && windowExists) {
@@ -242,7 +267,7 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
     autoHideMenuBar: true,
     title: 'Итоги обработки компонентов',
     icon: path.join(__dirname, 'assets', 'stats-icon.png'),
-    backgroundColor: '#0A0E18',
+    backgroundColor: windowTheme === 'light' ? '#E5DCCB' : '#0A0E18',
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -264,6 +289,7 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
 
 async function refreshPnpStatsWindow(payload) {
   const windowExists = pnpStatsWindow && !pnpStatsWindow.isDestroyed();
+  const windowTheme = String(payload && payload.theme === 'light' ? 'light' : 'dark');
 
   // Обновляем только уже открытое окно, чтобы отмена не открывала статистику сама.
   if (!windowExists) {
@@ -272,6 +298,9 @@ async function refreshPnpStatsWindow(payload) {
 
   const windowHtml = buildPnpStatsWindowHtml(payload || {});
   const windowUrl = `data:text/html;charset=utf-8,${encodeURIComponent(windowHtml)}`;
+  if (typeof pnpStatsWindow.setBackgroundColor === 'function') {
+    pnpStatsWindow.setBackgroundColor(windowTheme === 'light' ? '#E5DCCB' : '#0A0E18');
+  }
 
   await pnpStatsWindow.loadURL(windowUrl);
   focusPnpStatsWindow();
@@ -614,6 +643,13 @@ function getTemplateAssetsFolder() {
   return app.isPackaged
     ? path.join(process.resourcesPath, TEMPLATE_ASSETS_DIR)
     : path.join(app.getAppPath(), TEMPLATE_ASSETS_DIR);
+}
+
+function getHelpPdfPath() {
+  // Help PDF лежит рядом с приложением в dev-режиме и в resources после сборки.
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'Help', 'Help.pdf')
+    : path.join(app.getAppPath(), 'Help', 'Help.pdf');
 }
 
 function sendUpdateEvent(payload) {
@@ -1263,7 +1299,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.5.30',
+    version: '3.5.33',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -2060,6 +2096,20 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     return { path: resolvedPath, opened: true };
   });
 
+  ipcMain.handle('asm:open-help-pdf', async () => {
+    const helpPdfPath = getHelpPdfPath();
+
+    await fs.access(helpPdfPath);
+
+    const result = await shell.openPath(helpPdfPath);
+
+    if (result) {
+      throw new Error(result);
+    }
+
+    return { path: helpPdfPath, opened: true };
+  });
+
   ipcMain.handle('asm:save-project-json', async (_event, payload) => {
     return saveProjectSnapshotData(payload || {});
   });
@@ -2209,6 +2259,9 @@ function createWindow() {
     mainWindow.show();
   });
   mainWindow.on('closed', () => {
+    if (pnpStatsWindow && !pnpStatsWindow.isDestroyed()) {
+      pnpStatsWindow.close();
+    }
     if (mainWindow === windowRef) {
       mainWindow = null;
     }

@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.14
+Версия: 9.27.17
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1015,10 +1015,16 @@
         <span><span style="color:var(--text)">Создание</span> <span style="color:var(--accent)">проекта ASM и OMRON</span></span>
       </h1>
 
-      <button id="themeToggle" type="button" class="ghost-btn shrink-0">
-        <i data-lucide="sun-moon" class="w-4 h-4"></i>
-        Тема
-      </button>
+      <div class="flex items-center gap-3 shrink-0 ml-auto">
+        <button id="themeToggle" type="button" class="ghost-btn shrink-0">
+          <i data-lucide="sun-moon" class="w-4 h-4"></i>
+          Тема
+        </button>
+        <button id="helpButton" type="button" class="ghost-btn shrink-0">
+          <i data-lucide="circle-help" class="w-4 h-4"></i>
+          Help
+        </button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
@@ -1512,13 +1518,13 @@
 
 <script>
 // Описание: Клиентская логика формы ASM Generator.
-// Версия: 9.27.13
+// Версия: 9.27.17
 // Автор: Новожилов Артем
 
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.5.30",
+    version: "3.5.33",
     versionDate: "2026-08-17"
   }),
   getUserSettings: async () => ({
@@ -1619,8 +1625,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.5.30",
-    latestVersion: "3.5.30",
+    currentVersion: "3.5.33",
+    latestVersion: "3.5.33",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1654,7 +1660,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.5.30",
+  version: "3.5.33",
   versionDate: "2026-08-17"
   },
   projectMode: "create",
@@ -1987,6 +1993,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
   const donutGradient = totalBaseCount > 0
     ? `conic-gradient(#22c55e 0 ${donutFullPercent.toFixed(2)}%, #f59e0b ${donutFullPercent.toFixed(2)}% ${(donutFullPercent + donutPartialPercent).toFixed(2)}%, #fb7185 ${(donutFullPercent + donutPartialPercent).toFixed(2)}% ${(donutFullPercent + donutPartialPercent + donutNoMatchPercent).toFixed(2)}%, #334155 ${(donutFullPercent + donutPartialPercent + donutNoMatchPercent).toFixed(2)}% 100%)`
     : 'conic-gradient(#334155 0 100%)';
+  const themeClass = state.theme === "light" ? "light" : "dark";
   // Поддерживаем старую метку XLSX и новую "Экспорт XLSX", чтобы не терять карточку после обновления отчёта.
   const saveLines = lines.filter((line) => /^(Экспорт P&P|Адрес расстановщика|Экспорт XLSX|XLSX):/i.test(String(line || "")));
   const saveEntries = saveLines.map((line) => {
@@ -2052,6 +2059,18 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
   return [
     `<style>
       .pnp-stats-v2 {
+        --pnp-card-bg: rgba(255,255,255,.04);
+        --pnp-card-bg-strong: rgba(255,255,255,.06);
+        --pnp-card-border: rgba(255,255,255,.08);
+        --pnp-title-bg: rgba(255,255,255,.12);
+        --pnp-title-bg-soft: rgba(255,255,255,.03);
+        --pnp-card-text: #fff;
+        --pnp-note-text: rgba(255,255,255,.92);
+        --pnp-panel-border: rgba(255,255,255,.08);
+        --pnp-panel-hint: rgba(255,255,255,.04);
+        --pnp-panel-shadow: rgba(0,0,0,.30);
+        --pnp-hole-bg: rgba(16, 24, 42, .98);
+        --pnp-summary-border: rgba(255,255,255,.07);
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -2060,6 +2079,20 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         width: 932px;
         max-width: 100%;
         margin: 0 auto;
+      }
+      .pnp-stats-v2.light {
+        --pnp-card-bg: rgba(255,255,255,.58);
+        --pnp-card-bg-strong: rgba(255,255,255,.72);
+        --pnp-card-border: rgba(15,23,42,.10);
+        --pnp-title-bg: rgba(14,165,196,.14);
+        --pnp-title-bg-soft: rgba(14,165,196,.05);
+        --pnp-card-text: #17120D;
+        --pnp-note-text: #334155;
+        --pnp-panel-border: rgba(14,165,196,.20);
+        --pnp-panel-hint: rgba(14,165,196,.05);
+        --pnp-panel-shadow: rgba(15,23,42,.12);
+        --pnp-hole-bg: rgba(242,234,223,.98);
+        --pnp-summary-border: rgba(15,23,42,.08);
       }
       .pnp-stats-top {
         display: grid;
@@ -2071,11 +2104,11 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         margin: 0 auto;
       }
       .pnp-panel {
-        border: 1px solid rgba(56, 189, 248, .36);
+        border: 1px solid var(--pnp-panel-border);
         border-radius: 24px;
         padding: 14px;
-        background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
-        box-shadow: 0 20px 60px rgba(0,0,0,.30);
+        background: linear-gradient(180deg, var(--pnp-panel-hint), rgba(255,255,255,.012));
+        box-shadow: 0 20px 60px var(--pnp-panel-shadow);
       }
       .pnp-donut {
         width: 236px;
@@ -2090,8 +2123,8 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         position: absolute;
         inset: 46px;
         border-radius: 50%;
-        background: rgba(16, 24, 42, .98);
-        border: 1px solid rgba(255,255,255,.06);
+        background: var(--pnp-hole-bg);
+        border: 1px solid var(--pnp-panel-border);
       }
       .pnp-center {
         position: absolute;
@@ -2125,8 +2158,8 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         gap: 12px;
         padding: 9px 12px;
         border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.08);
-        background: rgba(255,255,255,.02);
+        border: 1px solid var(--pnp-card-border);
+        background: var(--pnp-card-bg);
       }
       .pnp-legend-left {
         display: flex;
@@ -2156,7 +2189,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         border-radius: 28px;
         padding: 12px;
         border: 1px solid var(--accent);
-        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+        background: linear-gradient(180deg, var(--pnp-card-bg-strong), var(--pnp-card-bg));
         box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
         position: relative;
         overflow: hidden;
@@ -2169,23 +2202,23 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         width: 120px;
         height: 120px;
         border-radius: 50%;
-        border: 1px solid rgba(255,255,255,.08);
+        border: 1px solid var(--pnp-card-border);
       }
       .pnp-status-item .pnp-status-title {
         display: block;
         margin: -12px -12px 0;
         padding: 12px 12px 8px;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-        background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+        border-bottom: 1px solid var(--pnp-card-border);
+        background: linear-gradient(180deg, var(--pnp-title-bg), var(--pnp-title-bg-soft));
       }
       .pnp-status-item.violet .pnp-status-title {
-        background: linear-gradient(180deg, rgba(167,139,250,.24), rgba(255,255,255,.03));
+        background: linear-gradient(180deg, rgba(167,139,250,.24), var(--pnp-title-bg-soft));
       }
       .pnp-status-title {
         font-size: 11px;
         letter-spacing: .10em;
         text-transform: uppercase;
-        color: #fff;
+        color: var(--pnp-card-text);
         font-weight: 900;
       }
       .pnp-status-value {
@@ -2197,7 +2230,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       .pnp-status-note {
         margin-top: auto;
         padding-top: 34px;
-        color: rgba(255,255,255,.92);
+        color: var(--pnp-note-text);
         font-size: 12px;
         line-height: 1.25;
       }
@@ -2209,8 +2242,8 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       .pnp-summary-chip {
         padding: 12px 14px;
         border-radius: 16px;
-        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
-        border: 1px solid rgba(255,255,255,.08);
+        background: linear-gradient(180deg, var(--pnp-card-bg-strong), var(--pnp-card-bg));
+        border: 1px solid var(--pnp-card-border);
         box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
       }
       .pnp-summary-label {
@@ -2229,7 +2262,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         justify-content: space-between;
         gap: 12px;
         padding: 9px 12px;
-        border-top: 1px solid rgba(255,255,255,.07);
+        border-top: 1px solid var(--pnp-summary-border);
       }
       .pnp-detail-grid {
         display: grid;
@@ -2243,7 +2276,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       .pnp-detail-card {
         border-radius: 28px;
         border: 1px solid var(--accent);
-        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+        background: linear-gradient(180deg, var(--pnp-card-bg-strong), var(--pnp-card-bg));
         box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
         overflow: hidden;
       }
@@ -2251,23 +2284,23 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         padding: 10px 12px 8px;
         font-size: 16px;
         font-weight: 900;
-        color: #fff;
+        color: var(--pnp-card-text);
         line-height: 1;
         text-transform: uppercase;
-        background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
-        border-bottom: 1px solid rgba(255,255,255,.08);
+        background: linear-gradient(180deg, var(--pnp-title-bg), var(--pnp-title-bg-soft));
+        border-bottom: 1px solid var(--pnp-card-border);
       }
       .pnp-detail-card.green .pnp-detail-head {
-        background: linear-gradient(180deg, rgba(34,197,94,.24), rgba(255,255,255,.03));
+        background: linear-gradient(180deg, rgba(34,197,94,.24), var(--pnp-title-bg-soft));
       }
       .pnp-detail-card.blue .pnp-detail-head {
-        background: linear-gradient(180deg, rgba(96,165,250,.24), rgba(255,255,255,.03));
+        background: linear-gradient(180deg, rgba(96,165,250,.24), var(--pnp-title-bg-soft));
       }
       .pnp-detail-card.orange .pnp-detail-head {
-        background: linear-gradient(180deg, rgba(251,146,60,.30), rgba(255,255,255,.03));
+        background: linear-gradient(180deg, rgba(251,146,60,.30), var(--pnp-title-bg-soft));
       }
       .pnp-detail-card.cyan .pnp-detail-head {
-        background: linear-gradient(180deg, rgba(51,204,204,.28), rgba(255,255,255,.03));
+        background: linear-gradient(180deg, rgba(51,204,204,.28), var(--pnp-title-bg-soft));
       }
       .pnp-detail-body {
         padding: 0 0 6px;
@@ -2285,11 +2318,11 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         border-radius: 28px;
         padding: 12px 14px;
         border: 1px solid var(--accent);
-        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+        background: linear-gradient(180deg, var(--pnp-card-bg-strong), var(--pnp-card-bg));
         box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
       }
       .pnp-export-title {
-        color: #fff;
+        color: var(--pnp-card-text);
         font-size: 16px;
         font-weight: 900;
         letter-spacing: .08em;
@@ -2363,7 +2396,7 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
         }
       }
     </style>`,
-    `<div class="pnp-stats-v2">`,
+    `<div class="pnp-stats-v2 ${themeClass}">`,
     `<div class="pnp-stats-top">`,
     `<section class="pnp-panel">`,
     `<div class="pnp-donut" style="background:${escapePnpHtml(donutGradient)};">`,
@@ -2400,15 +2433,26 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
 function buildPnpStatsWindowPayload(stats, summaryLines){
   const now = new Date();
   const statsDateText = `${now.toLocaleDateString('ru-RU')} | ${now.toLocaleTimeString('ru-RU')}`;
-  const titleHtml = '<span style="color:#f8fafc;">Итоги</span> <span style="color:var(--accent);">обработки компонентов</span>';
+  const titleHtml = '<span style="color:var(--stats-title-main);">Итоги</span> <span style="color:var(--accent);">обработки компонентов</span>';
   const headerRightHtml = `<div style="text-align:right;font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;">${escapePnpHtml(statsDateText)}</div>`;
 
   return {
     title: 'Итоги обработки компонентов',
     titleHtml,
     headerRightHtml,
-    bodyHtml: buildPnpStatsDialogHtml(stats, summaryLines)
+    bodyHtml: buildPnpStatsDialogHtml(stats, summaryLines),
+    theme: state.theme === 'light' ? 'light' : 'dark'
   };
+}
+
+function refreshPnpStatsWindowTheme(){
+  if (typeof asmBridge.pnpRefreshStatsWindow !== "function") {
+    return;
+  }
+
+  const stats = state.pnp.stats ? { ...state.pnp.stats } : getPnpEmptyStats();
+  const summaryLines = Array.isArray(state.pnp.lastStatsSummaryLines) ? state.pnp.lastStatsSummaryLines.slice() : [];
+  asmBridge.pnpRefreshStatsWindow(buildPnpStatsWindowPayload(stats, summaryLines)).catch(() => {});
 }
 
 async function showPnpStatsWindow(stats, summaryLines){
@@ -5234,8 +5278,22 @@ function applyTheme(mode){
     localStorage.setItem("asm-theme", mode);
   } else {
     persistUserSettings();
+    refreshPnpStatsWindowTheme();
   }
   setTimeout(fitProjectText, 30);
+}
+
+async function openHelpPdf(){
+  if (!window.asmApi || typeof window.asmApi.openHelpPdf !== "function") {
+    showAppDialog("Help", "Открытие Help.pdf доступно только в Electron.");
+    return;
+  }
+
+  try {
+    await window.asmApi.openHelpPdf();
+  } catch (error) {
+    showAppDialog("Help", `Не удалось открыть Help\\Help.pdf.\n\n${error && error.message ? error.message : String(error || "")}`);
+  }
 }
 
 function setToday(){
@@ -5786,6 +5844,10 @@ async function init(){
   $("checkUpdatesBtn").addEventListener("click", async (event) => {
     event.preventDefault();
     await handleUpdateCheck();
+  });
+  $("helpButton").addEventListener("click", (event) => {
+    event.preventDefault();
+    openHelpPdf();
   });
 
   $("tipsToggle").querySelectorAll(".toggle-btn").forEach((button) => {
