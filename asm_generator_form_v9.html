@@ -2266,6 +2266,9 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
       .pnp-detail-card.orange .pnp-detail-head {
         background: linear-gradient(180deg, rgba(251,146,60,.30), rgba(255,255,255,.03));
       }
+      .pnp-detail-card.cyan .pnp-detail-head {
+        background: linear-gradient(180deg, rgba(51,204,204,.28), rgba(255,255,255,.03));
+      }
       .pnp-detail-body {
         padding: 0 0 6px;
       }
@@ -2380,9 +2383,10 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     `</section>`,
     `</div>`,
     `<section class="pnp-detail-grid">`,
-    detailCard('Резисторы', 'green', '#22c55e', parsed.resistorTotal, { full: parsed.resistorFull, partial: parsed.resistorPartial, noMatch: parsed.resistorNoMatch }),
-    detailCard('Конденсаторы', 'blue', '#38bdf8', parsed.capacitorTotal, { full: parsed.capacitorFull, partial: parsed.capacitorPartial, noMatch: parsed.capacitorNoMatch }),
-    detailCard('Прочие', 'orange', '#f97316', parsed.otherTotal, { full: parsed.otherFull, partial: parsed.otherPartial, noMatch: parsed.otherNoMatch }),
+    // Делаем три основные плитки единым акцентом, чтобы окно статистики читалось цельно.
+    detailCard('Резисторы', 'cyan', 'rgb(51, 204, 204)', parsed.resistorTotal, { full: parsed.resistorFull, partial: parsed.resistorPartial, noMatch: parsed.resistorNoMatch }),
+    detailCard('Конденсаторы', 'cyan', 'rgb(51, 204, 204)', parsed.capacitorTotal, { full: parsed.capacitorFull, partial: parsed.capacitorPartial, noMatch: parsed.capacitorNoMatch }),
+    detailCard('Прочие', 'cyan', 'rgb(51, 204, 204)', parsed.otherTotal, { full: parsed.otherFull, partial: parsed.otherPartial, noMatch: parsed.otherNoMatch }),
     `</section>`,
     `<section class="pnp-export-grid">`,
     exportCard('Экспорт P&P', '#38bdf8', saveEntries.find((item) => item.head === 'Экспорт P&P')),

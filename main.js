@@ -171,6 +171,20 @@ function buildPnpStatsWindowHtml(payload) {
   .stats-title{display:flex;align-items:center;gap:10px;font-size:30px;font-weight:900;line-height:1;margin:0;transform:translateY(-2px);white-space:nowrap;}
   .stats-meta{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;text-align:right;padding-top:0;}
   .stats-body{padding:0;}
+  /* Кнопку выравниваем вправо, чтобы она читалась как завершение диалога. */
+  .stats-actions{display:flex;justify-content:flex-end;margin-top:14px;}
+  .stats-ok-btn{
+    min-width:120px;
+    padding:11px 22px;
+    border:0;
+    border-radius:12px;
+    background:rgb(51, 204, 204);
+    color:#04141c;
+    font-size:16px;
+    font-weight:900;
+    cursor:pointer;
+    box-shadow:0 10px 24px rgba(51,204,204,.24);
+  }
 </style>
 </head>
 <body>
@@ -180,6 +194,10 @@ function buildPnpStatsWindowHtml(payload) {
       <div class="stats-meta">${headerRightHtml}</div>
     </div>
     <div class="stats-body">${bodyHtml}</div>
+    <div class="stats-actions">
+      <!-- Кнопка закрывает окно статистики без влияния на основной поток P&P. -->
+      <button type="button" class="stats-ok-btn" onclick="window.close()">Ок</button>
+    </div>
   </div>
 </body>
 </html>`;
@@ -218,9 +236,9 @@ async function openPnpStatsWindow(payload, toggleMode = false) {
 
   pnpStatsWindow = new BrowserWindow({
     width: 992,
-    height: 1000,
+    height: 1120,
     minWidth: 992,
-    minHeight: 780,
+    minHeight: 860,
     autoHideMenuBar: true,
     title: 'Итоги обработки компонентов',
     icon: path.join(__dirname, 'assets', 'stats-icon.png'),
