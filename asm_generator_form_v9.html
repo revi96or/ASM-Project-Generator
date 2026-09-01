@@ -1760,6 +1760,11 @@ const state = {
     statusSubText: "проверка при запуске",
     tone: "danger"
   },
+  placerHeader: {
+    statusText: "offline",
+    statusSubText: "проверка при запуске",
+    tone: "danger"
+  },
   appMeta: {
   version: "3.6.3",
   versionDate: "2026-08-23"
@@ -3089,6 +3094,62 @@ async function refreshSaveReadiness(showDialog){
   }
 }
 
+async function refreshPlacerStatus(showDialog){
+  const placerFolderPath = $("placerPathInput").value.trim();
+  const preservePnpHeader = state.rightZoneMode !== "pnp";
+
+  try {
+    const result = await asmBridge.inspectFolder(placerFolderPath);
+    const projectFiles = Array.isArray(result.files) ? result.files.slice() : [];
+    const projectCount = projectFiles.length;
+    const isOnline = Boolean(result.exists);
+
+    if (!preservePnpHeader) {
+      setPrinterStatus(isOnline ? "online" : "offline", isOnline ? `доступно: ${projectCount} проектов` : "расстановщик недоступен", isOnline ? "success" : "danger");
+    }
+
+    state.placerHeader = {
+      statusText: isOnline ? "online" : "offline",
+      statusSubText: isOnline ? `доступно: ${projectCount} проектов` : "расстановщик недоступен",
+      tone: isOnline ? "success" : "danger"
+    };
+
+    updateHeaderCardsUi();
+
+    if (showDialog) {
+      const dialogLines = [
+        isOnline ? "Расстановщик доступен." : "Расстановщик недоступен.",
+        "",
+        `Адрес: ${result.path}`,
+        `Проектов на расстановщике: ${projectCount}`
+      ];
+      if (result.errorMessage) {
+        dialogLines.push("", `Причина: ${result.errorMessage}`);
+      }
+      showAppDialog("Статус расстановщика", dialogLines.join("\n"));
+    }
+  } catch (error) {
+    if (!preservePnpHeader) {
+      setPrinterStatus("offline", "расстановщик недоступен", "danger");
+    }
+
+    state.placerHeader = {
+      statusText: "offline",
+      statusSubText: "расстановщик недоступен",
+      tone: "danger"
+    };
+
+    updateHeaderCardsUi();
+
+    if (showDialog) {
+      showAppDialog(
+        "Статус расстановщика",
+        `Расстановщик недоступен.\n\nАдрес: ${placerFolderPath}\n\nПричина: ${error.message}`
+      );
+    }
+  }
+}
+
 function normalizeSettledResult(settledResult, emptyValue){
   if (!settledResult || settledResult.status !== "fulfilled") {
     return emptyValue;
@@ -3165,12 +3226,17 @@ function updateHeaderCardsUi(){
     statusSubText: "проверка при запуске",
     tone: "danger"
   };
+  const placerHeader = state.placerHeader || {
+    statusText: "offline",
+    statusSubText: "проверка при запуске",
+    tone: "danger"
+  };
 
   if (isPnp) {
-    $("statPrimaryCardLabel").textContent = "Заглушка";
-    $("statPrinterStatus").textContent = "—";
-    $("statPrinterStatus").style.color = "var(--muted)";
-    $("statPrinterStatusSub").textContent = "будет настроено позже";
+    $("statPrimaryCardLabel").textContent = "Статус расстановщика";
+    $("statPrinterStatus").textContent = placerHeader.statusText || "offline";
+    $("statPrinterStatus").style.color = placerHeader.tone === "success" ? "var(--success)" : "var(--danger)";
+    $("statPrinterStatusSub").textContent = placerHeader.statusSubText || "проверка при запуске";
 
     $("statProjectCardLabel").textContent = "Заглушка";
     $("statProjectName").textContent = "—";
@@ -5840,6 +5906,8 @@ function setupPathInput(inputId, pathLabel){
     saveCurrentPaths();
     if (inputId === "serverPathInput") {
       loadPrinterWorkspaceData(false);
+    } else if (inputId === "placerPathInput") {
+      refreshPlacerStatus(false);
     }
   });
 
@@ -5864,6 +5932,7 @@ function setupPathInput(inputId, pathLabel){
     }
 
     if (inputId === "placerPathInput") {
+      await refreshPlacerStatus(false);
       await refreshSaveReadiness(false);
     }
 
@@ -5993,6 +6062,11 @@ async function init(){
 
   $("statPrinterCard").addEventListener("click", (event) => {
     event.preventDefault();
+    if (state.rightZoneMode === "pnp") {
+      refreshPlacerStatus(true);
+      return;
+    }
+
     refreshPrinterStatus(true);
   });
 
@@ -6198,6 +6272,7 @@ async function init(){
   });
   await loadWorkspaceData(false);
   await refreshPrinterStatus(false);
+  await refreshPlacerStatus(false);
   refreshSaveReadiness(false);
   window.addEventListener("scroll", hideAppTooltip, true);
   window.addEventListener("resize", hideAppTooltip);
