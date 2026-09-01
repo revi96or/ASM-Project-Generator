@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.18
+Версия: 9.27.21
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -1123,7 +1123,7 @@
           <span class="stat-num stat-hero-value" id="statChangedFields">0</span>
           <span class="stat-num stat-hero-value" style="color:var(--muted)" id="statChangedFieldsTotal">/0</span>
         </div>
-        <div class="stat-cap">изменено / доступно</div>
+        <div class="stat-cap" id="statCounterCardCap">изменено / доступно</div>
       </div>
 
       <button id="statSaveReadinessCard" type="button" class="stat-card clickable text-left">
@@ -3233,6 +3233,21 @@ function getHeaderProjectName(){
   return $("boardNameInput").value.trim() || "—";
 }
 
+function getPnpHeaderSummaryCounts(){
+  // Эти числа уже считаются в сводке P&P, поэтому плитка просто переиспользует их без отдельной логики.
+  const stats = state.pnp.stats || getPnpEmptyStats();
+  const refCount = Number(stats.refCount || 0);
+  const processedTotal = Math.max(0, Number(stats.totalRows || 0) - refCount);
+  const processedNoMatch = Math.max(0, Number(stats.totalNoMatch || 0) - refCount);
+
+  return {
+    totalRows: processedTotal,
+    totalFull: Number(stats.totalFull || 0),
+    totalPartial: Number(stats.totalPartial || 0),
+    totalNoMatch: processedNoMatch
+  };
+}
+
 function updateHeaderCardsUi(){
   const isPnp = state.rightZoneMode === "pnp";
   const printerHeader = state.printerHeader || {
@@ -3256,9 +3271,14 @@ function updateHeaderCardsUi(){
     $("statProjectName").textContent = getHeaderProjectName();
     fitProjectText();
 
-    $("statCounterCardLabel").textContent = "Заглушка";
-    $("statChangedFields").textContent = "—";
-    $("statChangedFieldsTotal").textContent = "—";
+    const pnpSummaryCounts = getPnpHeaderSummaryCounts();
+    $("statCounterCardLabel").textContent = "Всего/Совпало/Частично/Без совпадения";
+    $("statCounterCardLabel").style.fontSize = "13px";
+    $("statCounterCardLabel").style.lineHeight = "1.05";
+    $("statCounterCardLabel").style.whiteSpace = "nowrap";
+    $("statChangedFields").textContent = `${pnpSummaryCounts.totalRows}/${pnpSummaryCounts.totalFull}`;
+    $("statChangedFieldsTotal").textContent = `/${pnpSummaryCounts.totalPartial}/${pnpSummaryCounts.totalNoMatch}`;
+    $("statCounterCardCap").textContent = "элементы в проекте";
 
     $("statReadinessCardLabel").textContent = "Заглушка";
     $("statLocalLabel").textContent = "—";
@@ -3277,8 +3297,12 @@ function updateHeaderCardsUi(){
   $("statProjectName").textContent = getHeaderProjectName();
   fitProjectText();
   $("statCounterCardLabel").textContent = "Поля";
+  $("statCounterCardLabel").style.fontSize = "";
+  $("statCounterCardLabel").style.lineHeight = "";
+  $("statCounterCardLabel").style.whiteSpace = "";
   $("statChangedFields").textContent = String(state.changedFields.size);
   $("statChangedFieldsTotal").textContent = "/28";
+  $("statCounterCardCap").textContent = "изменено / доступно";
   $("statReadinessCardLabel").textContent = "Готовность сохранения";
   $("statLocalLabel").textContent = "локальная";
   $("statPrinterLabel").textContent = "принтер";
