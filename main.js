@@ -1,6 +1,6 @@
 ﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.6.2
+ * Версия: 3.6.3
  * Автор: Новожилов Артем
  */
 
@@ -35,6 +35,7 @@ const DEFAULT_PATHS = {
 const USER_SETTINGS_FILE = 'asm-user-settings.json';
 const USER_SNAPSHOT_DIR = 'snapshots';
 const GENERATED_FILES_HISTORY_DB_FILE = 'generated-files-history.sqlite';
+const HISTORY_SECTION_KEYS = ['P&P', 'ASM', 'АОИ'];
 const TEMPLATE_GENERATION_FILES = [
   { templateName: 'template.PR1', outputExtension: '.PR1' },
   { templateName: 'template.ISD', outputExtension: '.ISD' },
@@ -331,10 +332,83 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     padding:0 16px 16px;
     margin-top:auto;
   }
+  .history-modal-backdrop{
+    position:fixed;
+    inset:0;
+    z-index:20;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    background:rgba(7,10,18,.62);
+    backdrop-filter:blur(6px);
+  }
+  .history-modal-backdrop[hidden]{ display:none; }
+  .history-modal{
+    width:min(620px, 100%);
+    border:1px solid var(--border);
+    border-radius:18px;
+    background:var(--panel);
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+    overflow:hidden;
+  }
+  .history-modal-head{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:18px 20px 12px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--panel), color-mix(in srgb, var(--panel) 88%, black));
+  }
+  .history-modal-icon{
+    width:34px;
+    height:34px;
+    flex:0 0 34px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    background:color-mix(in srgb, #f59e0b 20%, var(--surface));
+    color:#f59e0b;
+    font-size:18px;
+    font-weight:900;
+  }
+  .history-modal-title{
+    font-size:20px;
+    font-weight:900;
+    line-height:1.15;
+    margin:1px 0 0;
+  }
+  .history-modal-body{
+    padding:16px 20px 18px;
+    color:var(--text);
+    line-height:1.5;
+  }
+  .history-modal-text{
+    font-size:15px;
+    margin:0;
+  }
+  .history-modal-subtext{
+    margin:10px 0 0;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .history-modal-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:flex-end;
+    padding:0 20px 20px;
+  }
+  .history-modal-actions .btn{
+    min-width:0;
+    padding:9px 14px;
+  }
   .btn{ border:1px solid var(--border); border-radius:12px; padding:8px 12px; font-size:13px; font-weight:800; color:var(--text); background:var(--surface); cursor:pointer; }
   .btn.primary{background:color-mix(in srgb, var(--accent) 22%, var(--surface));}
   .btn.danger{background:rgba(224,85,79,.18);}
+  .btn.warning{background:rgba(245,158,11,.16);}
   .btn.active{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);}
+  .btn.filter.active{background:color-mix(in srgb, var(--accent) 24%, var(--surface));}
   .history-note{ padding:0 16px 12px; color:var(--muted); font-size:13px; }
   .history-table-wrap{ flex:1; min-height:0; margin:0 16px 16px; border:1px solid var(--border); border-radius:14px; overflow:auto; background:var(--surface); }
   .history-table{ width:100%; border-collapse:collapse; font-size:13px; }
@@ -361,7 +435,12 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
         <button type="button" class="btn" id="sortDateBtn">По дате</button>
         <button type="button" class="btn" id="sortNameBtn">По имени</button>
         <button type="button" class="btn" id="directionBtn">Порядок</button>
+        <button type="button" class="btn filter active" data-section="P&P" id="sectionPnpBtn">P&P</button>
+        <button type="button" class="btn filter active" data-section="ASM" id="sectionAsmBtn">ASM</button>
+        <button type="button" class="btn filter active" data-section="АОИ" id="sectionAoiBtn">АОИ</button>
         <button type="button" class="btn primary" id="refreshBtn">Обновить</button>
+        <button type="button" class="btn primary" id="saveBtn">Сохранить историю</button>
+        <button type="button" class="btn" id="openHistoryBtn">Открыть историю</button>
         <button type="button" class="btn danger" id="clearBtn">Очистить историю</button>
       </div>
       <div class="history-note" id="historyNote"></div>
@@ -385,6 +464,26 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
         <button type="button" class="btn primary" id="closeBtn">Закрыть</button>
       </div>
     </div>
+    <div class="history-modal-backdrop" id="clearModal" hidden>
+      <div class="history-modal" role="dialog" aria-modal="true" aria-labelledby="clearModalTitle">
+        <div class="history-modal-head">
+          <div class="history-modal-icon">!</div>
+          <div>
+            <div class="history-modal-title" id="clearModalTitle">Очистить историю</div>
+            <div class="history-modal-subtext">Перед удалением можно сохранить текущую историю в CSV-файл.</div>
+          </div>
+        </div>
+        <div class="history-modal-body">
+          <p class="history-modal-text">Полностью очистить историю созданных файлов?</p>
+          <p class="history-modal-subtext">Если нажать «Сохранить и очистить», история сначала будет выгружена в файл, а потом удалена из окна.</p>
+        </div>
+        <div class="history-modal-actions">
+          <button type="button" class="btn warning" id="modalSaveClearBtn">Сохранить и очистить</button>
+          <button type="button" class="btn danger" id="modalClearBtn">Очистить без сохранения</button>
+          <button type="button" class="btn" id="modalCancelBtn">Отмена</button>
+        </div>
+      </div>
+    </div>
   </div>
 <script>
 (() => {
@@ -393,6 +492,11 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     sortDirection: ${JSON.stringify(initialSortDirection)},
     limit: ${initialLimit},
     theme: ${JSON.stringify(initialTheme)},
+    sections: {
+      'P&P': true,
+      'ASM': true,
+      'АОИ': true
+    },
     totalCount: 0,
     items: []
   };
@@ -412,16 +516,32 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleString('ru-RU');
   }
 
+  function getSelectedSections(){
+    return Object.keys(state.sections).filter((section) => Boolean(state.sections[section]));
+  }
+
   function updateButtons(){
     document.getElementById('sortDateBtn').className = state.sortBy === 'createdAt' ? 'btn primary active' : 'btn';
     document.getElementById('sortNameBtn').className = state.sortBy === 'fileName' ? 'btn primary active' : 'btn';
     document.getElementById('directionBtn').textContent = state.sortDirection === 'asc' ? 'Сначала старые' : 'Сначала новые';
+    document.getElementById('sectionPnpBtn').className = state.sections['P&P'] ? 'btn filter active' : 'btn filter';
+    document.getElementById('sectionAsmBtn').className = state.sections['ASM'] ? 'btn filter active' : 'btn filter';
+    document.getElementById('sectionAoiBtn').className = state.sections['АОИ'] ? 'btn filter active' : 'btn filter';
     document.getElementById('historyMeta').textContent = 'Записей: ' + state.totalCount;
-    document.getElementById('historyNote').textContent = 'Сортировка: ' + (state.sortBy === 'fileName' ? 'имя файла' : 'дата') + ', ' + (state.sortDirection === 'asc' ? 'по возрастанию' : 'по убыванию');
+    const activeSections = getSelectedSections();
+    document.getElementById('historyNote').textContent = 'Сортировка: ' + (state.sortBy === 'fileName' ? 'имя файла' : 'дата') + ', ' + (state.sortDirection === 'asc' ? 'по возрастанию' : 'по убыванию') + ' · Разделы: ' + (activeSections.length ? activeSections.join(', ') : 'нет');
   }
 
   function applyTheme() {
     document.body.className = state.theme === 'light' ? 'light' : 'dark';
+  }
+
+  function openClearModal(){
+    document.getElementById('clearModal').hidden = false;
+  }
+
+  function closeClearModal(){
+    document.getElementById('clearModal').hidden = true;
   }
 
   function renderRows(items){
@@ -470,7 +590,8 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     const response = await api.getGeneratedFilesHistory({
       sortBy: state.sortBy,
       sortDirection: state.sortDirection,
-      limit: state.limit
+      limit: state.limit,
+      sections: getSelectedSections()
     });
     state.totalCount = Number(response && response.totalCount ? response.totalCount : 0);
     state.items = Array.isArray(response && response.items) ? response.items : [];
@@ -482,15 +603,51 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     renderRows(state.items);
   }
 
+  async function saveHistory(){
+    if (!api.saveGeneratedFilesHistory) {
+      return;
+    }
+
+    await api.saveGeneratedFilesHistory({
+      sortBy: state.sortBy,
+      sortDirection: state.sortDirection,
+      sections: getSelectedSections()
+    });
+  }
+
+  async function openHistoryFile(){
+    if (!api.openGeneratedFilesHistoryFile) {
+      return;
+    }
+
+    await api.openGeneratedFilesHistoryFile({});
+  }
+
   async function clearHistory(){
     if (!api.clearGeneratedFilesHistory) {
       return;
     }
 
-    const result = await api.clearGeneratedFilesHistory();
+    const result = await api.clearGeneratedFilesHistory({ skipConfirm: true });
     if (result && result.cleared) {
       await loadHistory();
     }
+  }
+
+  async function saveAndClearHistory(){
+    if (!api.saveGeneratedFilesHistory) {
+      return;
+    }
+
+    const saveResult = await api.saveGeneratedFilesHistory({
+      all: true
+    });
+
+    if (!saveResult || !saveResult.saved) {
+      return;
+    }
+
+    await clearHistory();
   }
 
   document.getElementById('sortDateBtn').addEventListener('click', () => {
@@ -505,8 +662,36 @@ function buildGeneratedFilesHistoryWindowHtml(payload) {
     state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
     loadHistory();
   });
+  document.getElementById('sectionPnpBtn').addEventListener('click', () => {
+    state.sections['P&P'] = !state.sections['P&P'];
+    loadHistory();
+  });
+  document.getElementById('sectionAsmBtn').addEventListener('click', () => {
+    state.sections['ASM'] = !state.sections['ASM'];
+    loadHistory();
+  });
+  document.getElementById('sectionAoiBtn').addEventListener('click', () => {
+    state.sections['АОИ'] = !state.sections['АОИ'];
+    loadHistory();
+  });
   document.getElementById('refreshBtn').addEventListener('click', loadHistory);
-  document.getElementById('clearBtn').addEventListener('click', clearHistory);
+  document.getElementById('saveBtn').addEventListener('click', saveHistory);
+  document.getElementById('openHistoryBtn').addEventListener('click', openHistoryFile);
+  document.getElementById('clearBtn').addEventListener('click', openClearModal);
+  document.getElementById('modalSaveClearBtn').addEventListener('click', async () => {
+    closeClearModal();
+    await saveAndClearHistory();
+  });
+  document.getElementById('modalClearBtn').addEventListener('click', async () => {
+    closeClearModal();
+    await clearHistory();
+  });
+  document.getElementById('modalCancelBtn').addEventListener('click', closeClearModal);
+  document.getElementById('clearModal').addEventListener('click', (event) => {
+    if (event.target === document.getElementById('clearModal')) {
+      closeClearModal();
+    }
+  });
   document.getElementById('closeBtn').addEventListener('click', () => window.close());
 
   if (api.onGeneratedFilesHistoryThemeChanged) {
@@ -653,32 +838,58 @@ async function openGeneratedFilesHistoryWindow(payload = {}) {
 }
 
 async function clearGeneratedFilesHistory(payload = {}, senderWindow = null) {
+  if (payload && payload.skipConfirm) {
+    const db = getGeneratedFilesHistoryDb();
+    db.exec('DELETE FROM generated_files_history;');
+
+    return {
+      cleared: true,
+      totalCount: 0
+    };
+  }
+
   const parentWindow = senderWindow && !senderWindow.isDestroyed()
     ? senderWindow
     : (generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed() ? generatedFilesHistoryWindow : mainWindow);
   const result = await dialog.showMessageBox(parentWindow || undefined, {
     type: 'warning',
-    buttons: ['Очистить историю', 'Отмена'],
+   buttons: ['Сохранить и очистить', 'Очистить без сохранения', 'Отмена'],
     defaultId: 1,
-    cancelId: 1,
+   cancelId: 2,
     noLinkButtons: true,
     title: 'Очистить историю',
     message: 'Полностью очистить историю созданных файлов?',
-    detail: 'Действие удалит все записи журнала без возможности восстановления.'
+   detail: 'Можно сначала сохранить историю в CSV-файл, чтобы не потерять записи.'
   });
 
-  if (result.response !== 0) {
+  if (result.response === 2) {
     return {
       cleared: false,
       cancelled: true
     };
   }
 
+  if (result.response === 0) {
+   const savedResult = await exportGeneratedFilesHistoryCsv({
+     all: true,
+     sortBy: 'createdAt',
+     sortDirection: 'desc'
+   });
+
+   if (!savedResult || !savedResult.saved) {
+     return {
+       cleared: false,
+       cancelled: true,
+       saveCancelled: true
+     };
+   }
+  }
+
   const db = getGeneratedFilesHistoryDb();
   db.exec('DELETE FROM generated_files_history;');
 
   return {
-    cleared: true,
+   cleared: true,
     totalCount: 0
   };
 }
@@ -1612,7 +1823,7 @@ async function saveProjectSnapshotData(payload) {
       path: item.path
     })),
     {
-      section: 'Проект ASM',
+      section: 'ASM',
       action: 'saveProjectSnapshotData'
     }
   );
@@ -1694,7 +1905,7 @@ async function saveGeneratedProjectFiles(payload) {
   safeRecordGeneratedFilesHistory(
     saveReports.flatMap((item) => item.files),
     {
-      section: 'Проект ASM',
+      section: 'ASM',
       action: 'saveGeneratedProjectFiles'
     }
   );
@@ -1802,6 +2013,29 @@ function normalizeHistorySortDirection(sortDirection) {
   return String(sortDirection || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 }
 
+function normalizeHistorySection(section) {
+  const text = String(section || '').trim();
+
+  if (!text) {
+    return 'Общее';
+  }
+
+  return text === 'Проект ASM' ? 'ASM' : text;
+}
+
+function normalizeHistorySections(sections) {
+  const rawSections = Array.isArray(sections)
+    ? sections
+    : (typeof sections === 'string'
+        ? sections.split(',')
+        : []);
+  const normalized = rawSections
+    .map((section) => normalizeHistorySection(section))
+    .filter((section) => HISTORY_SECTION_KEYS.includes(section));
+
+  return Array.from(new Set(normalized));
+}
+
 function getGeneratedFileType(fileName, fallbackKind) {
   const ext = path.extname(String(fileName || '')).replace(/^\./, '').trim().toLowerCase();
   return ext || String(fallbackKind || '').trim().toLowerCase() || 'file';
@@ -1809,7 +2043,7 @@ function getGeneratedFileType(fileName, fallbackKind) {
 
 function buildGeneratedFileHistoryRecords(files, metadata = {}) {
   const createdAt = String(metadata.createdAt || new Date().toISOString());
-  const section = String(metadata.section || 'Общее').trim() || 'Общее';
+  const section = normalizeHistorySection(metadata.section);
   const action = String(metadata.action || 'save').trim() || 'save';
   const rows = [];
 
@@ -1885,17 +2119,44 @@ function queryGeneratedFilesHistory(payload = {}) {
   const db = getGeneratedFilesHistoryDb();
   const sortBy = normalizeHistorySortBy(payload.sortBy);
   const sortDirection = normalizeHistorySortDirection(payload.sortDirection);
-  const limit = Math.max(1, Math.min(1000, Number(payload.limit) || 200));
-  const totalCountRow = db.prepare('SELECT COUNT(*) AS totalCount FROM generated_files_history').get();
+  const limit = payload && payload.all ? null : Math.max(1, Math.min(1000, Number(payload.limit) || 200));
+  const selectedSections = normalizeHistorySections(payload.sections);
+  const sectionWhere = selectedSections.length
+    ? `WHERE section IN (${selectedSections.map(() => '?').join(', ')})`
+    : '';
   const orderClause = sortBy === 'fileName'
-    ? `file_name COLLATE NOCASE ${sortDirection}, created_at DESC, id DESC`
-    : `created_at ${sortDirection}, file_name COLLATE NOCASE ASC, id DESC`;
-  const rows = db.prepare(`
-    SELECT id, section, action, file_name AS fileName, file_path AS filePath, file_type AS fileType, created_at AS createdAt
-    FROM generated_files_history
+    ? `fileName COLLATE NOCASE ${sortDirection}, createdAt DESC, id DESC`
+    : `createdAt ${sortDirection}, fileName COLLATE NOCASE ASC, id DESC`;
+  const normalizedQuery = `
+    WITH normalized AS (
+      SELECT
+        id,
+        CASE WHEN section = 'Проект ASM' THEN 'ASM' ELSE section END AS section,
+        action,
+        file_name AS fileName,
+        file_path AS filePath,
+        file_type AS fileType,
+        created_at AS createdAt
+      FROM generated_files_history
+    )
+    SELECT id, section, action, fileName, filePath, fileType, createdAt
+    FROM normalized
+    ${sectionWhere}
     ORDER BY ${orderClause}
-    LIMIT ?
-  `).all(limit);
+    ${limit ? 'LIMIT ?' : ''}
+  `;
+  const totalCountRow = db.prepare(`
+    WITH normalized AS (
+      SELECT CASE WHEN section = 'Проект ASM' THEN 'ASM' ELSE section END AS section
+      FROM generated_files_history
+    )
+    SELECT COUNT(*) AS totalCount
+    FROM normalized
+    ${sectionWhere}
+  `).get(...selectedSections);
+  const rows = limit
+    ? db.prepare(normalizedQuery).all(...selectedSections, limit)
+    : db.prepare(normalizedQuery).all(...selectedSections);
 
   return {
     totalCount: Number(totalCountRow && totalCountRow.totalCount ? totalCountRow.totalCount : 0),
@@ -1903,6 +2164,101 @@ function queryGeneratedFilesHistory(payload = {}) {
     sortBy,
     sortDirection,
     limit
+  };
+}
+
+function escapeCsvValue(value) {
+  const text = String(value === null || value === undefined ? '' : value);
+  return /[;\r\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function buildGeneratedFilesHistoryCsv(rows) {
+  const header = ['Дата и время', 'Файл', 'Раздел', 'Тип', 'Путь', 'Действие'];
+  const lines = [header.map(escapeCsvValue).join(';')];
+
+  rows.forEach((row) => {
+    lines.push([
+      row.createdAt,
+      row.fileName,
+      row.section,
+      row.fileType,
+      row.filePath,
+      row.action
+    ].map(escapeCsvValue).join(';'));
+  });
+
+  return `\uFEFF${lines.join('\r\n')}`;
+}
+
+async function exportGeneratedFilesHistoryCsv(payload = {}) {
+  const saveAll = Boolean(payload.all);
+  const queryResult = queryGeneratedFilesHistory({
+    sortBy: payload.sortBy,
+    sortDirection: payload.sortDirection,
+    limit: saveAll ? null : payload.limit,
+    all: saveAll,
+    sections: saveAll ? [] : payload.sections
+  });
+  const rows = Array.isArray(queryResult.items) ? queryResult.items : [];
+  const defaultFileName = `generated-files-history-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+  const suggestedPath = String(payload.filePath || '').trim() || path.join(app.getPath('documents'), defaultFileName);
+  const dialogParent = generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed()
+    ? generatedFilesHistoryWindow
+    : mainWindow;
+  const selection = payload.filePath
+    ? { canceled: false, filePath: suggestedPath }
+    : await dialog.showSaveDialog(dialogParent || undefined, {
+        title: 'Сохранить историю',
+        defaultPath: suggestedPath,
+        filters: [{ name: 'CSV files', extensions: ['csv'] }]
+      });
+
+  if (selection.canceled || !selection.filePath) {
+    return {
+      saved: false,
+      cancelled: true
+    };
+  }
+
+  const targetPath = selection.filePath.toLowerCase().endsWith('.csv')
+    ? selection.filePath
+    : `${selection.filePath}.csv`;
+  await fs.writeFile(targetPath, buildGeneratedFilesHistoryCsv(rows), 'utf8');
+
+  return {
+    saved: true,
+    filePath: targetPath,
+    rowCount: rows.length
+  };
+}
+
+async function openGeneratedFilesHistoryCsv(payload = {}) {
+  const dialogParent = generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed()
+    ? generatedFilesHistoryWindow
+    : mainWindow;
+  const selection = await dialog.showOpenDialog(dialogParent || undefined, {
+    title: 'Открыть историю',
+    properties: ['openFile'],
+    filters: [{ name: 'CSV files', extensions: ['csv'] }, { name: 'All files', extensions: ['*'] }]
+  });
+
+  if (selection.canceled || !selection.filePaths.length) {
+    return {
+      opened: false,
+      cancelled: true
+    };
+  }
+
+  const filePath = selection.filePaths[0];
+  const openResult = await shell.openPath(filePath);
+
+  if (openResult) {
+    throw new Error(openResult);
+  }
+
+  return {
+    opened: true,
+    filePath
   };
 }
 
@@ -1981,7 +2337,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.6.2',
+    version: '3.6.3',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -2766,6 +3122,14 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
 
   ipcMain.handle('asm:get-generated-files-history', async (_event, payload) => {
     return queryGeneratedFilesHistory(payload || {});
+  });
+
+  ipcMain.handle('asm:save-generated-files-history', async (_event, payload) => {
+    return exportGeneratedFilesHistoryCsv(payload || {});
+  });
+
+  ipcMain.handle('asm:open-generated-files-history-file', async (_event, payload) => {
+    return openGeneratedFilesHistoryCsv(payload || {});
   });
 
   ipcMain.handle('asm:open-generated-files-history', async (_event, payload) => {

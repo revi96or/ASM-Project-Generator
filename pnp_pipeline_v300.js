@@ -1,8 +1,8 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.6.2 для словаря Dict/.
- * Версия: 3.6.2
+ * Описание: Минимальный конвейер Pick and Place 3.6.3 для словаря Dict/.
+ * Версия: 3.6.3
  * Автор: Новожилов Артем
- * Изменения 3.6.2: сохранены исправления парсера XLSX (parseWorksheetXmlRows) —
+ * Изменения 3.6.3: сохранены исправления парсера XLSX (parseWorksheetXmlRows) —
  * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
  * значение следующей ячейки (лениво искали ближайший </c>, которым
  * оказывался закрывающий тег соседней ячейки). Из-за этого терялись
@@ -24,7 +24,7 @@ const DEFAULT_STATE_FILE = 'pnp_state_v300.js';
 const DEFAULT_EXPORT_STEM = 'pnp_export_v300';
 const DEFAULT_IMPORT_START_DIR = 'C:\\settings\\Pick Place\\Test\\';
 // Источник версии один: пакетный манифест, чтобы экспорт и подписи не расходились.
-const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.6.2');
+const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.6.3');
 const INFO_LEGEND_ROWS = [
   { row: 10, fillStyleIndex: 4, text: 'Данные, которые заменились из словаря.' },
   { row: 11, fillStyleIndex: 5, text: 'Данные, которые совпали в словаре, но не по всем ячейкам. Требуется проверить, смотри еще красный цвет.' },

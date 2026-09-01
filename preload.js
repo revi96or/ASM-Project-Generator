@@ -1,6 +1,6 @@
 /**
  * Описание: Безопасный мост между HTML-страницей и Electron.
- * Версия: 3.6.2
+ * Версия: 3.6.3
  * Автор: Новожилов Артем
  */
 
@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('asmApi', {
   openHelpPdf: () => ipcRenderer.invoke('asm:open-help-pdf'),
   openGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:open-generated-files-history', payload),
   getGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:get-generated-files-history', payload),
+  saveGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:save-generated-files-history', payload),
+  openGeneratedFilesHistoryFile: (payload) => ipcRenderer.invoke('asm:open-generated-files-history-file', payload),
   clearGeneratedFilesHistory: (payload) => ipcRenderer.invoke('asm:clear-generated-files-history', payload),
   updateGeneratedFilesHistoryTheme: (payload) => ipcRenderer.invoke('asm:update-generated-files-history-theme', payload),
   onGeneratedFilesHistoryThemeChanged: (callback) => {
