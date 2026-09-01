@@ -1,6 +1,6 @@
 ﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.6.1
+ * Версия: 3.6.2
  * Автор: Новожилов Артем
  */
 
@@ -27,6 +27,7 @@ const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
 const PNP_ERRORS_LOG_FILE_NAME = 'Errors.log';
 const DEFAULT_PATHS = {
   local: 'C:\\settings\\Project_Printer_ASM\\',
+  aoiLocal: 'C:\\settings\\AOI\\',
   printer: '\\\\server\\common\\Novozhilov\\',
   aoi: '\\\\server\\common\\Любимова К.И.\\',
   placer: 'C:\\settings\\PickAndPlace\\'
@@ -826,6 +827,7 @@ function normalizeUserSettings(rawSettings) {
   return {
     paths: {
       local: String(incomingPaths.local || DEFAULT_PATHS.local),
+      aoiLocal: String(incomingPaths.aoiLocal || DEFAULT_PATHS.aoiLocal),
       printer: String(incomingPaths.printer || DEFAULT_PATHS.printer),
       aoi: String(incomingPaths.aoi || DEFAULT_PATHS.aoi),
       placer: String(incomingPaths.placer || DEFAULT_PATHS.placer)
@@ -1979,7 +1981,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.6.1',
+    version: '3.6.2',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -2989,6 +2991,7 @@ function createWindow() {
     minWidth: 1080,
     minHeight: 800,
     autoHideMenuBar: true,
+    title: 'SMT PRO GEN',
     icon: path.join(__dirname, 'assets', 'asm-icon.ico'),
     backgroundColor: '#0A0E18',
     show: false,
@@ -3000,7 +3003,16 @@ function createWindow() {
   });
 
   mainWindow = windowRef;
+  mainWindow.setTitle('SMT PRO GEN');
+  mainWindow.webContents.on('page-title-updated', (event) => {
+    // Не даем заголовку страницы перезаписать имя окна приложения.
+    event.preventDefault();
+    mainWindow.setTitle('SMT PRO GEN');
+  });
   mainWindow.loadFile(path.join(__dirname, 'asm_generator_form_v9.html'));
+  mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow.setTitle('SMT PRO GEN');
+  });
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });

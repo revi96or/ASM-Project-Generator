@@ -1,6 +1,6 @@
 {
    "name": "asm_project_generator",
-   "version": "3.6.1",
+   "version": "3.6.2",
    "versionDate": "2026-08-23",
    "description": "ASM Project Generator Electron wrapper",
    "main": "main.js",
@@ -20,7 +20,7 @@
    },
    "build": {
       "appId": "ru.asm.projectgenerator",
-      "productName": "ASM Project Generator",
+      "productName": "SMT Pro Gen",
       "asar": true,
       "icon": "assets\\asm-icon.ico",
       "publish": [
@@ -60,7 +60,8 @@
          ]
       },
       "nsis": {
-         "artifactName": "ASM_Project_Generator-${version}-setup.exe",
+         "artifactName": "SMT_Pro_Gen-${version}-setup.exe",
+         "shortcutName": "SMT Pro Gen",
          "oneClick": false,
          "allowToChangeInstallationDirectory": true
       }

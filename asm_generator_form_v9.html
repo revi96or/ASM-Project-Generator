@@ -1583,7 +1583,7 @@
 
 <footer class="app-footer mt-auto">
   <div class="max-w-[1550px] mx-auto px-5 lg:px-8 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-    <div>Генератор проектов FRITSCH * ASM * OMRON | Новожилов Артем</div>
+    <div>SMT Project Generator | Новожилов Артем</div>
     <div id="footerVersionInfo">Версия — · дата —</div>
   </div>
 </footer>
@@ -1610,7 +1610,7 @@
 const asmBridge = window.asmApi || {
   ping: () => "browser-mode",
   getAppMeta: async () => ({
-    version: "3.6.1",
+    version: "3.6.2",
     versionDate: "2026-08-23"
   }),
   getUserSettings: async () => ({
@@ -1726,8 +1726,8 @@ const asmBridge = window.asmApi || {
     stats: { totalRows: 0, topRows: 0, bottomRows: 0, rotatedRows: 0, renamedRows: 0, commentedRows: 0, rotationR: 0, rotationC: 0, rotationO: 0, refCount: 0, deletedNotFittedCount: 0, deleteSet0Count: 0, inflowCount: 0, inflowTopCount: 0, inflowBottomCount: 0, exitTopCount: 0, exitBottomCount: 0, resistorTotal: 0, resistorFull: 0, resistorPartial: 0, resistorNoMatch: 0, capacitorTotal: 0, capacitorFull: 0, capacitorPartial: 0, capacitorNoMatch: 0, otherTotal: 0, otherFull: 0, otherPartial: 0, otherNoMatch: 0, totalFull: 0, totalPartial: 0, totalNoMatch: 0, statsDateText: "" }
   }),
   checkForUpdates: async () => ({
-    currentVersion: "3.6.1",
-    latestVersion: "3.6.1",
+    currentVersion: "3.6.2",
+    latestVersion: "3.6.2",
     updateAvailable: false,
     message: "Проверка обновлений доступна в Electron."
   }),
@@ -1761,7 +1761,7 @@ const state = {
     tone: "danger"
   },
   appMeta: {
-  version: "3.6.1",
+  version: "3.6.2",
   versionDate: "2026-08-23"
   },
   projectMode: "create",
@@ -1817,6 +1817,7 @@ const state = {
 
 const DEFAULT_PATHS = {
   local: "C:\\settings\\Project_Printer_ASM\\",
+  aoiLocal: "C:\\settings\\AOI\\",
   printer: "\\\\server\\common\\Novozhilov\\",
   aoi: "\\\\server\\common\\Любимова К.И.\\",
   placer: "C:\\settings\\PickAndPlace\\"
@@ -2624,6 +2625,7 @@ function persistUserSettings(){
   const payload = {
     paths: {
       local: $("localPathInput") ? $("localPathInput").value.trim() || DEFAULT_PATHS.local : DEFAULT_PATHS.local,
+      aoiLocal: $("aoiLocalPathInput") ? $("aoiLocalPathInput").value.trim() || DEFAULT_PATHS.aoiLocal : DEFAULT_PATHS.aoiLocal,
       printer: $("serverPathInput") ? $("serverPathInput").value.trim() || DEFAULT_PATHS.printer : DEFAULT_PATHS.printer,
       aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi : DEFAULT_PATHS.aoi,
       placer: $("placerPathInput") ? $("placerPathInput").value.trim() || DEFAULT_PATHS.placer : DEFAULT_PATHS.placer
@@ -2784,6 +2786,7 @@ async function applyStoredUserSettings(){
   };
 
   $("localPathInput").value = paths.local || DEFAULT_PATHS.local;
+  $("aoiLocalPathInput").value = paths.aoiLocal || DEFAULT_PATHS.aoiLocal;
   $("serverPathInput").value = paths.printer || DEFAULT_PATHS.printer;
   $("aoiPathInput").value = paths.aoi || DEFAULT_PATHS.aoi;
   $("placerPathInput").value = paths.placer || DEFAULT_PATHS.placer;
@@ -4815,6 +4818,7 @@ async function exportPnpFiles(){
 function saveCurrentPaths(){
   const pathState = {
     local: $("localPathInput").value.trim() || DEFAULT_PATHS.local,
+    aoiLocal: $("aoiLocalPathInput").value.trim() || DEFAULT_PATHS.aoiLocal,
     printer: $("serverPathInput").value.trim() || DEFAULT_PATHS.printer,
     aoi: $("aoiPathInput").value.trim() || DEFAULT_PATHS.aoi,
     placer: $("placerPathInput").value.trim() || DEFAULT_PATHS.placer
@@ -4827,7 +4831,7 @@ function saveCurrentPaths(){
 function buildProjectSnapshot(){
   return {
     description: "Снимок формы ASM Project Generator",
-    version: "3.6.1",
+    version: "3.6.2",
     author: "Новожилов Артем",
     createdAt: new Date().toISOString(),
     paths: {
@@ -5783,7 +5787,7 @@ async function createAoiProjectFromTxt(){
     const result = await asmBridge.createAoiProjectFromTxt({
       sourceFolder: pathState.placer,
       targetFolder: pathState.aoi,
-      localTargetFolder: pathState.local
+      localTargetFolder: pathState.aoiLocal
     });
 
     if (result.canceled) {
@@ -5998,9 +6002,12 @@ async function init(){
   });
 
   setupPathInput("localPathInput", "Локальная папка");
+  setupPathInput("aoiLocalPathInput", "Локальная папка АОИ");
   setupPathInput("serverPathInput", "Адрес принтера");
   setupPathInput("aoiPathInput", "Папка АОИ");
   setupPathInput("placerPathInput", "Адрес расстановщика");
+  // Локальный корень P&P должен подтверждаться так же, как и остальные каталожные пути.
+  setupPnpPathInput("pnpLocalPathInput", "Локальная папка P&P");
   setupPnpPathInput("pnpDictXlsxPathInput", "Путь к Dict.xlsx для P&P");
   setupPnpPathInput("pnpDictPathInput", "Путь к единственному корню словаря P&P");
   setupPnpPathInput("pnpImportCsvPathInput", "Путь к CSV импорта P&P");
