@@ -1,6 +1,6 @@
 <!--
 Описание: HTML-интерфейс генератора проекта принтера ASM для работы в Electron.
-Версия: 9.27.21
+Версия: 9.27.24
 Автор: Новожилов Артем
 -->
 <!DOCTYPE html>
@@ -2707,6 +2707,7 @@ const tooltipState = {
   timerId: null,
   target: null
 };
+let placerStatusRefreshToken = 0;
 
 function hideAppTooltip(){
   const tooltip = $("appTooltip");
@@ -3097,12 +3098,18 @@ async function refreshSaveReadiness(showDialog){
 async function refreshPlacerStatus(showDialog){
   const placerFolderPath = $("placerPathInput").value.trim();
   const preservePnpHeader = state.rightZoneMode !== "pnp";
+  const refreshToken = ++placerStatusRefreshToken;
 
   try {
     const result = await asmBridge.inspectFolder(placerFolderPath);
     const projectFiles = Array.isArray(result.files) ? result.files.slice() : [];
     const projectCount = projectFiles.length;
     const isOnline = Boolean(result.exists);
+
+    // Если пользователь уже успел ввести новый путь, не даем устаревшему ответу перезатереть свежий статус.
+    if (refreshToken !== placerStatusRefreshToken) {
+      return;
+    }
 
     if (!preservePnpHeader) {
       setPrinterStatus(isOnline ? "online" : "offline", isOnline ? `доступно: ${projectCount} проектов` : "расстановщик недоступен", isOnline ? "success" : "danger");
@@ -3129,6 +3136,10 @@ async function refreshPlacerStatus(showDialog){
       showAppDialog("Статус расстановщика", dialogLines.join("\n"));
     }
   } catch (error) {
+    if (refreshToken !== placerStatusRefreshToken) {
+      return;
+    }
+
     if (!preservePnpHeader) {
       setPrinterStatus("offline", "расстановщик недоступен", "danger");
     }
@@ -3248,6 +3259,15 @@ function getPnpHeaderSummaryCounts(){
   };
 }
 
+function updateSaveReadinessCardUi(){
+  // Четвертая плитка в обоих режимах должна показывать один и тот же блок готовности.
+  $("statReadinessCardLabel").textContent = "Готовность сохранения";
+  $("statLocalLabel").textContent = "локальная";
+  $("statPrinterLabel").textContent = "принтер";
+  $("statAoiLabel").textContent = "AOI";
+  $("statPlacerLabel").textContent = "расстановщик";
+}
+
 function updateHeaderCardsUi(){
   const isPnp = state.rightZoneMode === "pnp";
   const printerHeader = state.printerHeader || {
@@ -3280,11 +3300,7 @@ function updateHeaderCardsUi(){
     $("statChangedFieldsTotal").textContent = `/${pnpSummaryCounts.totalPartial}/${pnpSummaryCounts.totalNoMatch}`;
     $("statCounterCardCap").textContent = "элементы в проекте";
 
-    $("statReadinessCardLabel").textContent = "Заглушка";
-    $("statLocalLabel").textContent = "—";
-    $("statPrinterLabel").textContent = "—";
-    $("statAoiLabel").textContent = "—";
-    $("statPlacerLabel").textContent = "—";
+    updateSaveReadinessCardUi();
     return;
   }
 
@@ -3303,11 +3319,7 @@ function updateHeaderCardsUi(){
   $("statChangedFields").textContent = String(state.changedFields.size);
   $("statChangedFieldsTotal").textContent = "/28";
   $("statCounterCardCap").textContent = "изменено / доступно";
-  $("statReadinessCardLabel").textContent = "Готовность сохранения";
-  $("statLocalLabel").textContent = "локальная";
-  $("statPrinterLabel").textContent = "принтер";
-  $("statAoiLabel").textContent = "AOI";
-  $("statPlacerLabel").textContent = "расстановщик";
+  updateSaveReadinessCardUi();
 }
 
 function updateRightZoneUi(){
