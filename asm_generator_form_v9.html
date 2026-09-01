@@ -3219,6 +3219,20 @@ function getPnpHeaderPathTail(pathValue){
   return parts.length ? parts[parts.length - 1] : rawValue;
 }
 
+function getHeaderProjectName(){
+  // В P&P-режиме название плитки берём из Info D7, чтобы показывать уже собранное имя xlsx.
+  if (state.rightZoneMode === "pnp") {
+    const pnpName = String(
+      (state.pnp.importInfo && state.pnp.importInfo.infoD7)
+      || (state.pnp.state && state.pnp.state.importInfo && state.pnp.state.importInfo.infoD7)
+      || ""
+    ).trim();
+    return pnpName || "—";
+  }
+
+  return $("boardNameInput").value.trim() || "—";
+}
+
 function updateHeaderCardsUi(){
   const isPnp = state.rightZoneMode === "pnp";
   const printerHeader = state.printerHeader || {
@@ -3238,8 +3252,8 @@ function updateHeaderCardsUi(){
     $("statPrinterStatus").style.color = placerHeader.tone === "success" ? "var(--success)" : "var(--danger)";
     $("statPrinterStatusSub").textContent = placerHeader.statusSubText || "проверка при запуске";
 
-    $("statProjectCardLabel").textContent = "Заглушка";
-    $("statProjectName").textContent = "—";
+    $("statProjectCardLabel").textContent = "Проект";
+    $("statProjectName").textContent = getHeaderProjectName();
     fitProjectText();
 
     $("statCounterCardLabel").textContent = "Заглушка";
@@ -3260,7 +3274,7 @@ function updateHeaderCardsUi(){
   $("statPrinterStatusSub").textContent = printerHeader.statusSubText || "проверка при запуске";
 
   $("statProjectCardLabel").textContent = "Проект";
-  $("statProjectName").textContent = $("boardNameInput").value.trim() || "—";
+  $("statProjectName").textContent = getHeaderProjectName();
   fitProjectText();
   $("statCounterCardLabel").textContent = "Поля";
   $("statChangedFields").textContent = String(state.changedFields.size);
@@ -5634,8 +5648,7 @@ function fitProjectText(){
 }
 
 function updateProjectCard(){
-  const v = $("boardNameInput").value.trim();
-  $("statProjectName").textContent = v || "—";
+  $("statProjectName").textContent = getHeaderProjectName();
   fitProjectText();
 }
 
