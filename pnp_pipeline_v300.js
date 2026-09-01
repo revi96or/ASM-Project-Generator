@@ -10,6 +10,9 @@
  * Resist/Capacitor/Other, если перед ними была пустая ячейка
  * (пример: AM1LS-0505SH30-NZ — угол не пересчитывался, т.к. COMMENT_FR
  * читался как пустой из-за пустой ячейки "Столбец2" перед ним).
+ * Также здесь добавлен безопасный fallback для CSV без SET: колонка
+ * создаётся по Info D3 и заполняется значением 1, чтобы не ломать
+ * сценарий, где SET присутствует, но изначально пустой.
  */
 
 const fs = require('fs/promises');
@@ -751,11 +754,59 @@ function getSetColumnState(rawTable, setValue) {
   };
 }
 
+function ensurePnpSetColumnTable(rawTable, setValue, fillValue = '1') {
+  const sourceTable = rawTable || {};
+  const rawHeaders = Array.isArray(sourceTable.rawHeaders) ? sourceTable.rawHeaders.slice() : [];
+  const rows = Array.isArray(sourceTable.rows) ? sourceTable.rows.map(clonePnpRawRow) : [];
+  const setColumnName = normalizeSetColumnValue(setValue);
+  const columnIndex = rawHeaders.findIndex((header) => String(header || '').trim() === setColumnName);
+
+  if (columnIndex >= 0) {
+    return {
+      rawHeaders,
+      rows,
+      setColumnName,
+      columnIndex,
+      found: true,
+      synthetic: false
+    };
+  }
+
+  if (!setColumnName) {
+    return {
+      rawHeaders,
+      rows,
+      setColumnName,
+      columnIndex: -1,
+      found: false,
+      synthetic: false
+    };
+  }
+
+  // Если SET отсутствует целиком, создаём его заранее и заполняем как в ручной ветке.
+  const nextRows = rows.map((row) => {
+    const nextRow = Array.isArray(row) ? row.slice() : [];
+    const rowHasData = String(nextRow[0] || '').trim() !== '';
+    nextRow.push(rowHasData ? String(fillValue) : '');
+    return nextRow;
+  });
+
+  return {
+    rawHeaders: rawHeaders.concat(setColumnName),
+    rows: nextRows,
+    setColumnName,
+    columnIndex: rawHeaders.length,
+    found: true,
+    synthetic: true
+  };
+}
+
 function applySetColumnFill(importInfo, setValue, fillValue = '1') {
   const sourceImportInfo = importInfo || {};
   const rawTable = sourceImportInfo.rawTable || {};
   const rows = Array.isArray(rawTable.rows) ? rawTable.rows : [];
-  const nextState = getSetColumnState(rawTable, setValue);
+  const setTableState = ensurePnpSetColumnTable(rawTable, setValue, fillValue);
+  const nextState = getSetColumnState(setTableState, setValue);
 
   if (!nextState.found) {
     return {
@@ -765,19 +816,22 @@ function applySetColumnFill(importInfo, setValue, fillValue = '1') {
     };
   }
 
-  const nextRows = rows.map((row, index) => {
-    const nextRow = Array.isArray(row) ? row.slice() : [];
-    const rowHasData = String(nextRow[0] || '').trim() !== '';
+  const nextRows = setTableState.synthetic
+    ? setTableState.rows.map(clonePnpRawRow)
+    : rows.map((row) => {
+        const nextRow = Array.isArray(row) ? row.slice() : [];
+        const rowHasData = String(nextRow[0] || '').trim() !== '';
 
-    if (rowHasData) {
-      nextRow[nextState.columnIndex] = String(fillValue);
-    }
+        if (rowHasData) {
+          nextRow[nextState.columnIndex] = String(fillValue);
+        }
 
-    return nextRow;
-  });
+        return nextRow;
+      });
 
   const nextRawTable = {
     ...rawTable,
+    rawHeaders: Array.isArray(setTableState.rawHeaders) ? setTableState.rawHeaders.slice() : rawTable.rawHeaders,
     rows: nextRows
   };
   const deletePcbState = getDeletePcbRowsState(nextRawTable);
@@ -1640,12 +1694,16 @@ function buildDataSetTableState(importInfo, options = {}) {
   const sourceTable = importInfo && importInfo.rawTable ? importInfo.rawTable : { rawHeaders: [], rows: [] };
   const rawHeaders = Array.isArray(sourceTable.rawHeaders) ? sourceTable.rawHeaders.slice() : [];
   const baseState = getDeletePcbRowsState(sourceTable);
-  const copyRowsState = getCopyRowsWithRefState(sourceTable, baseState);
+  const infoD3 = String(options.infoD3 || (importInfo && importInfo.infoD3 ? importInfo.infoD3 : ''));
+  const resolvedBaseState = ensurePnpSetColumnTable({
+    rawHeaders,
+    rows: baseState.rows
+  }, infoD3, '1');
+  const copyRowsState = getCopyRowsWithRefState(sourceTable, resolvedBaseState);
   const copiedTable = {
-    rawHeaders: Array.isArray(baseState.rawHeaders) ? baseState.rawHeaders.slice() : rawHeaders,
+    rawHeaders: Array.isArray(resolvedBaseState.rawHeaders) ? resolvedBaseState.rawHeaders.slice() : rawHeaders,
     rows: copyRowsState.rows
   };
-  const infoD3 = String(options.infoD3 || (importInfo && importInfo.infoD3 ? importInfo.infoD3 : ''));
   const setColumnState = getSetColumnState(copiedTable, infoD3);
   const filteredSetState = setColumnState.found
     ? getFilteredSetRowsState(copiedTable, setColumnState.columnIndex)
@@ -1701,7 +1759,7 @@ function buildDataSetTableState(importInfo, options = {}) {
   });
 
   return {
-    rawHeaders,
+    rawHeaders: Array.isArray(copiedTable.rawHeaders) ? copiedTable.rawHeaders.slice() : rawHeaders,
     rows: finalRows,
     worksheetRows,
     copyRowsState,
