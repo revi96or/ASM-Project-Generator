@@ -1,8 +1,8 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.6.4 для словаря Dict/.
- * Версия: 3.6.4
+ * Описание: Минимальный конвейер Pick and Place 3.6.5 для словаря Dict/.
+ * Версия: 3.6.5
  * Автор: Новожилов Артем
- * Изменения 3.6.4: сохранены исправления парсера XLSX (parseWorksheetXmlRows) —
+ * Изменения 3.6.5: сохранены исправления парсера XLSX (parseWorksheetXmlRows) —
  * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
  * значение следующей ячейки (лениво искали ближайший </c>, которым
  * оказывался закрывающий тег соседней ячейки). Из-за этого терялись
@@ -27,7 +27,7 @@ const DEFAULT_STATE_FILE = 'pnp_state_v300.js';
 const DEFAULT_EXPORT_STEM = 'pnp_export_v300';
 const DEFAULT_IMPORT_START_DIR = 'C:\\settings\\Pick Place\\Test\\';
 // Источник версии один: пакетный манифест, чтобы экспорт и подписи не расходились.
-const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.6.4');
+const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.6.5');
 const INFO_LEGEND_ROWS = [
   { row: 10, fillStyleIndex: 4, text: 'Данные, которые заменились из словаря.' },
   { row: 11, fillStyleIndex: 5, text: 'Данные, которые совпали в словаре, но не по всем ячейкам. Требуется проверить, смотри еще красный цвет.' },
@@ -2790,8 +2790,9 @@ function buildOtherMatchState(dataOtherState, otherSheetState) {
       : { values: clonePnpRawRow(sourceRow), hidden: false };
     const designatorValue = designatorIndex >= 0 ? normalizeText(clonePnpCellValue(nextRow[designatorIndex])) : '';
     const sourceValues = {
-      COMMENT: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.COMMENT])),
-      FOOTPRINT: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.FOOTPRINT]))
+      // Для Other повторяем логику VBA: UCase(Trim(CStr(...))) для COMMENT/FOOTPRINT.
+      COMMENT: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.COMMENT])).toUpperCase(),
+      FOOTPRINT: normalizeText(clonePnpCellValue(nextRow[sourceIndexes.FOOTPRINT])).toUpperCase()
     };
     let bestMatch = null;
 
@@ -2810,8 +2811,8 @@ function buildOtherMatchState(dataOtherState, otherSheetState) {
 
   dictRows.forEach((dictRow, dictRowIndex) => {
     const dictValues = {
-      COMMENT: normalizeText(clonePnpCellValue(dictRow[dictIndexes.COMMENT])),
-      FOOTPRINT: normalizeText(clonePnpCellValue(dictRow[dictIndexes.FOOTPRINT]))
+      COMMENT: normalizeText(clonePnpCellValue(dictRow[dictIndexes.COMMENT])).toUpperCase(),
+      FOOTPRINT: normalizeText(clonePnpCellValue(dictRow[dictIndexes.FOOTPRINT])).toUpperCase()
     };
     const matchedFields = [];
     const mismatchedFields = [];
