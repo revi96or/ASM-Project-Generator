@@ -1,6 +1,6 @@
 ﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.6.5
+ * Версия: 3.6.6
  * Автор: Новожилов Артем
  */
 
@@ -19,9 +19,8 @@ const SNAPSHOT_SUFFIX = '_project_snapshot.json';
 const PNP_LAYER_MARKER_PATTERN = /_(T|B|R)_/i;
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-09-01'
+  versionDate: packageJson.versionDate || '2026-09-10'
 };
-const PNP_DEFAULT_DICT_FILE = path.join('Dict', 'pnp_dict_v300.js');
 const PNP_DEFAULT_STATE_FILE_NAME = 'pnp_state_v300.js';
 const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
 const PNP_ERRORS_LOG_FILE_NAME = 'Errors.log';
@@ -102,8 +101,8 @@ const DEFAULT_USER_SETTINGS = {
   paths: { ...DEFAULT_PATHS },
   pnpPaths: {
     localPath: '',
-    dictXlsxPath: 'Dict\\Dict.xlsx',
-    dictPath: 'Dict\\pnp_dict_v300.js',
+    dictXlsxPath: '',
+    dictPath: '',
     importCsvPath: '',
     exportXlsxFolder: '',
     exportFolder: '',
@@ -148,6 +147,10 @@ function normalizePnpErrorText(value) {
     .trim();
 }
 
+function normalizePnpDictPathValue(value) {
+  return String(value === null || value === undefined ? '' : value).trim();
+}
+
 function resolveAppPath(targetPath) {
   const normalizedPath = String(targetPath || '').trim();
 
@@ -159,6 +162,21 @@ function resolveAppPath(targetPath) {
   return path.isAbsolute(normalizedPath)
     ? normalizedPath
     : path.resolve(app.getAppPath(), normalizedPath);
+}
+
+function normalizePnpImportCsvPathValue(value) {
+  const text = String(value === null || value === undefined ? '' : value).trim();
+
+  if (!text) {
+    return '';
+  }
+
+  // Для P&P сохраняем именно папку-источник импорта, а не последний выбранный CSV-файл.
+  if (path.extname(text).toLowerCase() === '.csv') {
+    return path.dirname(text);
+  }
+
+  return text;
 }
 
 async function openFileInDefaultApp(filePath) {
@@ -1044,10 +1062,10 @@ function normalizeUserSettings(rawSettings) {
       placer: String(incomingPaths.placer || DEFAULT_PATHS.placer)
     },
     pnpPaths: {
-      localPath: String(incomingPnpPaths.localPath || ''),
-      dictXlsxPath: String(incomingPnpPaths.dictXlsxPath || getPnpRootDictXlsxPath()),
-      dictPath: String(incomingPnpPaths.dictPath || getPnpRootDictPath()),
-      importCsvPath: String(incomingPnpPaths.importCsvPath || ''),
+      dictXlsxPath: normalizePnpDictPathValue(incomingPnpPaths.dictXlsxPath || ''),
+      // Путь к словарю хранится только от пользователя; встроенного дефолта больше нет.
+      dictPath: normalizePnpDictPathValue(incomingPnpPaths.dictPath || incomingPnpPaths.dictXlsxPath || ''),
+      importCsvPath: normalizePnpImportCsvPathValue(incomingPnpPaths.importCsvPath || ''),
       exportXlsxFolder: String(incomingPnpPaths.exportXlsxFolder || ''),
       exportFolder: String(incomingPnpPaths.exportFolder || getPnpDefaultExportFolder()),
       statePath: String(incomingPnpPaths.statePath || getPnpDefaultStatePath())
@@ -1933,13 +1951,13 @@ async function saveProjectState(payload) {
 }
 
 function getPnpRootDictPath() {
-  // Корневой Dict/ оставляем единственным источником словаря для P&P.
-  return path.join(app.getAppPath(), PNP_DEFAULT_DICT_FILE);
+  // Источник словаря задает пользователь, встроенного файла больше нет.
+  return '';
 }
 
 function getPnpRootDictXlsxPath() {
-  // Путь к Dict.xlsx также держим внутри корневой папки Dict/.
-  return path.join(app.getAppPath(), 'Dict', 'Dict.xlsx');
+  // Источник словаря задает пользователь, встроенного файла больше нет.
+  return '';
 }
 
 function getPnpDefaultStatePath() {
@@ -2323,12 +2341,11 @@ function getPnpStatePathValue(source, key, fallback = '') {
 }
 
 function buildPnpState(dict, overrides = {}) {
-  const localPath = getPnpStatePathValue(overrides, 'localPath');
-  const importCsvPath = getPnpStatePathValue(overrides, 'importCsvPath');
+  const importCsvPath = normalizePnpImportCsvPathValue(getPnpStatePathValue(overrides, 'importCsvPath'));
   const exportXlsxFolder = getPnpStatePathValue(overrides, 'exportXlsxFolder');
   const exportFolder = getPnpStatePathValue(overrides, 'exportFolder', getPnpDefaultExportFolder());
   const dictXlsxPath = getPnpStatePathValue(overrides, 'dictXlsxPath', getPnpRootDictXlsxPath());
-  const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictPath());
+  const dictPath = getPnpStatePathValue(overrides, 'dictPath', getPnpRootDictXlsxPath());
   const statePath = getPnpStatePathValue(overrides, 'statePath');
   const infoD3 = getPnpStatePathValue(overrides, 'infoD3');
   const infoD7 = getPnpStatePathValue(overrides, 'infoD7');
@@ -2337,7 +2354,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.6.5',
+    version: '3.6.6',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
@@ -2371,7 +2388,12 @@ async function loadPnpDict(payload) {
   clearOperationCancel();
   assertOperationNotCancelled();
   const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
-  const sourcePath = rawPath ? path.resolve(rawPath) : getPnpRootDictPath();
+  const sourcePath = rawPath ? path.resolve(rawPath) : '';
+
+  if (!sourcePath) {
+    throw new Error('Не задан путь к словарю P&P.');
+  }
+
   const dict = await pnpPipeline.loadDictFile(sourcePath);
   assertOperationNotCancelled();
 
@@ -2390,12 +2412,14 @@ async function importPnpCsv(payload) {
   const rawPath = String(payload && payload.filePath ? payload.filePath : '').trim();
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const saveXlsxOnImport = Boolean(payload && payload.saveXlsxOnImport);
+  const defaultPath = String(payload && payload.defaultPath ? payload.defaultPath : '').trim();
   let sourcePath = rawPath;
 
   if (!sourcePath) {
     const selection = await dialog.showOpenDialog(mainWindow, {
       title: 'Выберите CSV-файл Pick and Place',
-      defaultPath: pnpPipeline.DEFAULT_IMPORT_START_DIR,
+      // Берём последний сохранённый путь, чтобы кнопка открывала нужный каталог, а не тестовый дефолт.
+      defaultPath: defaultPath || pnpPipeline.DEFAULT_IMPORT_START_DIR,
       properties: ['openFile'],
       filters: [{ name: 'CSV files', extensions: ['csv'] }]
     });
@@ -2673,7 +2697,12 @@ async function fillPnpSetColumn(payload) {
 
   const infoD3 = String(payload && payload.infoD3 ? payload.infoD3 : importInfo.infoD3 || '').trim();
   const applyFill = Boolean(payload && payload.applyFill);
-  const dictXlsxPath = String(payload && payload.dictXlsxPath ? payload.dictXlsxPath : getPnpRootDictXlsxPath()).trim();
+  const dictXlsxPath = normalizePnpDictPathValue(payload && payload.dictXlsxPath ? payload.dictXlsxPath : '');
+
+  if (!dictXlsxPath) {
+    throw new Error('Не задан путь к словарю P&P.');
+  }
+
   const nextState = applyFill
    ? pnpPipeline.applySetColumnFill(importInfo, infoD3, '1')
    : {
@@ -2867,23 +2896,26 @@ async function savePnpState(payload) {
   const filePath = path.resolve(String(payload && payload.filePath) || getPnpDefaultStatePath());
   const dict = state && state.dict
     ? pnpPipeline.normalizeDict(state.dict, {
-        sourcePath: state.dictPath || getPnpRootDictPath(),
-        sourceFile: path.basename(String(state.dictPath || getPnpRootDictPath())),
+        sourcePath: state.dictXlsxPath || getPnpRootDictXlsxPath(),
+        sourceFile: path.basename(String(state.dictXlsxPath || getPnpRootDictXlsxPath())),
         mode: 'state'
       })
-    : await pnpPipeline.loadDictFile(getPnpRootDictPath());
+    : pnpPipeline.createEmptyDict({
+        sourcePath: state.dictXlsxPath || getPnpRootDictXlsxPath(),
+        sourceFile: path.basename(String(state.dictXlsxPath || getPnpRootDictXlsxPath())),
+        mode: 'state'
+      });
   assertOperationNotCancelled();
   const nextState = buildPnpState(dict, {
     mode: state.mode || 'dict',
     activeSheet: state.activeSheet || (state.pnp && state.pnp.activeSheet ? state.pnp.activeSheet : 'Info'),
     infoD3: state.infoD3 || (state.importInfo && state.importInfo.infoD3 ? state.importInfo.infoD3 : ''),
     infoD7: state.infoD7 || (state.importInfo && state.importInfo.infoD7 ? state.importInfo.infoD7 : ''),
-    localPath: state.localPath || '',
-    importCsvPath: state.importCsvPath || '',
+    importCsvPath: normalizePnpImportCsvPathValue(state.importCsvPath || ''),
     exportXlsxFolder: state.exportXlsxFolder || '',
     exportFolder: state.exportFolder || getPnpDefaultExportFolder(),
-    dictXlsxPath: state.dictXlsxPath || getPnpRootDictXlsxPath(),
-    dictPath: state.dictPath || getPnpRootDictPath(),
+    dictXlsxPath: normalizePnpDictPathValue(state.dictXlsxPath || ''),
+    dictPath: normalizePnpDictPathValue(state.dictPath || state.dictXlsxPath || ''),
     statePath: filePath,
     importInfo: state.importInfo || (state.pnp && state.pnp.importInfo ? state.pnp.importInfo : null)
   });
@@ -2914,23 +2946,26 @@ async function loadPnpState(payload) {
   if (loadedState) {
     const loadedDict = loadedState.dict
       ? pnpPipeline.normalizeDict(loadedState.dict, {
-          sourcePath: loadedState.dictPath || getPnpRootDictPath(),
-          sourceFile: path.basename(String(loadedState.dictPath || getPnpRootDictPath())),
+          sourcePath: loadedState.dictXlsxPath || getPnpRootDictXlsxPath(),
+          sourceFile: path.basename(String(loadedState.dictXlsxPath || getPnpRootDictXlsxPath())),
           mode: 'state'
         })
-      : await pnpPipeline.loadDictFile(getPnpRootDictPath());
+      : pnpPipeline.createEmptyDict({
+          sourcePath: loadedState.dictXlsxPath || getPnpRootDictXlsxPath(),
+          sourceFile: path.basename(String(loadedState.dictXlsxPath || getPnpRootDictXlsxPath())),
+          mode: 'state'
+        });
     assertOperationNotCancelled();
     const nextState = buildPnpState(loadedDict, {
       mode: loadedState.mode || 'dict',
       activeSheet: loadedState.activeSheet || (loadedState.pnp && loadedState.pnp.activeSheet ? loadedState.pnp.activeSheet : 'Info'),
       infoD3: loadedState.infoD3 || (loadedState.importInfo && loadedState.importInfo.infoD3 ? loadedState.importInfo.infoD3 : ''),
       infoD7: loadedState.infoD7 || (loadedState.importInfo && loadedState.importInfo.infoD7 ? loadedState.importInfo.infoD7 : ''),
-      localPath: loadedState.localPath || '',
-      importCsvPath: loadedState.importCsvPath || '',
+      importCsvPath: normalizePnpImportCsvPathValue(loadedState.importCsvPath || ''),
       exportXlsxFolder: loadedState.exportXlsxFolder || '',
       exportFolder: loadedState.exportFolder || getPnpDefaultExportFolder(),
-      dictXlsxPath: loadedState.dictXlsxPath || getPnpRootDictXlsxPath(),
-      dictPath: loadedState.dictPath || getPnpRootDictPath(),
+      dictXlsxPath: normalizePnpDictPathValue(loadedState.dictXlsxPath || ''),
+      dictPath: normalizePnpDictPathValue(loadedState.dictPath || loadedState.dictXlsxPath || ''),
       statePath: loadedState.statePath || filePath,
       importInfo: loadedState.importInfo || (loadedState.pnp && loadedState.pnp.importInfo ? loadedState.pnp.importInfo : null)
     });
@@ -2944,7 +2979,11 @@ async function loadPnpState(payload) {
     };
   }
 
-  const fallbackDict = await pnpPipeline.loadDictFile(getPnpRootDictPath());
+  const fallbackDict = pnpPipeline.createEmptyDict({
+    sourcePath: '',
+    sourceFile: '',
+    mode: 'dict'
+  });
   const fallbackState = buildPnpState(fallbackDict, {});
 
   return {
