@@ -2008,88 +2008,7 @@ function formatPnpErrorMessage(error) {
 function buildPnpStatsDialogHtml(stats, summaryLines) {
   const currentStats = stats || getPnpEmptyStats();
   const lines = Array.isArray(summaryLines) ? summaryLines : [];
-  // Сводку из лога разбираем отдельно, чтобы визуал опирался на те же итоги, что и экспорт.
-  const parsed = {
-    resistorTotal: 0,
-    resistorFull: 0,
-    resistorPartial: 0,
-    resistorNoMatch: 0,
-    capacitorTotal: 0,
-    capacitorFull: 0,
-    capacitorPartial: 0,
-    capacitorNoMatch: 0,
-    otherTotal: 0,
-    otherFull: 0,
-    otherPartial: 0,
-    otherNoMatch: 0,
-    totalProcessed: Number(currentStats.totalRows || 0),
-    totalFull: 0,
-    totalPartial: 0,
-    totalNoMatch: 0
-  };
-
-  let currentSection = "";
-  lines.forEach((line) => {
-    const text = String(line || "").trim();
-    if (!text) {
-      return;
-    }
-    if (text === "[R] РЕЗИСТОРЫ:") {
-      currentSection = "R";
-      return;
-    }
-    if (text === "[C] КОНДЕНСАТОРЫ:") {
-      currentSection = "C";
-      return;
-    }
-    if (text === "[O] ПРОЧИЕ:") {
-      currentSection = "O";
-      return;
-    }
-    if (text === "[=] ИТОГО:") {
-      currentSection = "TOTAL";
-      return;
-    }
-    if (text.indexOf("===") === 0 || text.indexOf("[*]") === 0) {
-      currentSection = "";
-      return;
-    }
-
-    const valueMatch = text.match(/:\s*(-?\d+(?:[.,]\d+)?)/);
-    if (!valueMatch) {
-      return;
-    }
-
-    const numericValue = Number(String(valueMatch[1]).replace(",", ".")) || 0;
-    if (currentSection === "R") {
-      if (text.indexOf("Всего:") === 0) parsed.resistorTotal = numericValue;
-      if (text.indexOf("Полных совпадений") === 0) parsed.resistorFull = numericValue;
-      if (text.indexOf("Частичных") === 0) parsed.resistorPartial = numericValue;
-      if (text.indexOf("Без совпадений") === 0) parsed.resistorNoMatch = numericValue;
-    }
-    if (currentSection === "C") {
-      if (text.indexOf("Всего:") === 0) parsed.capacitorTotal = numericValue;
-      if (text.indexOf("Полных совпадений") === 0) parsed.capacitorFull = numericValue;
-      if (text.indexOf("Частичных") === 0) parsed.capacitorPartial = numericValue;
-      if (text.indexOf("Без совпадений") === 0) parsed.capacitorNoMatch = numericValue;
-    }
-    if (currentSection === "O") {
-      if (text.indexOf("Всего:") === 0) parsed.otherTotal = numericValue;
-      if (text.indexOf("Полных совпадений") === 0) parsed.otherFull = numericValue;
-      if (text.indexOf("Частичных") === 0) parsed.otherPartial = numericValue;
-      if (text.indexOf("Без совпадений") === 0) parsed.otherNoMatch = numericValue;
-    }
-    if (currentSection === "TOTAL") {
-      if (text.indexOf("Обработано:") === 0) parsed.totalProcessed = numericValue;
-      if (text.indexOf("Полных:") === 0) parsed.totalFull = numericValue;
-      if (text.indexOf("Частичных:") === 0) parsed.totalPartial = numericValue;
-      if (text.indexOf("Без совпадений:") === 0) parsed.totalNoMatch = numericValue;
-    }
-  });
-
-  // Берем один из "Всего" по категориям — это тот же базовый счетчик, который нужен в круге.
-  parsed.totalProcessed = parsed.resistorTotal || parsed.capacitorTotal || parsed.otherTotal || Number(currentStats.totalRows || 0);
-  // Круг опирается на один общий счетчик "Обработано", а не на сумму по категориям.
+  const parsed = parsePnpStatsSummaryLines(lines, currentStats);
   const totalBaseCount = parsed.totalProcessed;
   const fullPercent = totalBaseCount > 0 ? (parsed.totalFull / totalBaseCount * 100).toFixed(1) : "0.0";
   const partialPercent = totalBaseCount > 0 ? (parsed.totalPartial / totalBaseCount * 100).toFixed(1) : "0.0";
@@ -2535,6 +2454,92 @@ function buildPnpStatsDialogHtml(stats, summaryLines) {
     `</section>`,
     `</div>`
   ].join('');
+}
+
+function parsePnpStatsSummaryLines(summaryLines, fallbackStats = null) {
+  const lines = Array.isArray(summaryLines) ? summaryLines : [];
+  const stats = fallbackStats || getPnpEmptyStats();
+  const parsed = {
+    resistorTotal: 0,
+    resistorFull: 0,
+    resistorPartial: 0,
+    resistorNoMatch: 0,
+    capacitorTotal: 0,
+    capacitorFull: 0,
+    capacitorPartial: 0,
+    capacitorNoMatch: 0,
+    otherTotal: 0,
+    otherFull: 0,
+    otherPartial: 0,
+    otherNoMatch: 0,
+    totalProcessed: Number(stats.totalRows || 0),
+    totalFull: 0,
+    totalPartial: 0,
+    totalNoMatch: 0
+  };
+
+  let currentSection = "";
+  lines.forEach((line) => {
+    const text = String(line || "").trim();
+    if (!text) {
+      return;
+    }
+    if (text === "[R] РЕЗИСТОРЫ:") {
+      currentSection = "R";
+      return;
+    }
+    if (text === "[C] КОНДЕНСАТОРЫ:") {
+      currentSection = "C";
+      return;
+    }
+    if (text === "[O] ПРОЧИЕ:") {
+      currentSection = "O";
+      return;
+    }
+    if (text === "[=] ИТОГО:") {
+      currentSection = "TOTAL";
+      return;
+    }
+    if (text.indexOf("===") === 0 || text.indexOf("[*]") === 0) {
+      currentSection = "";
+      return;
+    }
+
+    const valueMatch = text.match(/:\s*(-?\d+(?:[.,]\d+)?)/);
+    if (!valueMatch) {
+      return;
+    }
+
+    const numericValue = Number(String(valueMatch[1]).replace(",", ".")) || 0;
+    if (currentSection === "R") {
+      if (text.indexOf("Всего:") === 0) parsed.resistorTotal = numericValue;
+      if (text.indexOf("Полных совпадений") === 0) parsed.resistorFull = numericValue;
+      if (text.indexOf("Частичных") === 0) parsed.resistorPartial = numericValue;
+      if (text.indexOf("Без совпадений") === 0) parsed.resistorNoMatch = numericValue;
+    }
+    if (currentSection === "C") {
+      if (text.indexOf("Всего:") === 0) parsed.capacitorTotal = numericValue;
+      if (text.indexOf("Полных совпадений") === 0) parsed.capacitorFull = numericValue;
+      if (text.indexOf("Частичных") === 0) parsed.capacitorPartial = numericValue;
+      if (text.indexOf("Без совпадений") === 0) parsed.capacitorNoMatch = numericValue;
+    }
+    if (currentSection === "O") {
+      if (text.indexOf("Всего:") === 0) parsed.otherTotal = numericValue;
+      if (text.indexOf("Полных совпадений") === 0) parsed.otherFull = numericValue;
+      if (text.indexOf("Частичных") === 0) parsed.otherPartial = numericValue;
+      if (text.indexOf("Без совпадений") === 0) parsed.otherNoMatch = numericValue;
+    }
+    if (currentSection === "TOTAL") {
+      if (text.indexOf("Обработано:") === 0) parsed.totalProcessed = numericValue;
+      if (text.indexOf("Полных:") === 0) parsed.totalFull = numericValue;
+      if (text.indexOf("Частичных:") === 0) parsed.totalPartial = numericValue;
+      if (text.indexOf("Без совпадений:") === 0) parsed.totalNoMatch = numericValue;
+    }
+  });
+
+  // Берём базовый счётчик из итоговой сводки, а если её нет — из текущего состояния P&P.
+  parsed.totalProcessed = parsed.resistorTotal || parsed.capacitorTotal || parsed.otherTotal || Number(stats.totalRows || 0);
+  return parsed;
 }
 
 function buildPnpStatsWindowPayload(stats, summaryLines){
@@ -3261,17 +3266,16 @@ function getHeaderProjectName(){
 }
 
 function getPnpHeaderSummaryCounts(){
-  // Эти числа уже считаются в сводке P&P, поэтому плитка просто переиспользует их без отдельной логики.
+  // Плитка берёт те же итоги, что и окно "Итоги", чтобы не расходиться с финальным расчётом.
+  const summaryLines = Array.isArray(state.pnp.lastStatsSummaryLines) ? state.pnp.lastStatsSummaryLines : [];
   const stats = state.pnp.stats || getPnpEmptyStats();
-  const refCount = Number(stats.refCount || 0);
-  const processedTotal = Math.max(0, Number(stats.totalRows || 0) - refCount);
-  const processedNoMatch = Math.max(0, Number(stats.totalNoMatch || 0) - refCount);
+  const parsed = parsePnpStatsSummaryLines(summaryLines, stats);
 
   return {
-    totalRows: processedTotal,
-    totalFull: Number(stats.totalFull || 0),
-    totalPartial: Number(stats.totalPartial || 0),
-    totalNoMatch: processedNoMatch
+    totalRows: Number(parsed.totalProcessed || 0),
+    totalFull: Number(parsed.totalFull || 0),
+    totalPartial: Number(parsed.totalPartial || 0),
+    totalNoMatch: Number(parsed.totalNoMatch || 0)
   };
 }
 
@@ -4614,6 +4618,7 @@ function loadPnpPreview(dictLike, meta = {}){
     || "Info"
   );
   state.pnp.stats = stats;
+  state.pnp.lastStatsSummaryLines = [];
   state.pnp.dict.path = dictPath || dictXlsxPath || "";
   state.pnp.csv.path = importCsvPath || "";
   setPnpPathInputValue("pnpDictXlsxPathInput", state.pnp.dictXlsxPath);
@@ -4981,6 +4986,8 @@ async function exportPnpFiles(){
       ? result.stats.summaryLines
       : [];
     state.pnp.lastStatsSummaryLines = Array.isArray(summaryLines) ? summaryLines.slice() : [];
+    // После экспорта плитка должна показать те же финальные цифры, что и окно итогов.
+    updateHeaderCardsUi();
     if (result && result.xlsx && result.xlsx.path) {
       state.pnp.lastXlsxPath = result.xlsx.path;
     }
