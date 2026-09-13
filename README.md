@@ -61,7 +61,7 @@ npm run dist:installer
 
 ## Versioning
 
-- app version: `3.7.0`
+- app version: `3.7.1`
 - UI version: `9.27.18`
 
 ## Update notes

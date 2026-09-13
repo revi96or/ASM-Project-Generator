@@ -1,7 +1,14 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.7.0 для словаря Dict/.
- * Версия: 3.7.0
+ * Версия: 3.7.1
  * Автор: Новожилов Артем
+ * Изменения 3.7.1: замена FOOTPRINT/COMMENT реперов (FIDUCIAL) на "0" в
+ * итоговой таблице DataExit (buildDataExitTableState) теперь регистронезависима
+ * (как MatchCase:=False в макросе usedRange.Replace) - раньше строгое
+ * сравнение text === 'Fiducial' пропускало варианты вроде "FIDUCIAL"
+ * (встречаются в некоторых CSV из Altium вперемешку с "Fiducial" в одном
+ * и том же проекте), из-за чего в выгрузке оставался текст "FIDUCIAL"
+ * вместо "0" для части реперных точек.
  * Изменения 3.7.0: исправлена эвристика определения кодировки CSV
  * (decodeSourceBuffer) - вместо подсчёта "похожих на кириллицу" символов
  * теперь используется строгая проверка валидности UTF-8, а Windows-1251
@@ -2017,7 +2024,9 @@ function buildDataExitTableState(dataPredExitState, importInfo = {}) {
     clonePnpRawRow(Array.isArray(rowModel && rowModel.values) ? rowModel.values : [])
       .map((cell) => {
         const text = normalizeText(clonePnpCellValue(cell));
-        return text === 'Fiducial' ? '0' : text;
+        // Сравнение без учёта регистра (как MatchCase:=False в макросе) — иначе
+        // варианты "FIDUCIAL"/"fiducial" из некоторых CSV не заменяются на "0".
+        return text.toUpperCase() === 'FIDUCIAL' ? '0' : text;
       })
   ));
 
