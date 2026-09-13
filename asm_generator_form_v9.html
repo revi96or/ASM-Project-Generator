@@ -1296,7 +1296,7 @@
                   </div>
                   <div>
                     <div class="field-label catalog-field-label">Адрес расстановщика</div>
-                    <input id="placerPathInput" class="field-input catalog-path-input" value="C:\settings\PickAndPlace\" />
+                    <input id="placerPathInput" class="field-input catalog-path-input" value="d:\SaveTXT\" />
                   </div>
                 </div>
               </div>
@@ -1306,11 +1306,11 @@
                 <div class="space-y-3">
                   <div>
                     <div class="field-label catalog-field-label">Локальная папка принтера</div>
-                    <input id="localPathInput" class="field-input catalog-path-input" value="C:\settings\Project_Printer_ASM\" />
+                    <input id="localPathInput" class="field-input catalog-path-input" value="c:\SMT_Project_Generator\Printer_ASM\" />
                   </div>
                   <div>
                     <div class="field-label catalog-field-label">Адрес принтера</div>
-                    <input id="serverPathInput" class="field-input catalog-path-input" value="\\server\common\Novozhilov\" />
+                    <input id="serverPathInput" class="field-input catalog-path-input" value="d:\Product\" />
                   </div>
                 </div>
               </div>
@@ -1320,11 +1320,11 @@
                 <div class="space-y-3">
                   <div>
                     <div class="field-label catalog-field-label">Локальная папка АОИ</div>
-                    <input id="aoiLocalPathInput" class="field-input catalog-path-input" value="C:\settings\AOI\" />
+                    <input id="aoiLocalPathInput" class="field-input catalog-path-input" value="c:\SMT_Project_Generator\AOI\" />
                   </div>
                   <div>
                     <div class="field-label catalog-field-label">Адрес АОИ</div>
-                    <input id="aoiPathInput" class="field-input catalog-path-input" value="\\server\common\Любимова К.И.\" />
+                    <input id="aoiPathInput" class="field-input catalog-path-input" value="\\server\common\Любимова\" />
                   </div>
                 </div>
               </div>
@@ -1611,10 +1611,11 @@ const asmBridge = window.asmApi || {
   }),
   getUserSettings: async () => ({
     paths: {
-      local: $("localPathInput") ? $("localPathInput").value.trim() : "C:\\settings\\Project_Printer_ASM\\",
-      printer: $("serverPathInput") ? $("serverPathInput").value.trim() : "\\\\server\\common\\Novozhilov\\",
-      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова К.И.\\",
-      placer: $("placerPathInput") ? $("placerPathInput").value.trim() : "C:\\settings\\PickAndPlace\\"
+      local: $("localPathInput") ? $("localPathInput").value.trim() : "c:\\SMT_Project_Generator\\Printer_ASM\\",
+      aoiLocal: $("aoiLocalPathInput") ? $("aoiLocalPathInput").value.trim() : "c:\\SMT_Project_Generator\\AOI\\",
+      printer: $("serverPathInput") ? $("serverPathInput").value.trim() : "d:\\Product\\",
+      aoi: $("aoiPathInput") ? $("aoiPathInput").value.trim() : "\\\\server\\common\\Любимова\\",
+      placer: $("placerPathInput") ? $("placerPathInput").value.trim() : "d:\\SaveTXT\\"
     },
     showTooltips: true,
     autoUpdate: false

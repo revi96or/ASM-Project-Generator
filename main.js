@@ -25,11 +25,11 @@ const PNP_DEFAULT_STATE_FILE_NAME = 'pnp_state_v300.js';
 const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
 const PNP_ERRORS_LOG_FILE_NAME = 'Errors.log';
 const DEFAULT_PATHS = {
-  local: 'C:\\settings\\Project_Printer_ASM\\',
-  aoiLocal: 'C:\\settings\\AOI\\',
-  printer: '\\\\server\\common\\Novozhilov\\',
-  aoi: '\\\\server\\common\\Любимова К.И.\\',
-  placer: 'C:\\settings\\PickAndPlace\\'
+  local: 'c:\\SMT_Project_Generator\\Printer_ASM\\',
+  aoiLocal: 'c:\\SMT_Project_Generator\\AOI\\',
+  printer: 'd:\\Product\\',
+  aoi: '\\\\server\\common\\Любимова\\',
+  placer: 'd:\\SaveTXT\\'
 };
 const USER_SETTINGS_FILE = 'asm-user-settings.json';
 const USER_SNAPSHOT_DIR = 'snapshots';
@@ -1118,7 +1118,7 @@ function getAppDataSnapshotPath(fileName) {
 
 // Нормализуем путь один раз, чтобы и окно, и операции с файлами работали одинаково.
 function normalizeFolderPath(folderPath) {
-  return path.resolve(folderPath || 'C:\\settings\\Project_Printer_ASM');
+  return path.resolve(folderPath || DEFAULT_PATHS.local);
 }
 
 function detectPlacementTxtMode(fileName) {
@@ -2208,6 +2208,19 @@ function buildGeneratedFilesHistoryCsv(rows) {
   return `\uFEFF${lines.join('\r\n')}`;
 }
 
+function formatLocalTimestampForFileName(date = new Date()) {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const millis = String(date.getMilliseconds()).padStart(3, '0');
+
+  // Имя файла делаем по локальному времени, чтобы оно совпадало с часами пользователя.
+  return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}-${millis}`;
+}
+
 async function exportGeneratedFilesHistoryCsv(payload = {}) {
   const saveAll = Boolean(payload.all);
   const queryResult = queryGeneratedFilesHistory({
@@ -2218,7 +2231,7 @@ async function exportGeneratedFilesHistoryCsv(payload = {}) {
     sections: saveAll ? [] : payload.sections
   });
   const rows = Array.isArray(queryResult.items) ? queryResult.items : [];
-  const defaultFileName = `generated-files-history-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+  const defaultFileName = `generated-files-history-${formatLocalTimestampForFileName()}.csv`;
   const suggestedPath = String(payload.filePath || '').trim() || path.join(app.getPath('documents'), defaultFileName);
   const dialogParent = generatedFilesHistoryWindow && !generatedFilesHistoryWindow.isDestroyed()
     ? generatedFilesHistoryWindow

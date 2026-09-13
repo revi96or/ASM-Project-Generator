@@ -42,6 +42,10 @@
       ],
       "extraResources": [
          {
+            "from": "README.md",
+            "to": "README.md"
+         },
+         {
             "from": "templates",
             "to": "templates"
          },

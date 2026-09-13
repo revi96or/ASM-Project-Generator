@@ -411,15 +411,15 @@
       <div class="space-y-3">
         <div>
           <div class="field-label">Локальная папка</div>
-          <input class="field-input" value="c:\settings\Project_Printer_ASM\" />
+          <input class="field-input" value="c:\SMT_Project_Generator\Printer_ASM\" />
         </div>
         <div>
           <div class="field-label">Папка сервера</div>
-          <input class="field-input" value="\\server\common\Novozhilov\" />
+          <input class="field-input" value="d:\Product\" />
         </div>
         <div>
           <div class="field-label">Папка АОИ</div>
-          <input class="field-input" value="\\server\common\Любимова К.И.\" />
+          <input class="field-input" value="\\server\common\Любимова\" />
         </div>
       </div>
     </section>
@@ -464,7 +464,7 @@
               <input id="boardThicknessInput" class="field-input tracked-input" type="number" step="any" />
             </div>
           </div>
-          <div class="helper">Значения по умолчанию должны подтягиваться из шаблона: c:\settings\Project_Printer_ASM\template.PR1</div>
+          <div class="helper">Значения по умолчанию должны подтягиваться из шаблона: c:\SMT_Project_Generator\Printer_ASM\template.PR1</div>
         </div>
 
         <div class="section-card p-4">
@@ -874,13 +874,13 @@ function saveAoiSizeFile(){
   const content = `Размер платы ${x} x ${y}`;
 
   console.log("AOI TXT:", {
-    path: `\\\\server\\common\\Любимова К.И.\\${fileName}.txt`,
+    path: `\\\\server\\common\\Любимова\\${fileName}.txt`,
     content
   });
 
   alert(
     `Подготовлен AOI-файл:\n\n` +
-    `Путь: \\\\server\\common\\Любимова К.И.\\${fileName}.txt\n\n` +
+    `Путь: \\\\server\\common\\Любимова\\${fileName}.txt\n\n` +
     `Содержимое:\n${content}\n\n` +
     `Реальная запись в сетевую папку будет подключена через Electron.`
   );
