@@ -1,7 +1,16 @@
 /**
- * Описание: Минимальный конвейер Pick and Place 3.6.6 для словаря Dict/.
- * Версия: 3.6.6
+ * Описание: Минимальный конвейер Pick and Place 3.7.0 для словаря Dict/.
+ * Версия: 3.7.0
  * Автор: Новожилов Артем
+ * Изменения 3.7.0: исправлена эвристика определения кодировки CSV
+ * (decodeSourceBuffer) - вместо подсчёта "похожих на кириллицу" символов
+ * теперь используется строгая проверка валидности UTF-8, а Windows-1251
+ * применяется только как запасной вариант. Добавлены проверки при импорте
+ * CSV: некорректные (не числовые) координаты Center-X(mm)/Center-Y(mm) и
+ * пустые/дублирующиеся значения Designator останавливают импорт с явной
+ * ошибкой (проверяются после удаления строк "Плата печатная"). Отсутствие
+ * колонок TOL/PREF в CSV больше не критично для импорта - признак
+ * missingDictColumns передаётся в UI, где пользователь решает, продолжать ли.
  * Изменения 3.6.6: сохранены исправления парсера XLSX (parseWorksheetXmlRows) —
  * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
  * значение следующей ячейки (лениво искали ближайший </c>, которым
@@ -27,7 +36,7 @@ const DEFAULT_STATE_FILE = 'pnp_state_v300.js';
 const DEFAULT_EXPORT_STEM = 'pnp_export_v300';
 const DEFAULT_IMPORT_START_DIR = 'C:\\settings\\Pick Place\\Test\\';
 // Источник версии один: пакетный манифест, чтобы экспорт и подписи не расходились.
-const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.6.6');
+const APP_VERSION = String(packageJson && packageJson.version ? packageJson.version : '3.7.0');
 const INFO_LEGEND_ROWS = [
   { row: 10, fillStyleIndex: 4, text: 'Данные, которые заменились из словаря.' },
   { row: 11, fillStyleIndex: 5, text: 'Данные, которые совпали в словаре, но не по всем ячейкам. Требуется проверить, смотри еще красный цвет.' },
@@ -82,24 +91,21 @@ function detectDelimiter(headerLine) {
 }
 
 function decodeSourceBuffer(buffer) {
-  const utf8Text = buffer.toString('utf8');
-  let cp1251Text = utf8Text;
-
+  // Строгая проверка UTF-8: если байты валидны как UTF-8 (fatal:true не пропустит
+  // "случайно похожие" последовательности), значит файл реально в UTF-8.
+  // Windows-1251 - однобайтовая кодировка, где валиден любой байт 0x00-0xFF,
+  // поэтому она не может служить "тестом" для отличения одной кодировки от другой -
+  // проверять нужно именно UTF-8, а Windows-1251 использовать как запасной вариант.
   try {
-    cp1251Text = new TextDecoder('windows-1251').decode(buffer);
+    const strictUtf8Decoder = new TextDecoder('utf-8', { fatal: true });
+    return { text: strictUtf8Decoder.decode(buffer), encoding: 'utf-8' };
   } catch {
-    cp1251Text = utf8Text;
+    try {
+      return { text: new TextDecoder('windows-1251').decode(buffer), encoding: 'windows-1251' };
+    } catch {
+      return { text: buffer.toString('utf8'), encoding: 'utf-8' };
+    }
   }
-
-  const scoreText = (text) => {
-    const cyrillicMatches = text.match(/[А-Яа-яЁё]/g);
-    const questionMarks = (text.match(/\uFFFD/g) || []).length;
-    const centerScore = /Center-X\(mm\)|Center-Y\(mm\)|CENTER-X|CENTER-Y/i.test(text) ? 10 : 0;
-
-    return (cyrillicMatches ? cyrillicMatches.length : 0) + centerScore - (questionMarks * 5);
-  };
-
-  return scoreText(cp1251Text) > scoreText(utf8Text) ? cp1251Text : utf8Text;
 }
 
 function deriveImportBaseName(filePath) {
@@ -1245,6 +1251,104 @@ function buildSetFillColumnRows(rawTable, setColumnName) {
     rows,
     columnIndex
   };
+}
+
+// Проверка наличия колонок TOL/PREF в исходном CSV. Проверяем только сам факт
+// наличия заголовка, а не заполненность ячеек: пустые значения внутри
+// существующих колонок - это норма (не все компоненты нормируются по TOL/PREF).
+function checkPnpDictColumnsPresence(rawHeaders) {
+  const headers = Array.isArray(rawHeaders) ? rawHeaders : [];
+  const hasTol = headers.some((header) => normalizeWorkbookHeaderText(header) === 'TOL');
+  const hasPref = headers.some((header) => normalizeWorkbookHeaderText(header) === 'PREF');
+  const missing = [];
+
+  if (!hasTol) {
+    missing.push('TOL');
+  }
+  if (!hasPref) {
+    missing.push('PREF');
+  }
+
+  return missing;
+}
+
+function findRawHeaderColumnIndex(rawHeaders, headerName) {
+  const headers = Array.isArray(rawHeaders) ? rawHeaders : [];
+  return headers.findIndex((header) => normalizeWorkbookHeaderText(header) === headerName);
+}
+
+// Строгая проверка координат: после удаления строк "Плата печатная" все
+// оставшиеся строки обязаны иметь числовые Center-X(mm)/Center-Y(mm).
+// Ошибка останавливает импорт, т.к. некорректная координата может привести
+// к неверной расстановке компонента на плате.
+function validatePnpImportedCoordinates(rawHeaders, rows) {
+  const xIndex = findRawHeaderColumnIndex(rawHeaders, 'CENTER-X(MM)');
+  const yIndex = findRawHeaderColumnIndex(rawHeaders, 'CENTER-Y(MM)');
+  const designatorIndex = findRawHeaderColumnIndex(rawHeaders, 'DESIGNATOR');
+
+  if (xIndex < 0 || yIndex < 0) {
+    return;
+  }
+
+  const badLabels = [];
+  (Array.isArray(rows) ? rows : []).forEach((row, index) => {
+    const xText = normalizeDecimalText(row[xIndex]);
+    const yText = normalizeDecimalText(row[yIndex]);
+    const xIsValid = xText !== '' && Number.isFinite(Number(xText));
+    const yIsValid = yText !== '' && Number.isFinite(Number(yText));
+
+    if (!xIsValid || !yIsValid) {
+      const label = designatorIndex >= 0 ? (normalizeText(row[designatorIndex]) || `строка ${index + 1}`) : `строка ${index + 1}`;
+      badLabels.push(label);
+    }
+  });
+
+  if (badLabels.length) {
+    throw new Error(`Некорректные (не числовые) координаты Center-X(mm)/Center-Y(mm) у компонентов: ${badLabels.join(', ')}`);
+  }
+}
+
+// Строгая проверка Designator: после удаления строк "Плата печатная" не
+// должно оставаться ни пустых значений, ни дубликатов. Голое числовое
+// значение (например, "1", "2") - нормальный Designator, отдельной
+// логике не подвергается.
+function validatePnpImportedDesignators(rawHeaders, rows) {
+  const designatorIndex = findRawHeaderColumnIndex(rawHeaders, 'DESIGNATOR');
+
+  if (designatorIndex < 0) {
+    return;
+  }
+
+  const emptyLabels = [];
+  const seenAt = new Map();
+  const duplicates = new Set();
+
+  (Array.isArray(rows) ? rows : []).forEach((row, index) => {
+    const value = normalizeText(row[designatorIndex]);
+
+    if (!value) {
+      emptyLabels.push(`строка ${index + 1}`);
+      return;
+    }
+
+    if (seenAt.has(value)) {
+      duplicates.add(value);
+    } else {
+      seenAt.set(value, index + 1);
+    }
+  });
+
+  const problems = [];
+  if (emptyLabels.length) {
+    problems.push(`пустой Designator (${emptyLabels.join(', ')})`);
+  }
+  if (duplicates.size) {
+    problems.push(`дублирующиеся значения Designator: ${Array.from(duplicates).join(', ')}`);
+  }
+
+  if (problems.length) {
+    throw new Error(`Ошибка в данных CSV: ${problems.join('; ')}.`);
+  }
 }
 
 function getDeletePcbRowsState(rawTable) {
@@ -4070,7 +4174,9 @@ async function saveStateFile(filePath, dictLike) {
 
 async function importCsvFile(filePath) {
   const sourceBuffer = await fs.readFile(filePath);
-  const sourceText = decodeSourceBuffer(sourceBuffer);
+  const decoded = decodeSourceBuffer(sourceBuffer);
+  const sourceText = decoded.text;
+  const detectedEncoding = decoded.encoding;
   const parsed = readImportedCsvTable(sourceText, 12);
   const centerColumns = findImportCenterColumnIndexes(parsed.headers);
 
@@ -4079,11 +4185,23 @@ async function importCsvFile(filePath) {
     throw new Error(`В CSV не найдены Center-X(mm) и Center-Y(mm). Текущий набор заголовков: ${headersList}`);
   }
 
+  // TOL/PREF нужны только для дальнейшего сопоставления со словарём, поэтому
+  // их отсутствие не останавливает импорт CSV - решение о продолжении
+  // принимает пользователь в UI (см. missingDictColumns в importInfo).
+  const missingDictColumns = checkPnpDictColumnsPresence(parsed.rawHeaders);
+
   const imported = parseImportedCsv(sourceText, {
     sourcePath: filePath,
     sourceFile: path.basename(filePath)
   });
   const deletePcbState = getDeletePcbRowsState(imported.importInfo.rawTable);
+
+  // Проверки координат и Designator выполняются ПОСЛЕ удаления строк
+  // "Плата печатная" - это служебные строки, а не компоненты, и их не нужно
+  // учитывать при поиске реальных ошибок в данных.
+  validatePnpImportedCoordinates(imported.importInfo.rawTable.rawHeaders, deletePcbState.rows);
+  validatePnpImportedDesignators(imported.importInfo.rawTable.rawHeaders, deletePcbState.rows);
+
   const dataSet2State = buildDataSet2TableState({
     rawHeaders: Array.isArray(imported.importInfo.rawTable.rawHeaders) ? imported.importInfo.rawTable.rawHeaders.slice() : [],
     rows: deletePcbState.rows,
@@ -4113,6 +4231,8 @@ async function importCsvFile(filePath) {
       dataResistTable: buildDataResistTableState(dataSet2State),
       deletedPcbRowsCount: deletePcbState.deletedCount,
       deletePcbState,
+      detectedEncoding,
+      missingDictColumns,
       sourcePath: filePath,
       sourceFile: path.basename(filePath),
       baseName,

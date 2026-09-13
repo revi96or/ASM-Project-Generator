@@ -1,6 +1,6 @@
 ﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.6.6
+ * Версия: 3.7.0
  * Автор: Новожилов Артем
  */
 
@@ -19,7 +19,7 @@ const SNAPSHOT_SUFFIX = '_project_snapshot.json';
 const PNP_LAYER_MARKER_PATTERN = /_(T|B|R)_/i;
 const APP_META = {
   version: packageJson.version,
-  versionDate: packageJson.versionDate || '2026-09-10'
+  versionDate: packageJson.versionDate || '2026-09-13'
 };
 const PNP_DEFAULT_STATE_FILE_NAME = 'pnp_state_v300.js';
 const PNP_DEFAULT_EXPORT_FOLDER_NAME = 'pnp_exports_v300';
@@ -2367,7 +2367,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.6.6',
+    version: '3.7.0',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
