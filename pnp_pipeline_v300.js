@@ -11,6 +11,13 @@
  * ошибкой (проверяются после удаления строк "Плата печатная"). Отсутствие
  * колонок TOL/PREF в CSV больше не критично для импорта - признак
  * missingDictColumns передаётся в UI, где пользователь решает, продолжать ли.
+ * Дополнительно: отсутствие TOL/PREF в CSV больше не прерывает и этап
+ * сопоставления со словарём (buildResistorMatchState/buildCapacitorMatchState) -
+ * раньше там был отдельный throw, из-за которого даже CSV без единого
+ * резистора/конденсатора (только категория Other) не могли быть обработаны.
+ * Теперь отсутствующая колонка трактуется как пустое значение по всем строкам:
+ * полное совпадение по TOL/PREF просто недостижимо, такие компоненты попадают
+ * в noMatchResistors/noMatchCapacitors, а не блокируют импорт целиком.
  * Изменения 3.6.6: сохранены исправления парсера XLSX (parseWorksheetXmlRows) —
  * самозакрывающиеся пустые ячейки <c r="F1" s="1"/> раньше "проглатывали"
  * значение следующей ячейки (лениво искали ближайший </c>, которым
@@ -2244,12 +2251,19 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
   const worksheetRows = Array.isArray(dataSet2State && dataSet2State.worksheetRows) ? dataSet2State.worksheetRows : [];
   const dictRawHeaders = Array.isArray(resistorSheetState && resistorSheetState.rawHeaders) ? resistorSheetState.rawHeaders.slice() : [];
   const dictRows = Array.isArray(resistorSheetState && resistorSheetState.rows) ? resistorSheetState.rows : [];
-  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT', 'TOL', 'PREF'];
+  // COMMENT/FOOTPRINT обязательны структурно (без них сопоставление бессмысленно).
+  // TOL/PREF в исходном CSV необязательны: если колонки нет, значение по всем
+  // строкам считается пустым — такие компоненты просто не наберут "полное
+  // совпадение" и попадут в noMatchResistors, но импорт не прерывается. Это
+  // нужно, чтобы файлы без резисторов/конденсаторов (только категория Other)
+  // не падали здесь из-за отсутствия TOL/PREF, которые им не нужны.
+  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT'];
+  const optionalSourceColumns = ['TOL', 'PREF'];
   const requiredDictColumns = ['COMMENT', 'FOOTPRINT', 'TOL', 'PREF', 'COMMENT_FR', 'FOOTPRINT_FR', 'TOL_FR'];
   const sourceIndexes = {};
   const dictIndexes = {};
 
-  requiredSourceColumns.forEach((columnName) => {
+  requiredSourceColumns.concat(optionalSourceColumns).forEach((columnName) => {
     sourceIndexes[columnName] = findResistorColumnIndex(rawHeaders, columnName);
   });
   requiredDictColumns.forEach((columnName) => {
@@ -2266,6 +2280,11 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
   if (missingDictColumns.length) {
     throw new Error(`В листе Resist не найдены столбцы: ${missingDictColumns.join(', ')}`);
   }
+
+  // Для самого сопоставления (полное/частичное совпадение) используются все
+  // 4 поля, включая необязательные TOL/PREF — если колонки нет, их значение
+  // просто всегда '', и полное совпадение по ним недостижимо.
+  const matchColumns = requiredSourceColumns.concat(optionalSourceColumns);
 
   const nextRows = [];
   const nextWorksheetRows = [];
@@ -2297,7 +2316,7 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
       const matchedFields = [];
       const mismatchedFields = [];
 
-      requiredSourceColumns.forEach((columnName) => {
+      matchColumns.forEach((columnName) => {
         const sourceValue = sourceValues[columnName];
         const dictValue = dictValues[columnName];
 
@@ -2331,13 +2350,19 @@ function buildResistorMatchState(dataSet2State, resistorSheetState) {
       return;
     }
 
-    const isFullMatch = bestMatch.matchCount === requiredSourceColumns.length;
+    const isFullMatch = bestMatch.matchCount === matchColumns.length;
     const fullMatchStyle = 4; // Розовый, как в VBA при полном совпадении.
     const partialMatchStyle = 5; // Зеленый для совпавших полей.
     const partialMissStyle = 10; // Красный с белым шрифтом для несовпавших полей.
 
-    requiredSourceColumns.forEach((columnName) => {
+    matchColumns.forEach((columnName) => {
       const sourceIndex = sourceIndexes[columnName];
+
+      if (sourceIndex < 0) {
+        // Колонка (TOL/PREF) отсутствует в исходном CSV — стилизовать нечего.
+        return;
+      }
+
       const isMatched = bestMatch.matchedFields.includes(columnName);
       const currentValue = normalizeText(clonePnpCellValue(nextRow[sourceIndex]));
 
@@ -2562,12 +2587,17 @@ function buildCapacitorMatchState(dataCapacitorState, capacitorSheetState) {
   const worksheetRows = Array.isArray(dataCapacitorState && dataCapacitorState.worksheetRows) ? dataCapacitorState.worksheetRows : [];
   const dictRawHeaders = Array.isArray(capacitorSheetState && capacitorSheetState.rawHeaders) ? capacitorSheetState.rawHeaders.slice() : [];
   const dictRows = Array.isArray(capacitorSheetState && capacitorSheetState.rows) ? capacitorSheetState.rows : [];
-  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT', 'PREF'];
+  // COMMENT/FOOTPRINT обязательны структурно. PREF в исходном CSV необязателен:
+  // если колонки нет, значение по всем строкам считается пустым — такие
+  // компоненты не наберут "полное совпадение" и попадут в noMatchCapacitors,
+  // но импорт не прерывается (см. аналогичную логику в buildResistorMatchState).
+  const requiredSourceColumns = ['COMMENT', 'FOOTPRINT'];
+  const optionalSourceColumns = ['PREF'];
   const requiredDictColumns = ['COMMENT', 'FOOTPRINT', 'PREF', 'COMMENT_FR', 'FOOTPRINT_FR'];
   const sourceIndexes = {};
   const dictIndexes = {};
 
-  requiredSourceColumns.forEach((columnName) => {
+  requiredSourceColumns.concat(optionalSourceColumns).forEach((columnName) => {
     sourceIndexes[columnName] = findResistorColumnIndex(rawHeaders, columnName);
   });
   requiredDictColumns.forEach((columnName) => {
@@ -2584,6 +2614,10 @@ function buildCapacitorMatchState(dataCapacitorState, capacitorSheetState) {
   if (missingDictColumns.length) {
     throw new Error(`В листе Capacitor не найдены столбцы: ${missingDictColumns.join(', ')}`);
   }
+
+  // См. комментарий в buildResistorMatchState: сопоставление ведётся по всем
+  // полям, включая необязательный PREF.
+  const matchColumns = requiredSourceColumns.concat(optionalSourceColumns);
 
   const nextRows = [];
   const nextWorksheetRows = [];
@@ -2613,7 +2647,7 @@ function buildCapacitorMatchState(dataCapacitorState, capacitorSheetState) {
       const matchedFields = [];
       const mismatchedFields = [];
 
-      requiredSourceColumns.forEach((columnName) => {
+      matchColumns.forEach((columnName) => {
         const sourceValue = sourceValues[columnName];
         const dictValue = dictValues[columnName];
 
@@ -2646,13 +2680,19 @@ function buildCapacitorMatchState(dataCapacitorState, capacitorSheetState) {
       return;
     }
 
-    const isFullMatch = bestMatch.matchCount === requiredSourceColumns.length;
+    const isFullMatch = bestMatch.matchCount === matchColumns.length;
     const fullMatchStyle = 4;
     const partialMatchStyle = 5;
     const partialMissStyle = 10;
 
-    requiredSourceColumns.forEach((columnName) => {
+    matchColumns.forEach((columnName) => {
       const sourceIndex = sourceIndexes[columnName];
+
+      if (sourceIndex < 0) {
+        // Колонка (PREF) отсутствует в исходном CSV — стилизовать нечего.
+        return;
+      }
+
       const isMatched = bestMatch.matchedFields.includes(columnName);
       const currentValue = normalizeText(clonePnpCellValue(nextRow[sourceIndex]));
 
