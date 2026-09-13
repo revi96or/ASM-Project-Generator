@@ -4921,6 +4921,13 @@ async function importPnpCsvFile(options = {}){
       return;
     }
 
+    // Как в макросе (MsgBox "REF элементы не найдены на Лист1."): просто
+    // предупреждаем пользователя, импорт при этом НЕ прерывается.
+    const copyRowsState = refreshResult.importInfo ? refreshResult.importInfo.copyRowsState : null;
+    if (copyRowsState && copyRowsState.refNotFoundOnSheet1) {
+      await showAppDialog("Pick and Place", "REF элементы не найдены на Лист1.");
+    }
+
     const proposedFileName = String(
       refreshResult.importInfo && refreshResult.importInfo.infoD7
         ? refreshResult.importInfo.infoD7

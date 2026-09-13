@@ -1543,6 +1543,10 @@ function getCopyRowsWithRefState(sourceTable, destTable) {
     addedCount,
     existingRefCount,
     sourceRefCount: sourceRefMap.size,
+    // Как в макросе (CopyRowsWithREFtoDataSet9): если на Лист1 вообще нет ни
+    // одного Designator, начинающегося с "REF", это отдельно фиксируется,
+    // чтобы UI мог предупредить пользователя (не прерывая импорт).
+    refNotFoundOnSheet1: sourceRefMap.size === 0,
     setColumnIndices: destSetColumnIndices,
     variationIndex: destVariationIndex,
     designatorIndex: destDesignatorIndex
