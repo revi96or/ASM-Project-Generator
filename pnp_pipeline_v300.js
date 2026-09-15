@@ -1,7 +1,13 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.7.0 для словаря Dict/.
- * Версия: 3.7.1
+ * Версия: 3.7.2
  * Автор: Новожилов Артем
+ * Изменения 3.7.2: итоговый TXT для станка (saveDataExitTxtOutputs) теперь
+ * сохраняется в кодировке Windows-1251 (ANSI) вместо UTF-8 - станок понимает
+ * ANSI, а UTF-8 с кириллицей превращался в "кракозябры" (так же поступает и
+ * исходный макрос: FileSystemObject.CreateTextFile без Unicode пишет ANSI).
+ * Остальные экспортные файлы (.js/.csv/.html словаря) по-прежнему пишутся в
+ * UTF-8 - их читает не станок.
  * Изменения 3.7.1: замена FOOTPRINT/COMMENT реперов (FIDUCIAL) на "0" в
  * итоговой таблице DataExit (buildDataExitTableState) теперь регистронезависима
  * (как MatchCase:=False в макросе usedRange.Replace) - раньше строгое
@@ -43,6 +49,7 @@ const fsSync = require('fs');
 const path = require('path');
 const { TextDecoder } = require('util');
 const unzipper = require('unzipper');
+const iconv = require('iconv-lite');
 const packageJson = require('./package.json');
 
 const DEFAULT_DICT_FILE = 'Dict.xlsx';
@@ -4380,7 +4387,12 @@ async function saveDataExitTxtOutputs(targetFolders, dataExitTable, fileStem, so
         throw new Error(`Отказ от записи в исходный файл: ${targetPath}`);
       }
 
-      await fs.writeFile(targetPath, content, 'utf8');
+      // Станок читает TXT в ANSI (Windows-1251): UTF-8 с кириллицей превращается
+      // на нём в "кракозябры", поэтому пишем буфер, кодированный в windows-1251,
+      // а не текст в UTF-8 (так же поступает и исходный макрос через
+      // FileSystemObject.CreateTextFile без параметра Unicode).
+      const encodedContent = iconv.encode(content, 'windows-1251');
+      await fs.writeFile(targetPath, encodedContent);
       result.saved.push({
         folder: targetFolder,
         path: targetPath,

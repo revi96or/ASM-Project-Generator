@@ -1,6 +1,6 @@
 ﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.7.1
+ * Версия: 3.7.2
  * Автор: Новожилов Артем
  */
 
@@ -2367,7 +2367,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.7.1',
+    version: '3.7.2',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
