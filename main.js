@@ -1,7 +1,9 @@
 ﻿/**
  * Описание: Главный файл Electron для запуска окна ASM Project Generator.
- * Версия: 3.7.2
+ * Версия: 3.7.3
  * Автор: Новожилов Артем
+ * Изменения 3.7.3: добавлена мягкая проверка значений столбцов SETxx и
+ * VARIATION при импорте CSV (см. pnp_pipeline_v300.js).
  */
 
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
@@ -2367,7 +2369,7 @@ function buildPnpState(dict, overrides = {}) {
 
   return {
     description: 'Состояние Pick and Place',
-    version: '3.7.2',
+    version: '3.7.3',
     author: 'Новожилов Артем',
     savedAt: new Date().toISOString(),
     mode: String(overrides.mode || 'dict'),
