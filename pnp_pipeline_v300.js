@@ -8,6 +8,11 @@
  * планируется добавить в FULL_START_TO_1 (CheckSetAndVariationValues) сразу
  * после CheckAndFillSetColumn. Допустимые значения SET: "1", "0", "R";
  * допустимые значения VARIATION: "Fitted", "Not Fitted". Любое иное значение
+ * Исправление 3.7.3: "пустая строка" в getSetVariationValidationState теперь
+ * определяется по столбцу DESIGNATOR (по заголовку), а не по row[0] - в
+ * реальных CSV из Altium первым столбцом идёт VARIATION, а не DESIGNATOR, из-
+ * за чего строка с пустым VARIATION ошибочно считалась полностью пустой и
+ * предупреждение для пустого VARIATION никогда не срабатывало.
  * (включая пустую ячейку в непустой строке) считается нестандартным и
  * приводит к отдельному предупреждению для SET и отдельному для VARIATION -
  * без остановки импорта, пользователь просто нажимает "Понятно".
@@ -802,11 +807,24 @@ function getSetVariationValidationState(rawTable, setColumnName) {
   const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
   const setColumnIndex = rawHeaders.findIndex((header) => String(header || '').trim() === setColumnName);
   const variationColumnIndex = findPnpRawHeaderIndex(rawHeaders, 'VARIATION');
+  // ВАЖНО: "пустая строка" определяется по столбцу DESIGNATOR, а не по row[0] -
+  // в реальных CSV из Altium порядок столбцов "Variation","Designator",...,
+  // то есть row[0] это как раз VARIATION. Если бы проверка "пустой строки"
+  // опиралась на row[0], строка с пустым VARIATION ошибочно считалась бы
+  // полностью пустой и полностью пропускалась - предупреждение никогда бы не
+  // сработало для пустого VARIATION. designatorColumnIndex ищется по
+  // заголовку, с запасным вариантом row[0] только если DESIGNATOR не найден.
+  const designatorColumnIndex = findPnpRawHeaderIndex(rawHeaders, 'DESIGNATOR');
   let setHasIssues = false;
   let variationHasIssues = false;
 
   rows.forEach((row) => {
-    if (!Array.isArray(row) || String(row[0] || '').trim() === '') {
+    if (!Array.isArray(row)) {
+      return;
+    }
+
+    const designatorValue = designatorColumnIndex >= 0 ? row[designatorColumnIndex] : row[0];
+    if (String(designatorValue || '').trim() === '') {
       return;
     }
 
