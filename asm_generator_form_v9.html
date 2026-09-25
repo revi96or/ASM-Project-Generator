@@ -4928,6 +4928,22 @@ async function importPnpCsvFile(options = {}){
       await showAppDialog("Pick and Place", "REF элементы не найдены на Лист1.");
     }
 
+    // Мягкая проверка SETxx/VARIATION (аналог макросной CheckSetAndVariationValues):
+    // два независимых предупреждения, только информируют, ничего не прерывают.
+    const setVariationCheckState = refreshResult.importInfo ? refreshResult.importInfo.setVariationCheckState : null;
+    if (setVariationCheckState && setVariationCheckState.setHasIssues) {
+      await showAppDialog(
+        "Pick and Place",
+        `Внимание! Некоторые значения столбца ${setVariationCheckState.setColumnName} имеют нестандартные значения. Проверьте вручную.`
+      );
+    }
+    if (setVariationCheckState && setVariationCheckState.variationHasIssues) {
+      await showAppDialog(
+        "Pick and Place",
+        "Внимание! Некоторые значения столбца VARIATION имеют нестандартные значения. Проверьте вручную."
+      );
+    }
+
     const proposedFileName = String(
       refreshResult.importInfo && refreshResult.importInfo.infoD7
         ? refreshResult.importInfo.infoD7

@@ -1,7 +1,16 @@
 /**
  * Описание: Минимальный конвейер Pick and Place 3.7.0 для словаря Dict/.
- * Версия: 3.7.2
+ * Версия: 3.7.3
  * Автор: Новожилов Артем
+ * Изменения 3.7.3: добавлена мягкая (не блокирующая) проверка значений
+ * столбцов SETxx и VARIATION в исходной импортированной таблице
+ * (getSetVariationValidationState) - аналог макросной проверки, которую
+ * планируется добавить в FULL_START_TO_1 (CheckSetAndVariationValues) сразу
+ * после CheckAndFillSetColumn. Допустимые значения SET: "1", "0", "R";
+ * допустимые значения VARIATION: "Fitted", "Not Fitted". Любое иное значение
+ * (включая пустую ячейку в непустой строке) считается нестандартным и
+ * приводит к отдельному предупреждению для SET и отдельному для VARIATION -
+ * без остановки импорта, пользователь просто нажимает "Понятно".
  * Изменения 3.7.2: итоговый TXT для станка (saveDataExitTxtOutputs) теперь
  * сохраняется в кодировке Windows-1251 (ANSI) вместо UTF-8 - станок понимает
  * ANSI, а UTF-8 с кириллицей превращался в "кракозябры" (так же поступает и
@@ -778,6 +787,50 @@ function getSetColumnState(rawTable, setValue) {
     hasValidValues,
     headersList,
     found: columnIndex >= 0
+  };
+}
+
+// Мягкая (не блокирующая) проверка значений столбцов SETxx и VARIATION в
+// исходной импортированной таблице (аналог "Лист1" в макросе). В отличие от
+// getSetColumnState (который лишь проверяет наличие хотя бы одного "1"/"R"),
+// здесь проверяется КАЖДАЯ непустая строка - допустимые значения SET это
+// "1", "0", "R", а для VARIATION - "Fitted"/"Not Fitted". Любое иное значение
+// (включая пустую ячейку) считается нестандартным. Функция ничего не бросает
+// и не меняет данные - только сообщает, есть ли повод предупредить пользователя.
+function getSetVariationValidationState(rawTable, setColumnName) {
+  const rawHeaders = Array.isArray(rawTable && rawTable.rawHeaders) ? rawTable.rawHeaders : [];
+  const rows = Array.isArray(rawTable && rawTable.rows) ? rawTable.rows : [];
+  const setColumnIndex = rawHeaders.findIndex((header) => String(header || '').trim() === setColumnName);
+  const variationColumnIndex = findPnpRawHeaderIndex(rawHeaders, 'VARIATION');
+  let setHasIssues = false;
+  let variationHasIssues = false;
+
+  rows.forEach((row) => {
+    if (!Array.isArray(row) || String(row[0] || '').trim() === '') {
+      return;
+    }
+
+    if (setColumnIndex >= 0) {
+      const setValue = normalizeText(row[setColumnIndex]).toUpperCase();
+      if (setValue !== '1' && setValue !== '0' && setValue !== 'R') {
+        setHasIssues = true;
+      }
+    }
+
+    if (variationColumnIndex >= 0) {
+      const variationValue = normalizeText(row[variationColumnIndex]).toUpperCase();
+      if (variationValue !== 'FITTED' && variationValue !== 'NOT FITTED') {
+        variationHasIssues = true;
+      }
+    }
+  });
+
+  return {
+    setColumnName,
+    setColumnIndex,
+    variationColumnIndex,
+    setHasIssues,
+    variationHasIssues
   };
 }
 
@@ -4511,6 +4564,7 @@ module.exports = {
   importCsvFile,
   exportFiles,
   getSetColumnState,
+  getSetVariationValidationState,
   applySetColumnFill,
   generateFileNameFromVariant
 };

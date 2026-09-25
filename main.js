@@ -2859,6 +2859,14 @@ async function fillPnpSetColumn(payload) {
     nextState.importInfo.sheetNames = ['Info', 'ImportedCSVTable', 'DataSet', 'DataSet2', 'DataResist', 'DataCapacitor', 'DataOther', 'DataPredExit', 'DataExit'];
     nextState.importInfo.activeSheet = 'DataExit';
   }
+  // Мягкая проверка SETxx/VARIATION на исходной импортированной таблице (аналог
+  // макросной CheckSetAndVariationValues) - выполняется всегда, независимо от
+  // ветки applyFill, чтобы предупреждение показывалось и когда пользователь не
+  // менял столбец SET вручную.
+  nextState.importInfo.setVariationCheckState = pnpPipeline.getSetVariationValidationState(
+    nextState.importInfo.rawTable,
+    nextState.setColumnState && nextState.setColumnState.setColumnName
+  );
   const exportXlsxFolder = String(payload && payload.exportXlsxFolder ? payload.exportXlsxFolder : '').trim();
   const xlsxPath = String(payload && payload.xlsxPath ? payload.xlsxPath : '').trim();
   const saveXlsxOnFill = Boolean(payload && payload.saveXlsxOnFill);
